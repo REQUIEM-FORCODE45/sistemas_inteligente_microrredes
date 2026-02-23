@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useAuthSystem } from '../Hooks/UseAuthSystem.js';
+
 import { Sidebar } from '../components/layout/Sidebar.jsx';
 import { AuthView } from '../components/views/AuthView';
+import { useAuthSystem } from '../../../Hooks/UseAuthSystem.js';
 
 export const AuthPage = () => {
     const { currentUser, msg, setMsg, login, register, logout } = useAuthSystem();

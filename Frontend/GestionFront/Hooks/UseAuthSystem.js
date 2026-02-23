@@ -1,6 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { setUser, setLoading, setMsg, logout as logoutAction } from '../store';
-import GridAPI from '../../api/grid-api.js';
+import { setUser, setLoading, setMsg, logout as logoutAction } from '../src/Authentication/store';
+import GridAPI from '../src/api/grid-api.js';
 
 export const useAuthSystem = () => {
     const dispatch = useDispatch();

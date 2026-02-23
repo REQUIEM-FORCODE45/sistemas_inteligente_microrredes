@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
 
 import {
@@ -22,9 +22,9 @@ import {
   XCircle
 } from 'lucide-react';
 import UserManagment from '../components/users/UserManagment';
-
-
 import { logout } from '../../Authentication/store';
+import { DeviceList } from '../components/devices/DeviceList';
+import { AddDeviceForm } from '../components/devices/AddDeviceForm';
 
 
 // shadcn components (simulated via Tailwind for the demo to be self-contained)
@@ -86,6 +86,7 @@ export const App = () => {
 
   const dispatch = useDispatch();
   const handleLogout = () => dispatch(logout());
+  const { user } = useSelector(state => state.auth);
 
   // Logic to handle auto-collapse on smaller screens (but not mobile)
   useEffect(() => {
@@ -227,10 +228,18 @@ export const App = () => {
         {/* Page Content */}
         <div className="p-6 overflow-y-auto">
           <div className="flex flex-col gap-6 max-w-7xl mx-auto">
-
             {/* Conditional Content Rendering */}
             {activeTab === 'users' ? (
               <UserManagment />
+            ) : activeTab === 'devices' ? (  // 👈 agregar este caso
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight">Dispositivos IoT</h1>
+                  <p className="text-muted-foreground">Gestiona los sensores y dispositivos de la red.</p>
+                </div>
+                <AddDeviceForm />
+                <DeviceList />
+              </div>
             ) : (
               // Original Dashboard Content
               <div className="flex flex-col gap-6">
@@ -275,6 +284,7 @@ export const App = () => {
                 </div>
               </div>
             )}
+
 
           </div>
         </div>

@@ -1,11 +1,11 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux'; // 👈
+import { useSelector } from 'react-redux';
 import { AuthPage } from '../Authentication/pages/AuthPage';
 import { App } from '../Dashboard/pages/App';
 
 export const AppRouter = () => {
-    const { user } = useSelector(state => state.auth); // 👈 leer estado real
+    const { user } = useSelector(state => state.auth);
     const isAuthenticated = !!user;
 
     return (
