@@ -1,0 +1,8 @@
+{
+  "name": "sistemas_inteligente_microrredes",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:REQUIEM-FORCODE45/sistemas_inteligente_microrredes.git",
+  "author": "Dario Solarte <dariosolarte12@gmail.com>",
+  "license": "MIT"
+}
