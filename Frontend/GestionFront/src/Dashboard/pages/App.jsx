@@ -26,6 +26,7 @@ import { logout } from '../../Authentication/store';
 import { DeviceList } from '../components/devices/DeviceList';
 import { AddDeviceForm } from '../components/devices/AddDeviceForm';
 
+import { RealtimeView } from '../components/realtime/RealtimeView';
 
 // shadcn components (simulated via Tailwind for the demo to be self-contained)
 const Button = ({ children, variant = "ghost", className = "", size = "icon", ...props }) => {
@@ -240,6 +241,8 @@ export const App = () => {
                 <AddDeviceForm />
                 <DeviceList />
               </div>
+            ) : activeTab === 'realtime' ? (
+              <RealtimeView />
             ) : (
               // Original Dashboard Content
               <div className="flex flex-col gap-6">
