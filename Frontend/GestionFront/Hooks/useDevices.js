@@ -6,7 +6,6 @@ import { fetchDevices, registerDevice, clearMessages } from '../src/Dashboard/st
 export const useDevices = () => {
     const storeState = useSelector(state => state);
     const dispatch = useDispatch();
-    console.log("Store completo:", storeState);
     const { devices, loading, error, successMsg } = useSelector(state => state.devices);
 
     useEffect(() => {

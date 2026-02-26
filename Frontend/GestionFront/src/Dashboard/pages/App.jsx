@@ -15,11 +15,6 @@ import {
   Users,
   LogOut,
   Search,
-  UserPlus,
-  MoreVertical,
-  Shield,
-  CheckCircle2,
-  XCircle
 } from 'lucide-react';
 import UserManagment from '../components/users/UserManagment';
 import { logout } from '../../Authentication/store';
@@ -27,7 +22,7 @@ import { DeviceList } from '../components/devices/DeviceList';
 import { AddDeviceForm } from '../components/devices/AddDeviceForm';
 
 import { RealtimeView } from '../components/realtime/RealtimeView';
-
+import { getInitials } from '../../../Hooks/getIntials';
 // shadcn components (simulated via Tailwind for the demo to be self-contained)
 const Button = ({ children, variant = "ghost", className = "", size = "icon", ...props }) => {
   const variants = {
@@ -124,7 +119,7 @@ export const App = () => {
               <div className="bg-primary p-1 rounded-md text-primary-foreground">
                 <Activity size={20} />
               </div>
-              <span>SolarGrid</span>
+              <span>SIGEMM</span>
             </div>
           )}
           {isCollapsed && (
@@ -216,18 +211,21 @@ export const App = () => {
             <div className="h-8 w-px bg-border mx-1"></div>
             <div className="flex items-center gap-3 pl-2">
               <div className="hidden text-right lg:block">
-                <p className="text-sm font-semibold leading-none">Admin Usuario</p>
+                <p className="text-sm font-semibold leading-none">{user?.fullName}</p>
                 <p className="text-[11px] text-muted-foreground mt-1 font-medium bg-secondary px-1.5 py-0.5 rounded">Super Administrador</p>
               </div>
               <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-md">
-                AD
+                {getInitials(user?.fullName || "Usuario")}
               </div>
             </div>
           </div>
         </header>
 
+
         {/* Page Content */}
-        <div className="p-6 overflow-y-auto">
+
+
+        <div className="flex-1 min-h-0 p-6 overflow-y-auto">
           <div className="flex flex-col gap-6 max-w-7xl mx-auto">
             {/* Conditional Content Rendering */}
             {activeTab === 'users' ? (
@@ -288,9 +286,11 @@ export const App = () => {
               </div>
             )}
 
-
           </div>
         </div>
+
+
+
       </main>
     </div>
   );
