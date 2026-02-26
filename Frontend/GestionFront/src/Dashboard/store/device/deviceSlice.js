@@ -8,7 +8,7 @@ export const fetchDevices = createAsyncThunk(
     async (_, { rejectWithValue }) => {
         try {
             const response = await GridAPI.get('/front/sensors');
-            return response.data.sensors;
+            return response.data.data;
         } catch (error) {
             return rejectWithValue(error.response?.data?.msg || 'Error al cargar dispositivos');
         }
