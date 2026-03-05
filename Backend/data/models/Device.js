@@ -8,7 +8,7 @@ const getColombiaDate = () => {
 const authorizedDeviceSchema = new mongoose.Schema({
     // El _id de Mongo será nuestro id_sensor
     name: String,
-    type: { type: String, enum: ['ambiente', 'temp', 'microgrid'] },
+    type: { type: String, enum: ['solar', 'inverter', 'microgrid', 'battery', 'meter'] },
     status: { type: String, default: 'active' },
     createdAt: { type: Date, default: () => getColombiaDate() }
 });
