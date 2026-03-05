@@ -13,77 +13,82 @@ export const RealtimeView = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [sensors, setSensors] = useState({});
     const socketRef = useRef(null);
-    const listenersRef = useRef({}); // ✅ guarda los listeners por sensorId
+    const selectedIdsRef = useRef([]);
+
+    useEffect(() => {
+        selectedIdsRef.current = selectedIds;
+    }, [selectedIds]);
 
     useEffect(() => {
         socketRef.current = io(SOCKET_URL);
+
+        const globalListener = (payload) => {
+            // ✅ Normalizar _id del payload a string para comparar correctamente
+            const sensorId = String(payload._id);
+
+            if (!selectedIdsRef.current.includes(sensorId)) return;
+
+            const timestamp = new Date().toLocaleTimeString();
+            const parsed = Object.fromEntries(
+                Object.entries(payload)
+                    .filter(([k]) => !EXCLUDED_KEYS.includes(k))
+                    .map(([k, v]) => [k, isNaN(v) ? v : Number(v)])
+            );
+
+            setSensors(prev => {
+                const sensor = prev[sensorId];
+                if (!sensor) return prev;
+
+                const keys = sensor.dataKeys.length > 0
+                    ? sensor.dataKeys
+                    : Object.keys(parsed);
+
+                const activeKeys = sensor.activeKeys.length > 0
+                    ? sensor.activeKeys
+                    : keys;
+
+                const newPoint = { timestamp, ...parsed };
+                const updated = [...sensor.data, newPoint];
+
+                return {
+                    ...prev,
+                    [sensorId]: {
+                        data: updated.length > MAX_POINTS ? updated.slice(-MAX_POINTS) : updated,
+                        dataKeys: keys,
+                        activeKeys,
+                    }
+                };
+            });
+        };
+
+        socketRef.current.on('sensor_update', globalListener);
+
         return () => {
-            socketRef.current.off('sensor_update');
+            socketRef.current.off('sensor_update', globalListener);
             socketRef.current.disconnect();
         };
     }, []);
 
     const handleToggleSensor = (sensorId) => {
-        const isSelected = selectedIds.includes(sensorId);
+        // ✅ Normalizar _id del device a string al momento de seleccionar
+        const id = String(sensorId);
+        const isSelected = selectedIds.includes(id);
 
         if (isSelected) {
-            // ✅ Quitar el listener específico de este sensor
-            if (listenersRef.current[sensorId]) {
-                socketRef.current.off('sensor_update', listenersRef.current[sensorId]);
-                delete listenersRef.current[sensorId];
-            }
-            socketRef.current.emit('leave_sensor_room', sensorId);
-            setSelectedIds(prev => prev.filter(id => id !== sensorId));
+            socketRef.current.emit('leave_sensor_room', id);
+            setSelectedIds(prev => prev.filter(s => s !== id));
             setSensors(prev => {
                 const next = { ...prev };
-                delete next[sensorId];
+                delete next[id];
                 return next;
             });
         } else {
-            socketRef.current.emit('join_sensor_room', sensorId);
-            setSelectedIds(prev => [...prev, sensorId]);
+            socketRef.current.emit('join_sensor_room', id);
+            setSelectedIds(prev => [...prev, id]);
             setSensors(prev => ({
                 ...prev,
-                [sensorId]: { data: [], dataKeys: [], activeKeys: [] }
+                [id]: { data: [], dataKeys: [], activeKeys: [] }
             }));
-
-            // ✅ Crear listener con sensorId capturado en el closure
-            const listener = (payload) => {
-                const timestamp = new Date().toLocaleTimeString();
-                const parsed = Object.fromEntries(
-                    Object.entries(payload)
-                        .filter(([k]) => !EXCLUDED_KEYS.includes(k))
-                        .map(([k, v]) => [k, isNaN(v) ? v : Number(v)])
-                );
-
-                setSensors(prev => {
-                    const sensor = prev[sensorId];
-                    if (!sensor) return prev;
-
-                    const keys = sensor.dataKeys.length > 0
-                        ? sensor.dataKeys
-                        : Object.keys(parsed);
-
-                    const activeKeys = sensor.activeKeys.length > 0
-                        ? sensor.activeKeys
-                        : keys;
-
-                    const newPoint = { timestamp, ...parsed };
-                    const updated = [...sensor.data, newPoint];
-
-                    return {
-                        ...prev,
-                        [sensorId]: {
-                            data: updated.length > MAX_POINTS ? updated.slice(-MAX_POINTS) : updated,
-                            dataKeys: keys,
-                            activeKeys,
-                        }
-                    };
-                });
-            };
-
-            listenersRef.current[sensorId] = listener;
-            socketRef.current.on('sensor_update', listener);
         }
     };
 

@@ -26,7 +26,7 @@ function initMQTT(io) {
 
     client.on('connect', () => {
         console.log('✅ Conectado al Broker MQTT');
-        
+
         client.subscribe('DataSensor/+', (err) => {
             if (!err) {
                 console.log('Suscrito a todos los tópicos: DataSensor/<id>');
@@ -40,19 +40,19 @@ function initMQTT(io) {
         // Verificación instantánea en RAM (O(1) en complejidad)
         if (!authorizedSensors.has(sensorId)) {
             console.warn(`🚫 Bloqueado: Sensor ${sensorId} no está en la lista blanca.`);
-            return; 
+            return;
         }
 
         try {
             const payload = JSON.parse(message.toString());
             // Cada sensor a su propia colección profesionalmente
-            const Model = getModel(sensorId); 
+            const Model = getModel(sensorId);
             await Model.collection.insertOne({
                 ...payload,
                 createAt: getColombiaDate()
             });
 
-            io.to(sensorId).emit('sensor_update', payload);
+            io.to(sensorId).emit('sensor_update', { _id: sensorId, ...payload });
         } catch (e) {
             console.error("Error procesando mensaje:", e);
         }
