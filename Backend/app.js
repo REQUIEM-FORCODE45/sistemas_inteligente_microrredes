@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors({
     origin: "*", // Permite peticiones desde cualquier origen (puedes limitarlo a tu front luego)
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-token']
 }));
 
 const server = http.createServer(app);
