@@ -1,7 +1,7 @@
 
 import { useDispatch, useSelector } from 'react-redux';
 import { useEffect } from 'react';
-import { fetchDevices, registerDevice, clearMessages } from '../src/Dashboard/store/device/deviceSlice.js';
+import { fetchDevices, registerDevice, clearMessages } from '../src/Dashboard/store/device/deviceSlice';
 
 export const useDevices = () => {
     const storeState = useSelector(state => state);

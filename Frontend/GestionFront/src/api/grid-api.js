@@ -8,8 +8,7 @@ const GridAPI = axios.create({
 GridAPI.interceptors.request.use((config) => {
     const token = localStorage.getItem('sensor_token');
     if (token) {
-        // Asegúrate de que el nombre del header es 'Authorization' si usas Bearer tokens
-        config.headers['Authorization'] = `Bearer ${token}`;
+        config.headers['x-token'] = token;
     }
     return config;
 });

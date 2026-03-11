@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
+import Plotly from 'plotly.js-dist-min';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 const KEY_LABELS = {
@@ -11,16 +11,69 @@ const KEY_LABELS = {
 
 export const RealtimeChart = ({ data, dataKeys, sensorId }) => {
     const containerRef = useRef(null);
-    const [chartWidth, setChartWidth] = useState(600);
+    const plotRef = useRef(null);
+    const [dimensions, setDimensions] = useState({ width: 600, height: 300 });
 
     useEffect(() => {
         if (!containerRef.current) return;
         const observer = new ResizeObserver(entries => {
-            setChartWidth(entries[0].contentRect.width);
+            const { width } = entries[0].contentRect;
+            setDimensions(prev => ({ ...prev, width }));
         });
         observer.observe(containerRef.current);
         return () => observer.disconnect();
     }, []);
+
+    useEffect(() => {
+        if (!plotRef.current || !data || data.length === 0) return;
+
+        const traces = dataKeys.map((key, i) => ({
+            x: data.map(d => d.timestamp),
+            y: data.map(d => d[key]),
+            type: 'scatter',
+            mode: 'lines',
+            name: KEY_LABELS[key] || key,
+            line: { color: COLORS[i % COLORS.length], width: 2 },
+        }));
+
+        const isMobile = dimensions.width < 640;
+        
+        const layout = {
+            width: dimensions.width,
+            height: isMobile ? 250 : dimensions.height,
+            autosize: false,
+            margin: { l: 50, r: 10, t: isMobile ? 20 : 50, b: isMobile ? 60 : 40 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            xaxis: {
+                title: isMobile ? '' : 'Tiempo',
+                tickfont: { size: 10 },
+                gridcolor: '#e2e8f0',
+                tickmode: 'linear',
+                dtick: Math.ceil(data.length / 4),
+            },
+            yaxis: {
+                title: isMobile ? '' : 'Valor',
+                tickfont: { size: 10 },
+                gridcolor: '#e2e8f0',
+                zerolinecolor: '#e2e8f0',
+            },
+            showlegend: true,
+            legend: {
+                orientation: 'h',
+                y: isMobile ? -0.4 : 1.1,
+                x: 0.5,
+                xanchor: 'center',
+            },
+        };
+
+        const config = {
+            responsive: false,
+            displayModeBar: false,
+        };
+
+        Plotly.react(plotRef.current, traces, layout, config);
+    }, [data, dataKeys, dimensions]);
 
     return (
         <Card className="border shadow-sm">
@@ -38,24 +91,7 @@ export const RealtimeChart = ({ data, dataKeys, sensorId }) => {
             </CardHeader>
             <CardContent>
                 <div ref={containerRef} style={{ width: '100%' }}>
-                    <LineChart width={chartWidth} height={300} data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis dataKey="timestamp" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Legend formatter={(value) => KEY_LABELS[value] || value} />
-                        {dataKeys.map((key, i) => (
-                            <Line
-                                key={key}
-                                type="monotone"
-                                dataKey={key}
-                                stroke={COLORS[i % COLORS.length]}
-                                dot={false}
-                                strokeWidth={2}
-                                isAnimationActive={false}
-                            />
-                        ))}
-                    </LineChart>
+                    <div ref={plotRef} />
                 </div>
             </CardContent>
         </Card>

@@ -8,6 +8,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.23.0",
     "mqtt": "^5.15.0",
+    "nodemon": "^3.1.14",
     "socket.io": "^4.8.3"
   }
 }

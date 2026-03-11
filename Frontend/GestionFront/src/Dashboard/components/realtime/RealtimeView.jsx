@@ -4,6 +4,7 @@ import { RealtimeChart } from './RealtimeChart';
 import { SensorSelector } from './SensorSelector';
 import { SensorStatsCards } from './SensorStatsCards';
 import { Card, CardContent } from '@/components/ui/card';
+import { ChevronDown, ChevronUp, Menu, X } from 'lucide-react';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 const MAX_POINTS = 20;
@@ -12,6 +13,9 @@ const EXCLUDED_KEYS = ['createAt', '_id', 'sensorId', 'timestamp'];
 export const RealtimeView = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [sensors, setSensors] = useState({});
+    const [collapsedSensors, setCollapsedSensors] = useState({});
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [activeSensorMobile, setActiveSensorMobile] = useState(null);
     const socketRef = useRef(null);
     const selectedIdsRef = useRef([]);
 
@@ -103,6 +107,22 @@ export const RealtimeView = () => {
         });
     };
 
+    const toggleSensorCollapse = (sensorId) => {
+        setCollapsedSensors(prev => ({
+            ...prev,
+            [sensorId]: !prev[sensorId]
+        }));
+    };
+
+    const handleSelectSensorMobile = (sensorId) => {
+        setActiveSensorMobile(sensorId);
+        setMobileMenuOpen(false);
+        const element = document.getElementById(`sensor-${sensorId}`);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth' });
+        }
+    };
+
     return (
         <div className="space-y-6">
             <Card>
@@ -119,20 +139,77 @@ export const RealtimeView = () => {
                 </Card>
             )}
 
+            {selectedIds.length > 1 && (
+                <div className="lg:hidden">
+                    <button
+                        onClick={() => setMobileMenuOpen(true)}
+                        className="w-full flex items-center justify-between p-3 bg-card border rounded-md"
+                    >
+                        <span className="flex items-center gap-2">
+                            <Menu className="w-4 h-4" />
+                            Ver sensor
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                            {activeSensorMobile || selectedIds[0]}
+                        </span>
+                    </button>
+
+                    {mobileMenuOpen && (
+                        <div className="fixed inset-0 z-50 lg:hidden">
+                            <div className="absolute inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
+                            <div className="absolute bottom-0 left-0 right-0 bg-background rounded-t-lg p-4 max-h-[60vh] overflow-y-auto">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="font-semibold">Sensors</h3>
+                                    <button onClick={() => setMobileMenuOpen(false)}>
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <div className="space-y-2">
+                                    {selectedIds.map(id => (
+                                        <button
+                                            key={id}
+                                            onClick={() => handleSelectSensorMobile(id)}
+                                            className={`w-full text-left p-3 rounded-md ${
+                                                activeSensorMobile === id ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                                            }`}
+                                        >
+                                            {id}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {selectedIds.map(sensorId => {
                 const sensor = sensors[sensorId];
                 if (!sensor) return null;
                 const { data, dataKeys, activeKeys } = sensor;
                 const lastPoint = data.length > 0 ? data[data.length - 1] : null;
+                const isCollapsed = collapsedSensors[sensorId];
 
                 return (
-                    <div key={sensorId} className="space-y-3">
-                        <SensorStatsCards
-                            dataKeys={dataKeys}
-                            lastPoint={lastPoint}
-                            activeKeys={activeKeys}
-                            onToggleKey={(key) => handleToggleKey(sensorId, key)}
-                        />
+                    <div key={sensorId} id={`sensor-${sensorId}`} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <button
+                                onClick={() => toggleSensorCollapse(sensorId)}
+                                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                            >
+                                {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                                <span className="font-mono">{sensorId}</span>
+                            </button>
+                        </div>
+                        
+                        {!isCollapsed && (
+                            <SensorStatsCards
+                                dataKeys={dataKeys}
+                                lastPoint={lastPoint}
+                                activeKeys={activeKeys}
+                                onToggleKey={(key) => handleToggleKey(sensorId, key)}
+                            />
+                        )}
                         <RealtimeChart
                             data={data}
                             dataKeys={activeKeys}
