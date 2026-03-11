@@ -34,8 +34,6 @@ syncAuthorizedSensors();
 // Inicializa el servicio MQTT
 initMQTT(io);
 
-
-
 // Rutas
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/front', require('./routes/Front'));
