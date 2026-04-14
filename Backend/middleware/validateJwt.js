@@ -19,6 +19,7 @@ const validateJwt = ( req, res = response, next ) => {
 
         req.uid = payload.uid;
         req.name = payload.name;
+        req.role = payload.role || 'user';
 
     }catch(error){
         return res.status(401).json({

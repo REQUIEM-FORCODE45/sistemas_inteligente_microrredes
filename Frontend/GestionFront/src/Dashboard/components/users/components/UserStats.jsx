@@ -24,7 +24,7 @@ const UserStats = ({ users }) => {
         },
         {
             label: 'Administradores',
-            value: users.filter(u => ['superadmin', 'admin'].includes(u.role)).length,
+            value: users.filter(u => u.role === 'admin').length,
             icon: Shield,
             colorText: 'text-orange-500',
             colorBg: 'bg-orange-50',

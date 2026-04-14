@@ -86,9 +86,16 @@ exports.getSensorData = async (req, res) => {
 
 exports.getAllAuthorizedDevices = async (req, res) => {
     try {
-        // Consultamos todos los dispositivos registrados
-        // Ordenamos por fecha de creación (los más recientes primero)
-        const devices = await AuthorizedDevice.find()
+        const userId = req.uid;
+        
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Usuario no autenticado"
+            });
+        }
+
+        const devices = await AuthorizedDevice.find({ userId })
             .sort({ createdAt: -1 })
             .lean();
 

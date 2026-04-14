@@ -21,7 +21,7 @@ const UserModal = ({ user, onSave, onClose }) => {
     const [form, setForm] = useState({
         name: user?.name || '',
         email: user?.email || '',
-        role: user?.role || 'visor',
+        role: user?.role || 'user',
         active: user?.active ?? true,
         sensorAccess: user?.sensorAccess || [],
         password: '',

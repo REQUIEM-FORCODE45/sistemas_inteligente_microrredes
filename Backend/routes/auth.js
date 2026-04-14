@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
-const { createUser, loginUser, renewToken} = require('../controllers/auth');
+const { createUser, loginUser, renewToken, getAllUsers, updateUser, deleteUser } = require('../controllers/auth');
 const { validate } = require('../middleware/validateCampo')
 const { validateJwt } = require('../middleware/validateJwt')
 router.post('/new', 
@@ -21,5 +21,11 @@ router.post('/',
             ], loginUser);
 
 router.get('/renew',  validateJwt, renewToken);
+
+router.get('/users', validateJwt, getAllUsers);
+
+router.put('/users/:id', validateJwt, updateUser);
+
+router.delete('/users/:id', validateJwt, deleteUser);
 
 module.exports = router;

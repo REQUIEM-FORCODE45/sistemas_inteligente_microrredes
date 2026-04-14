@@ -15,15 +15,17 @@ app.use(express.urlencoded({ extended: true }));
 
 // 2. Configuración de CORS para Express (HTTP)
 // Esto debe ir ANTES de las rutas para que funcione
-app.use(cors({
-    origin: "*", // Permite peticiones desde cualquier origen (puedes limitarlo a tu front luego)
+const corsOptions = {
+    origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-token']
-}));
+};
+
+app.use(cors(corsOptions));
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "*" } // Esto ya lo tenías para WebSockets
+    cors: corsOptions
 });
 
 const dbUrl = process.env.MONGO_URL;

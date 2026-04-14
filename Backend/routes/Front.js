@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.post('/register_sensor', validateJwt, registerNewSensor);
 
-router.get('/sensors', getAllAuthorizedDevices);
+router.get('/sensors', validateJwt, getAllAuthorizedDevices);
 
 router.get('/sensors_data/:id_sensor/:limit', getSensorData);
 

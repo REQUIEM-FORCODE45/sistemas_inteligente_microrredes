@@ -5,9 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   Layout,
   Activity,
-  Settings,
   Bell,
-  ShieldCheck,
   Menu,
   ChevronLeft,
   ChevronRight,
@@ -23,6 +21,7 @@ import { AddDeviceForm } from '../components/devices/AddDeviceForm';
 
 import { RealtimeView } from '../components/realtime/RealtimeView';
 import { getInitials } from '../../../Hooks/getIntials';
+import { usePermissions } from '../../../Hooks/usePermissions';
 // shadcn components (simulated via Tailwind for the demo to be self-contained)
 const Button = ({ children, variant = "ghost", className = "", size = "icon", ...props }) => {
   const variants = {
@@ -83,28 +82,19 @@ export const App = () => {
   const dispatch = useDispatch();
   const handleLogout = () => dispatch(logout());
   const { user } = useSelector(state => state.auth);
-
-  // Logic to handle auto-collapse on smaller screens (but not mobile)
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 1024 && window.innerWidth > 768) {
-        setIsCollapsed(true);
-      } else if (window.innerWidth >= 1024) {
-        setIsCollapsed(false);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const permissions = usePermissions();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Layout },
-    { id: 'realtime', label: 'Monitoreo Real-time', icon: Activity },
-    { id: 'devices', label: 'Dispositivos IoT', icon: Database },
-    { id: 'users', label: 'Gestión de Operadores', icon: Users },
-    { id: 'security', label: 'Seguridad y Logs', icon: ShieldCheck },
-    { id: 'settings', label: 'Configuración', icon: Settings },
+    { id: 'dashboard', label: 'Dashboard', icon: Layout, requiredRole: 'user' },
+    { id: 'realtime', label: 'Monitoreo Real-time', icon: Activity, requiredRole: 'user' },
+    { id: 'devices', label: 'Dispositivos IoT', icon: Database, requiredRole: 'user' },
+    ...(permissions.canManageUsers ? [{ id: 'users', label: 'Gestión de Operadores', icon: Users, requiredRole: 'admin' }] : []),
   ];
+
+  const getRoleLabel = (role) => {
+    const labels = { admin: 'Administrador', operator: 'Operador', user: 'Usuario' };
+    return labels[role] || 'Usuario';
+  };
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden font-sans">
@@ -212,7 +202,7 @@ export const App = () => {
             <div className="flex items-center gap-3 pl-2">
               <div className="hidden text-right lg:block">
                 <p className="text-sm font-semibold leading-none">{user?.fullName}</p>
-                <p className="text-[11px] text-muted-foreground mt-1 font-medium bg-secondary px-1.5 py-0.5 rounded">Super Administrador</p>
+                <p className="text-[11px] text-muted-foreground mt-1 font-medium bg-secondary px-1.5 py-0.5 rounded">{getRoleLabel(user?.role)}</p>
               </div>
               <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold shadow-md">
                 {getInitials(user?.fullName || "Usuario")}

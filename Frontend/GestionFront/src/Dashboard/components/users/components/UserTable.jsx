@@ -69,11 +69,11 @@ const UserTable = ({ users, onEdit, onDelete }) => {
                                         <div className="h-1.5 rounded-full bg-slate-100 w-20 overflow-hidden">
                                             <div
                                                 className="h-full bg-emerald-500 rounded-full transition-all"
-                                                style={{ width: `${(user.sensorAccess.length / SENSORS.length) * 100}%` }}
+                                                style={{ width: `${((user.sensorAccess?.length || 0) / SENSORS.length) * 100}%` }}
                                             />
                                         </div>
                                         <span className="text-xs text-slate-400">
-                                            {user.sensorAccess.length}/{SENSORS.length}
+                                            {user.sensorAccess?.length || 0}/{SENSORS.length}
                                         </span>
                                     </div>
                                 </td>

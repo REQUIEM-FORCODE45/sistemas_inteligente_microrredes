@@ -16,8 +16,8 @@ export const useAuthSystem = () => {
                 return null;
             }
 
-            const { uid, name, token } = response.data;
-            const user = { id: uid, fullName: name };
+            const { uid, name, token, role } = response.data;
+            const user = { id: uid, fullName: name, role: role || 'user' };
 
             dispatch(setUser({ user, token }));
             localStorage.setItem('sensor_user', JSON.stringify(user));
