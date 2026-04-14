@@ -2,17 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { RealtimeChart } from './RealtimeChart';
 import { SensorSelector } from './SensorSelector';
-import { SensorStatsCards } from './SensorStatsCards';
+import { SensorPanel, SingleLineChart } from './components';
+import { CHART_MODES } from './hooks/useChartOptions';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChevronDown, ChevronUp, Menu, X } from 'lucide-react';
+import GridAPI from '@/api/grid-api';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 const MAX_POINTS = 20;
+const HISTORICAL_LIMIT = 20;
 const EXCLUDED_KEYS = ['createAt', '_id', 'sensorId', 'timestamp'];
 
 export const RealtimeView = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [sensors, setSensors] = useState({});
+    const [chartOptions, setChartOptions] = useState({});
     const [collapsedSensors, setCollapsedSensors] = useState({});
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [activeSensorMobile, setActiveSensorMobile] = useState(null);
@@ -73,7 +77,7 @@ export const RealtimeView = () => {
         };
     }, []);
 
-    const handleToggleSensor = (sensorId) => {
+    const handleToggleSensor = async (sensorId) => {
         // ✅ Normalizar _id del device a string al momento de seleccionar
         const id = String(sensorId);
         const isSelected = selectedIds.includes(id);
@@ -89,9 +93,46 @@ export const RealtimeView = () => {
         } else {
             socketRef.current.emit('join_sensor_room', id);
             setSelectedIds(prev => [...prev, id]);
+
+            let initialData = [];
+            let dataKeys = [];
+
+            try {
+                const response = await GridAPI.get(`/front/sensors_data/${id}/${HISTORICAL_LIMIT}`);
+                if (response.data.success && response.data.data.length > 0) {
+                    const historicalData = response.data.data.reverse();
+                    initialData = historicalData.map(item => {
+                        const timestamp = item.createAt 
+                            ? new Date(item.createAt).toLocaleTimeString()
+                            : new Date().toLocaleTimeString();
+                        const parsed = Object.fromEntries(
+                            Object.entries(item)
+                                .filter(([k]) => !EXCLUDED_KEYS.includes(k))
+                                .map(([k, v]) => [k, isNaN(v) ? v : Number(v)])
+                        );
+                        return { timestamp, ...parsed };
+                    });
+                    dataKeys = Object.keys(initialData[0] || {}).filter(k => k !== 'timestamp');
+                }
+            } catch (error) {
+                console.error('Error loading historical data:', error);
+            }
+
             setSensors(prev => ({
                 ...prev,
-                [id]: { data: [], dataKeys: [], activeKeys: [] }
+                [id]: { 
+                    data: initialData, 
+                    dataKeys, 
+                    activeKeys: dataKeys 
+                }
+            }));
+
+            setChartOptions(prev => ({
+                ...prev,
+                [id]: {
+                    chartMode: CHART_MODES.COMBINED,
+                    separatedKeys: dataKeys,
+                }
             }));
         }
     };
@@ -189,6 +230,55 @@ export const RealtimeView = () => {
                 const { data, dataKeys, activeKeys } = sensor;
                 const lastPoint = data.length > 0 ? data[data.length - 1] : null;
                 const isCollapsed = collapsedSensors[sensorId];
+                
+                const options = chartOptions[sensorId] || {
+                    chartMode: CHART_MODES.COMBINED,
+                    separatedKeys: dataKeys || [],
+                };
+
+                const handleSetChartMode = (mode) => {
+                    setChartOptions(prev => {
+                        const current = prev[sensorId] || { separatedKeys: dataKeys || [], chartMode: CHART_MODES.COMBINED };
+                        if (mode === CHART_MODES.SEPARATED && (!current.separatedKeys || current.separatedKeys.length === 0)) {
+                            return {
+                                ...prev,
+                                [sensorId]: { ...current, chartMode: mode, separatedKeys: dataKeys }
+                            };
+                        }
+                        return {
+                            ...prev,
+                            [sensorId]: { ...current, chartMode: mode }
+                        };
+                    });
+                };
+
+                const handleToggleSeparatedKey = (key) => {
+                    setChartOptions(prev => {
+                        const current = prev[sensorId] || { separatedKeys: dataKeys || [] };
+                        const keys = current.separatedKeys || dataKeys || [];
+                        const newKeys = keys.includes(key)
+                            ? keys.filter(k => k !== key)
+                            : [...keys, key];
+                        return {
+                            ...prev,
+                            [sensorId]: { ...current, separatedKeys: newKeys }
+                        };
+                    });
+                };
+
+                const handleSelectAllSeparated = (keys) => {
+                    setChartOptions(prev => ({
+                        ...prev,
+                        [sensorId]: { ...(prev[sensorId] || { separatedKeys: dataKeys || [] }), separatedKeys: keys }
+                    }));
+                };
+
+                const handleClearSeparated = () => {
+                    setChartOptions(prev => ({
+                        ...prev,
+                        [sensorId]: { ...(prev[sensorId] || { separatedKeys: dataKeys || [] }), separatedKeys: [] }
+                    }));
+                };
 
                 return (
                     <div key={sensorId} id={`sensor-${sensorId}`} className="space-y-3">
@@ -203,18 +293,49 @@ export const RealtimeView = () => {
                         </div>
                         
                         {!isCollapsed && (
-                            <SensorStatsCards
-                                dataKeys={dataKeys}
-                                lastPoint={lastPoint}
-                                activeKeys={activeKeys}
-                                onToggleKey={(key) => handleToggleKey(sensorId, key)}
-                            />
+                            <>
+                                <SensorPanel
+                                    dataKeys={dataKeys}
+                                    lastPoint={lastPoint}
+                                    activeKeys={activeKeys}
+                                    onToggleKey={(key) => {
+                                        if (options.chartMode === CHART_MODES.SEPARATED) {
+                                            handleToggleSeparatedKey(key);
+                                        } else {
+                                            handleToggleKey(sensorId, key);
+                                        }
+                                    }}
+                                    chartMode={options.chartMode}
+                                    onModeChange={handleSetChartMode}
+                                    separatedKeys={options.separatedKeys}
+                                    onToggleSeparatedKey={handleToggleSeparatedKey}
+                                    onSelectAllSeparated={handleSelectAllSeparated}
+                                    onClearAll={handleClearSeparated}
+                                />
+                                {options.chartMode === CHART_MODES.COMBINED ? (
+                                    <RealtimeChart
+                                        data={data}
+                                        dataKeys={activeKeys}
+                                        sensorId={sensorId}
+                                    />
+                                ) : (
+                                    <div className="grid gap-3">
+                                        {options.separatedKeys.map((key, index) => {
+                                            const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+                                            return (
+                                                <SingleLineChart
+                                                    key={key}
+                                                    data={data}
+                                                    dataKey={key}
+                                                    sensorId={sensorId}
+                                                    color={COLORS[index % COLORS.length]}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </>
                         )}
-                        <RealtimeChart
-                            data={data}
-                            dataKeys={activeKeys}
-                            sensorId={sensorId}
-                        />
                     </div>
                 );
             })}
