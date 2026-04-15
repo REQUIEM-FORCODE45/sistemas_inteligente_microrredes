@@ -23,6 +23,7 @@ export const RealtimeView = () => {
     const socketRef = useRef(null);
     const selectedIdsRef = useRef([]);
 
+
     useEffect(() => {
         selectedIdsRef.current = selectedIds;
     }, [selectedIds]);
@@ -102,7 +103,7 @@ export const RealtimeView = () => {
                 if (response.data.success && response.data.data.length > 0) {
                     const historicalData = response.data.data.reverse();
                     initialData = historicalData.map(item => {
-                        const timestamp = item.createAt 
+                        const timestamp = item.createAt
                             ? new Date(item.createAt).toLocaleTimeString()
                             : new Date().toLocaleTimeString();
                         const parsed = Object.fromEntries(
@@ -120,10 +121,10 @@ export const RealtimeView = () => {
 
             setSensors(prev => ({
                 ...prev,
-                [id]: { 
-                    data: initialData, 
-                    dataKeys, 
-                    activeKeys: dataKeys 
+                [id]: {
+                    data: initialData,
+                    dataKeys,
+                    activeKeys: dataKeys
                 }
             }));
 
@@ -210,9 +211,8 @@ export const RealtimeView = () => {
                                         <button
                                             key={id}
                                             onClick={() => handleSelectSensorMobile(id)}
-                                            className={`w-full text-left p-3 rounded-md ${
-                                                activeSensorMobile === id ? 'bg-primary text-primary-foreground' : 'bg-muted'
-                                            }`}
+                                            className={`w-full text-left p-3 rounded-md ${activeSensorMobile === id ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                                                }`}
                                         >
                                             {id}
                                         </button>
@@ -230,7 +230,7 @@ export const RealtimeView = () => {
                 const { data, dataKeys, activeKeys } = sensor;
                 const lastPoint = data.length > 0 ? data[data.length - 1] : null;
                 const isCollapsed = collapsedSensors[sensorId];
-                
+
                 const options = chartOptions[sensorId] || {
                     chartMode: CHART_MODES.COMBINED,
                     separatedKeys: dataKeys || [],
@@ -291,7 +291,7 @@ export const RealtimeView = () => {
                                 <span className="font-mono">{sensorId}</span>
                             </button>
                         </div>
-                        
+
                         {!isCollapsed && (
                             <>
                                 <SensorPanel
