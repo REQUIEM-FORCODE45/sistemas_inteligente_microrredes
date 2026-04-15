@@ -29,6 +29,7 @@ export const RealtimeView = () => {
     }, [selectedIds]);
 
     useEffect(() => {
+        console.log('Connecting to socket at:', SOCKET_URL);
         socketRef.current = io(SOCKET_URL);
 
         const globalListener = (payload) => {
