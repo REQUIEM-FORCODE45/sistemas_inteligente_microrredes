@@ -22,7 +22,7 @@ const getModel = (sensorId) => {
 
 
 function initMQTT(io) {
-    const client = mqtt.connect('mqtt://35.193.246.15');
+    const client = mqtt.connect('mqtt://34.69.148.115');
 
     client.on('connect', () => {
         console.log('✅ Conectado al Broker MQTT');
