@@ -6,7 +6,6 @@ const GridAPI = axios.create({
     baseURL: API_URL
 });
 
-// Añadimos el interceptor para inyectar el token en las cabeceras
 GridAPI.interceptors.request.use((config) => {
     const token = localStorage.getItem('sensor_token');
     if (token) {
@@ -14,5 +13,21 @@ GridAPI.interceptors.request.use((config) => {
     }
     return config;
 });
+
+let authExpiredHandler = null;
+
+export function setAuthExpiredHandler(fn) {
+    authExpiredHandler = fn;
+}
+
+GridAPI.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401 && authExpiredHandler) {
+            authExpiredHandler();
+        }
+        return Promise.reject(error);
+    },
+);
 
 export default GridAPI;

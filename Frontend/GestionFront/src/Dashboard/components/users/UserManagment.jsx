@@ -46,6 +46,7 @@ const UserManagement = () => {
     deleteUser,
     toast,
     filtered,
+    ownerSensorsMap,
     setSearch,
     setFilterRole,
     setModalUser,
@@ -76,6 +77,7 @@ const UserManagement = () => {
         users={filtered}
         onEdit={setModalUser}
         onDelete={setDeleteUser}
+        userSensors={ownerSensorsMap}
       />
 
       {/* ── Modales ── */}

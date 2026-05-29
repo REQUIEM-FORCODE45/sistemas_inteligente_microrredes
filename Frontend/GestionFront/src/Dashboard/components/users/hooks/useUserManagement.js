@@ -13,11 +13,12 @@ export const useUserManagement = () => {
     const [modalUser, setModalUser] = useState(null);
     const [deleteUser, setDeleteUser] = useState(null);
     const [toast, setToast] = useState(null);
+    const [ownerSensorsMap, setOwnerSensorsMap] = useState({});
 
-    const showToast = (msg, type = 'success') => {
+    const showToast = useCallback((msg, type = 'success') => {
         setToast({ msg, type });
         setTimeout(() => setToast(null), 3000);
-    };
+    }, []);
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -38,11 +39,27 @@ export const useUserManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [showToast]);
 
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
+
+    const fetchOwnerSensors = useCallback(async () => {
+        try {
+            const response = await GridAPI.get('/front/sensors', { params: { ownerView: true } });
+            const map = {};
+            (response.data.data || []).forEach(sensor => {
+                const ownerId = sensor.owner?._id || sensor.userId;
+                if (!ownerId) return;
+                map[ownerId] = map[ownerId] || [];
+                map[ownerId].push(sensor);
+            });
+            setOwnerSensorsMap(map);
+        } catch (error) {
+            showToast('No se pudieron obtener los sensores por usuario', 'error');
+        }
+    }, [showToast]);
 
     const handleSave = async (data) => {
         try {
@@ -88,6 +105,10 @@ export const useUserManagement = () => {
         return matchSearch && matchRole;
     });
 
+    useEffect(() => {
+        fetchOwnerSensors();
+    }, [fetchOwnerSensors]);
+
     return {
         users,
         loading,
@@ -105,5 +126,6 @@ export const useUserManagement = () => {
         handleDelete,
         showToast,
         refreshUsers: fetchUsers,
+        ownerSensorsMap,
     };
 };

@@ -1,11 +1,33 @@
 const AuthorizedDevice = require('../data/models/Device');
-const { authorizedSensors } = require('../helpers/securityManager');
+const Usuario = require('../data/models/Usuario');
 const mongoose = require('mongoose');
+const { canAccessSensor, canManageSensor, buildAccessQuery } = require('../helpers/deviceAuthorization');
+const { authorizedSensors } = require('../helpers/securityManager');
+
+const sanitizeUser = (user) => {
+    if (!user) return null;
+    return {
+        _id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role
+    };
+};
+
+const buildDevicePayload = (device) => {
+    const sharedUsers = (device.sharedWith || []).map(sanitizeUser);
+    const owner = sanitizeUser(device.userId);
+    return {
+        ...device,
+        owner,
+        userId: owner ? owner._id : device.userId,
+        sharedWith: sharedUsers
+    };
+};
 
 exports.registerNewSensor = async (req, res) => {
     try {
-        // 1. Obtenemos el ID del usuario desde el middleware de autenticación.
-        const userId = req.uid; 
+        const userId = req.uid;
 
         if (!userId) {
             return res.status(401).json({
@@ -14,20 +36,16 @@ exports.registerNewSensor = async (req, res) => {
             });
         }
 
-        // 2. Fusionamos los datos del sensor con el ID del usuario
         const newDevice = new AuthorizedDevice({
             name: req.body.name,
             type: req.body.type,
-            userId: userId 
+            userId,
+            sharedWith: []
         });
 
         await newDevice.save();
-        
-        console.log("Nuevo dispositivo guardado:", newDevice);
 
-        // 3. Lo añadimos a la RAM inmediatamente para el servicio MQTT
         authorizedSensors.add(newDevice._id.toString());
-        console.log(`✅ Sensor autorizado en vivo. Total en RAM: ${authorizedSensors.size}`);
 
         res.status(201).json({
             success: true,
@@ -36,10 +54,10 @@ exports.registerNewSensor = async (req, res) => {
         });
     } catch (err) {
         console.error("❌ Error al registrar sensor:", err);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: "Error interno al registrar el dispositivo",
-            error: err.message 
+            error: err.message
         });
     }
 };
@@ -47,39 +65,43 @@ exports.registerNewSensor = async (req, res) => {
 exports.getSensorData = async (req, res) => {
     try {
         const { id_sensor, limit } = req.params;
+        const { uid, role } = req;
 
-        // 1. Validar que el límite sea un número mayor o igual a 1
         const limitNumber = parseInt(limit, 10);
         if (isNaN(limitNumber) || limitNumber < 1) {
-            return res.status(400).json({ 
-                success: false, 
-                message: "El límite debe ser un número válido mayor o igual a 1." 
+            return res.status(400).json({
+                success: false,
+                message: "El límite debe ser un número válido mayor o igual a 1."
             });
         }
 
-        // 2. Acceder directamente a la colección en la base de datos
-        const collection = mongoose.connection.db.collection(id_sensor);
+        const sensor = await AuthorizedDevice.findById(id_sensor).select('userId sharedWith status');
+        if (!sensor) {
+            return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
+        }
 
-        // 3. Ejecutar la consulta nativa
+        if (!canAccessSensor(sensor, uid, role)) {
+            return res.status(403).json({ success: false, message: 'Acceso denegado al sensor solicitado' });
+        }
+
+        const collection = mongoose.connection.db.collection(id_sensor);
         const sensorData = await collection
             .find({})
-            .sort({ createAt: -1 }) 
+            .sort({ createAt: -1 })
             .limit(limitNumber)
-            .toArray(); // En el driver nativo se usa toArray() en lugar de lean()
+            .toArray();
 
-        // 4. Enviar respuesta
         res.status(200).json({
             success: true,
             count: sensorData.length,
             data: sensorData
         });
-
     } catch (err) {
         console.error(`❌ Error al consultar la colección ${req.params.id_sensor}:`, err);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: "Error interno al consultar la base de datos",
-            error: err.message 
+            error: err.message
         });
     }
 };
@@ -87,7 +109,6 @@ exports.getSensorData = async (req, res) => {
 exports.getAllAuthorizedDevices = async (req, res) => {
     try {
         const userId = req.uid;
-        
         if (!userId) {
             return res.status(401).json({
                 success: false,
@@ -95,21 +116,118 @@ exports.getAllAuthorizedDevices = async (req, res) => {
             });
         }
 
-        const devices = await AuthorizedDevice.find({ userId })
+        const ownerView = req.query.ownerView === 'true';
+        if (ownerView && req.role !== 'admin') {
+            return res.status(403).json({ success: false, message: 'Solo administradores pueden ver todos los sensores' });
+        }
+        const filter = ownerView ? {} : buildAccessQuery(userId, req.role);
+        const devices = await AuthorizedDevice.find(filter)
+            .populate('userId', 'name email role')
+            .populate('sharedWith', 'name email role')
             .sort({ createdAt: -1 })
             .lean();
 
+        const payload = devices.map(buildDevicePayload);
+
         res.status(200).json({
             success: true,
-            count: devices.length,
-            data: devices
+            count: payload.length,
+            data: payload
         });
     } catch (err) {
         console.error('❌ Error al obtener dispositivos autorizados:', err);
-        res.status(500).json({ 
-            success: false, 
+        res.status(500).json({
+            success: false,
             message: "Error al recuperar la lista de dispositivos",
-            error: err.message 
+            error: err.message
         });
+    }
+};
+
+const resolveTargetUser = async ({ email, userId }) => {
+    if (email) {
+        return await Usuario.findOne({ email: email.toLowerCase().trim() });
+    }
+    if (userId) {
+        return await Usuario.findById(userId);
+    }
+    return null;
+};
+
+exports.shareSensorWithUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { email, userId: targetId } = req.body;
+        const sensor = await AuthorizedDevice.findById(id).populate('sharedWith', 'name email role').populate('userId', 'name email role');
+
+        if (!sensor) {
+            return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
+        }
+
+        if (!canManageSensor(sensor, req.uid, req.role)) {
+            return res.status(403).json({ success: false, message: 'Solo el dueño o administradores pueden compartir este sensor' });
+        }
+
+        if (!email && !targetId) {
+            return res.status(400).json({ success: false, message: 'Se requiere correo o ID del usuario para compartir' });
+        }
+
+        const targetUser = await resolveTargetUser({ email, userId: targetId });
+        if (!targetUser) {
+            return res.status(404).json({ success: false, message: 'Usuario destino no encontrado' });
+        }
+
+        if (String(targetUser._id) === String(sensor.userId?._id || sensor.userId)) {
+            return res.status(400).json({ success: false, message: 'El dueño ya tiene acceso al sensor' });
+        }
+
+        const alreadyShared = sensor.sharedWith.some(u => String(u._id) === String(targetUser._id));
+        if (!alreadyShared) {
+            sensor.sharedWith.push(targetUser._id);
+        }
+
+        await sensor.save();
+        await sensor.populate('sharedWith', 'name email role');
+
+        res.json({
+            success: true,
+            message: 'Sensor compartido correctamente',
+            sharedWith: sensor.sharedWith.map(sanitizeUser)
+        });
+    } catch (err) {
+        console.error('❌ Error al compartir sensor:', err);
+        res.status(500).json({ success: false, message: 'No se pudo compartir el sensor', error: err.message });
+    }
+};
+
+exports.unshareSensorForUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { userId: targetId } = req.body;
+        if (!targetId) {
+            return res.status(400).json({ success: false, message: 'Se requiere el ID del usuario a remover' });
+        }
+
+        const sensor = await AuthorizedDevice.findById(id).populate('sharedWith', 'name email role').populate('userId', 'name email role');
+        if (!sensor) {
+            return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
+        }
+
+        if (!canManageSensor(sensor, req.uid, req.role)) {
+            return res.status(403).json({ success: false, message: 'Solo el dueño o administradores pueden modificar este sensor' });
+        }
+
+        sensor.sharedWith = sensor.sharedWith.filter(user => String(user._id) !== String(targetId));
+        await sensor.save();
+        await sensor.populate('sharedWith', 'name email role');
+
+        res.json({
+            success: true,
+            message: 'Acceso revocado correctamente',
+            sharedWith: sensor.sharedWith.map(sanitizeUser)
+        });
+    } catch (err) {
+        console.error('❌ Error al remover compartido:', err);
+        res.status(500).json({ success: false, message: 'No se pudo actualizar el sensor', error: err.message });
     }
 };

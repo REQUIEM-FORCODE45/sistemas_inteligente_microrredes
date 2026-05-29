@@ -30,7 +30,8 @@ export const RealtimeView = () => {
 
     useEffect(() => {
         console.log('Connecting to socket at:', SOCKET_URL);
-        socketRef.current = io(SOCKET_URL);
+        const token = localStorage.getItem('sensor_token');
+        socketRef.current = io(SOCKET_URL, { auth: { token } });
 
         const globalListener = (payload) => {
             // ✅ Normalizar _id del payload a string para comparar correctamente

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
 import RoleBadge from './atoms/RoleBadge';
-import { SENSORS } from '../constants/sensors';
 import { getInitials } from '../utils/helpers';
 
 /**
@@ -10,8 +9,9 @@ import { getInitials } from '../utils/helpers';
  *   users - array de usuarios a mostrar
  *   onEdit - callback(usuario) para editar
  *   onDelete - callback(usuario) para eliminar
+ *   userSensors - mapa userId -> array de sensores desde el backend
  */
-const UserTable = ({ users, onEdit, onDelete }) => {
+const UserTable = ({ users, onEdit, onDelete, userSensors = {} }) => {
     return (
         <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
@@ -65,17 +65,34 @@ const UserTable = ({ users, onEdit, onDelete }) => {
 
                                 {/* Acceso a sensores (barra de progreso) */}
                                 <td className="px-5 py-4 hidden md:table-cell">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-1.5 rounded-full bg-slate-100 w-20 overflow-hidden">
-                                            <div
-                                                className="h-full bg-emerald-500 rounded-full transition-all"
-                                                style={{ width: `${((user.sensorAccess?.length || 0) / SENSORS.length) * 100}%` }}
-                                            />
-                                        </div>
-                                        <span className="text-xs text-slate-400">
-                                            {user.sensorAccess?.length || 0}/{SENSORS.length}
-                                        </span>
-                                    </div>
+                                    {(() => {
+                                        const sensors = userSensors[user.id] || [];
+                                        if (!sensors.length) {
+                                            return <span className="text-xs text-slate-400 italic">Ninguno</span>;
+                                        }
+                                        return (
+                                            <div className="flex flex-col gap-1">
+                                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                                                    {sensors.length} sensores creados
+                                                </p>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {sensors.slice(0, 3).map(sensor => (
+                                                        <span
+                                                            key={sensor._id}
+                                                            className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600"
+                                                        >
+                                                            {sensor.name}
+                                                        </span>
+                                                    ))}
+                                                    {sensors.length > 3 && (
+                                                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-200 text-slate-500">
+                                                            +{sensors.length - 3} más
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </td>
 
                                 {/* Fecha de creación */}

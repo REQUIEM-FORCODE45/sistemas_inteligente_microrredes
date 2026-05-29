@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 
 
@@ -13,13 +13,19 @@ import {
   Users,
   LogOut,
   Search,
+  Sparkles,
+  GitBranch,
 } from 'lucide-react';
+import DiagramEditor from '../components/diagram/DiagramEditor';
 import UserManagment from '../components/users/UserManagment';
 import { logout } from '../../Authentication/store';
 import { DeviceList } from '../components/devices/DeviceList';
 import { AddDeviceForm } from '../components/devices/AddDeviceForm';
 
 import { RealtimeView } from '../components/realtime/RealtimeView';
+import { ServerDrivenDashboard } from '../components/server-driven/ServerDrivenDashboard';
+import { DispatchSchedule } from '../components/optimization/DispatchSchedule';
+import { DispatchByDevice } from '../components/optimization/DispatchByDevice';
 import { getInitials } from '../../../Hooks/getIntials';
 import { usePermissions } from '../../../Hooks/usePermissions';
 // shadcn components (simulated via Tailwind for the demo to be self-contained)
@@ -82,12 +88,16 @@ export const App = () => {
   const dispatch = useDispatch();
   const handleLogout = () => dispatch(logout());
   const { user } = useSelector(state => state.auth);
+  const optimization = useSelector(state => state.optimization);
+  const diagramNodes = useSelector(state => state.diagram?.nodes || []);
   const permissions = usePermissions();
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Layout, requiredRole: 'user' },
     { id: 'realtime', label: 'Monitoreo Real-time', icon: Activity, requiredRole: 'user' },
+    { id: 'diagram', label: 'Diagrama Unifilar', icon: GitBranch, requiredRole: 'user' },
     { id: 'devices', label: 'Dispositivos IoT', icon: Database, requiredRole: 'user' },
+    { id: 'server-driven', label: 'Server-Driven UI', icon: Sparkles, requiredRole: 'user' },
     ...(permissions.canManageUsers ? [{ id: 'users', label: 'Gestión de Operadores', icon: Users, requiredRole: 'admin' }] : []),
   ];
 
@@ -215,6 +225,11 @@ export const App = () => {
         {/* Page Content */}
 
 
+        {activeTab === 'diagram' ? (
+          <div className="flex-1 min-h-0">
+            <DiagramEditor />
+          </div>
+        ) : (
         <div className="flex-1 min-h-0 p-6 overflow-y-auto">
           <div className="flex flex-col gap-6 max-w-7xl mx-auto">
             {/* Conditional Content Rendering */}
@@ -231,6 +246,8 @@ export const App = () => {
               </div>
             ) : activeTab === 'realtime' ? (
               <RealtimeView />
+            ) : activeTab === 'server-driven' ? (
+              <ServerDrivenDashboard user={user} />
             ) : (
               // Original Dashboard Content
               <div className="flex flex-col gap-6">
@@ -241,10 +258,50 @@ export const App = () => {
 
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   {[
-                    { title: "Generación Solar", val: "42.5", unit: "kW", trend: "+5.2%", color: "text-yellow-500" },
-                    { title: "Carga de Red", val: "12.8", unit: "kW", trend: "-1.5%", color: "text-blue-500" },
-                    { title: "Nivel Baterías", val: "88", unit: "%", trend: "+0.3%", color: "text-green-500" },
-                    { title: "Ahorro CO2", val: "2.4", unit: "ton", trend: "+12%", color: "text-emerald-500" },
+                    {
+                      title: 'Costo Total',
+                      val: optimization.latestResult?.objective_value != null
+                        ? `${(optimization.latestResult.objective_value / 1000).toFixed(1)}k`
+                        : '--',
+                      unit: 'u.m.',
+                      trend: optimization.latestResult?.objective_value != null ? 'optimizado' : 'pendiente',
+                      color: 'text-yellow-500',
+                      positive: false,
+                    },
+                    {
+                      title: 'Potencia Pico Total',
+                      val: optimization.latestResult?.dispatch_plan
+                        ? `${optimization.latestResult.dispatch_plan
+                            .reduce((max, d) => d.power_kw > max ? d.power_kw : max, 0)
+                            .toFixed(1)}`
+                        : '--',
+                      unit: 'kW',
+                      trend: 'predicha',
+                      color: 'text-orange-500',
+                      positive: true,
+                    },
+                    {
+                      title: 'Estado Optimizacion',
+                      val: optimization.status === 'complete' || optimization.status === 'optimal'
+                        ? 'Optimo'
+                        : optimization.status === 'running'
+                          ? 'Activa'
+                          : 'Idle',
+                      unit: '',
+                      trend: optimization.mpc.running ? 'MPC activo' : 'MPC detenido',
+                      color: 'text-green-500',
+                      positive: true,
+                    },
+                    {
+                      title: 'Escenarios',
+                      val: optimization.latestResult?.scenario_results
+                        ? String(Object.keys(optimization.latestResult.scenario_results).length)
+                        : '3',
+                      unit: '',
+                      trend: 'estocastico',
+                      color: 'text-blue-500',
+                      positive: true,
+                    },
                   ].map((stat, i) => (
                     <div key={i} className="p-6 bg-card border rounded-xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1">
                       <div className="flex items-center justify-between mb-2 text-muted-foreground">
@@ -255,29 +312,46 @@ export const App = () => {
                         <span className="text-2xl font-bold">{stat.val}</span>
                         <span className="text-sm font-medium text-muted-foreground">{stat.unit}</span>
                       </div>
-                      <p className={`text-[10px] font-bold mt-2 ${stat.trend.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
+                      <p className={`text-[10px] font-bold mt-2 ${stat.positive ? 'text-green-500' : 'text-muted-foreground'}`}>
                         {stat.trend} <span className="text-muted-foreground font-normal">vs periodo anterior</span>
                       </p>
                     </div>
                   ))}
                 </div>
 
-                <div className="bg-card border rounded-xl p-6 min-h-[400px] flex items-center justify-center text-muted-foreground border-dashed bg-muted/20">
-                  <div className="flex flex-col items-center gap-3 text-center">
-                    <div className="p-4 bg-background rounded-full border shadow-sm">
-                      <Database size={40} className="text-primary/40" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">Analítica de Datos</p>
-                      <p className="text-sm max-w-[280px]">Selecciona un sensor o dispositivo para visualizar gráficos de flujo de energía y telemetría.</p>
+                {optimization.latestResult?.dispatch_plan ? (
+                  <div className="flex flex-col gap-6">
+                    <DispatchSchedule
+                      dispatchPlan={optimization.latestResult.dispatch_plan}
+                      scenarios={optimization.latestResult?.scenario_results ? Object.keys(optimization.latestResult.scenario_results).map((k) => ({ name: k, ...optimization.latestResult.scenario_results[k] })) : null}
+                      totalHours={optimization.latestResult?.total_hours || 24}
+                    />
+                    <DispatchByDevice
+                      dispatchPlan={optimization.latestResult.dispatch_plan}
+                      diagramNodes={diagramNodes}
+                      scenarios={optimization.latestResult?.scenario_results ? Object.keys(optimization.latestResult.scenario_results).map((k) => ({ name: k, ...optimization.latestResult.scenario_results[k] })) : null}
+                      totalHours={optimization.latestResult?.total_hours || 24}
+                    />
+                  </div>
+                ) : (
+                  <div className="bg-card border rounded-xl p-6 min-h-[400px] flex items-center justify-center text-muted-foreground border-dashed bg-muted/20">
+                    <div className="flex flex-col items-center gap-3 text-center">
+                      <div className="p-4 bg-background rounded-full border shadow-sm">
+                        <Database size={40} className="text-primary/40" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground">Analítica de Datos</p>
+                        <p className="text-sm max-w-[280px]">Arma tu red en el Diagrama Unifilar y ejecuta la optimizacion para ver los resultados aqui.</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
           </div>
         </div>
+        )}
 
 
 
@@ -285,4 +359,3 @@ export const App = () => {
     </div>
   );
 };
-

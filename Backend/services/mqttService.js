@@ -52,7 +52,7 @@ function initMQTT(io) {
                 createAt: getColombiaDate()
             });
 
-            io.to(sensorId).emit('sensor_update', { _id: sensorId, ...payload });
+            io.to(sensorId).emit('sensor_update', { ...payload, _id: sensorId });
         } catch (e) {
             console.error("Error procesando mensaje:", e);
         }
