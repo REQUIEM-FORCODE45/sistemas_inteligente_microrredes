@@ -219,6 +219,19 @@ def _build_pyomo_model(
             model.T, model.S,
             domain=pyo.NonNegativeReals,
         )
+        # Binary complementarity variables: at most one of charge/discharge
+        # can be active per battery, period and scenario. This guarantees
+        # physical feasibility (no simultaneous charge and discharge).
+        model.Y_charge = pyo.Var(
+            pyo.RangeSet(0, len(storage_list) - 1),
+            model.T, model.S,
+            domain=pyo.Binary,
+        )
+        model.Y_discharge = pyo.Var(
+            pyo.RangeSet(0, len(storage_list) - 1),
+            model.T, model.S,
+            domain=pyo.Binary,
+        )
         model.SOC = pyo.Var(
             pyo.RangeSet(0, len(storage_list) - 1),
             model.T, model.S,
@@ -279,6 +292,25 @@ def _build_pyomo_model(
                     model.P_discharge[bi, t, s].setub(bmeta["max_discharge"])
                     model.SOC[bi, t, s].setlb(bmeta["soc_min"] * cap)
                     model.SOC[bi, t, s].setub(bmeta["soc_max"] * cap)
+                    # Complementarity: charge and discharge cannot occur at once.
+                    model.add_component(
+                        f"comp_{bi}_{t}_{s}",
+                        pyo.Constraint(
+                            expr=model.Y_charge[bi, t, s] + model.Y_discharge[bi, t, s] <= 1
+                        ),
+                    )
+                    model.add_component(
+                        f"ch_bound_{bi}_{t}_{s}",
+                        pyo.Constraint(
+                            expr=model.P_charge[bi, t, s] <= bmeta["max_charge"] * model.Y_charge[bi, t, s]
+                        ),
+                    )
+                    model.add_component(
+                        f"dis_bound_{bi}_{t}_{s}",
+                        pyo.Constraint(
+                            expr=model.P_discharge[bi, t, s] <= bmeta["max_discharge"] * model.Y_discharge[bi, t, s]
+                        ),
+                    )
                     if t_idx == 0:
                         model.add_component(
                             f"soc_init_{bi}_{s}",

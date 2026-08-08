@@ -1,0 +1,540 @@
+% LaTeX support: latex@mdpi.com
+%=================================================================
+\documentclass[journal,article,submit,pdftex,moreauthors]{Definitions/mdpi}
+%=================================================================
+% MDPI internal commands - do not modify
+\firstpage{1}
+\makeatletter
+\setcounter{page}{\@firstpage}
+\makeatother
+\pubvolume{1}
+\issuenum{1}
+\articlenumber{0}
+\pubyear{2026}
+\copyrightyear{2026}
+\datereceived{ }
+\daterevised{ }
+\dateaccepted{ }
+\datepublished{ }
+\usepackage{graphicx}
+\graphicspath{{figures/}}  % Crea carpeta "figures" en Overleaf y sube ahi las imagenes
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+%\usepackage{subcaption}    % Para subfiguras (a)(b)
+
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{blue},
+    stringstyle=\color{red},
+    commentstyle=\color{green!50!black},
+    showstringspaces=false,
+    frame=single,
+    breaklines=true
+}
+%=================================================================
+\Title{SIGE: Sistema Inteligente de Gesti\'on para Microrredes El\'ectricas -- Plataforma Aut\'onoma de Monitoreo en Tiempo Real, Predicci\'on y Optimizaci\'on Estoc\'astica}
+\Author{David D\'iaz $^{1,\dagger,*}$, Dar\'io Solarte $^{1,\dagger}$, Javier Revelo-Fuelag\'an $^{1,\dagger}$}
+\AuthorNames{David D\'iaz, Dar\'io Solarte, Javier Revelo-Fuelagán}
+\address{%
+$^{1}$ \quad Departamento de Electr\'onica, Facultad de Ingenier\'ia, Universidad de Nari\~no, Pasto, Colombia; david.diaz@udenar.edu.co; dariosolarte@udenar.edu.co; javierrevelof@udenar.edu.co}
+\corres{Correspondencia: david.diaz@udenar.edu.co}
+
+\abstract{La creciente penetraci\'on de fuentes renovables intermitentes, junto con la complejidad operativa de los sistemas de almacenamiento y la generaci\'on convencional, exige herramientas avanzadas de gesti\'on energ\'etica. En este trabajo se presenta \textbf{SIGE} (Sistema Inteligente de Gesti\'on Energ\'etica), una plataforma integral para la operaci\'on de microrredes el\'ectricas h\'ibridas que integra monitoreo IoT de baja latencia, predicci\'on de series temporales, optimizaci\'on estoc\'astica con control predictivo por modelo (MPC), detecci\'on estad\'istica multidimensional de anomal\'ias y un sistema multi-agente basado en grandes modelos de lenguaje (LLMs). La plataforma opera de forma aut\'onoma en un ciclo continuo de 15 minutos: adquiere datos de sensores MQTT, obtiene pron\'osticos de irradiancia solar y demanda a partir de series hist\'oricas almacenadas, y resuelve un problema de despacho estoc\'astico en Pyomo con Gurobi. Los resultados demuestran la viabilidad de una arquitectura h\'ibrida que integra optimizaci\'on matem\'atica rigurosa con inteligencia artificial, ofreciendo una herramienta eficaz para la toma de decisiones en infraestructura energ\'etica distribuida.}
+
+\keyword{Microrredes el\'ectricas; Gesti\'on Inteligente; Control Predictivo por Modelo (MPC); Optimizaci\'on Estoc\'astica; Agentes LLM; IoT.}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introducci\'on}
+
+Las microrredes el\'ectricas, sistemas de generaci\'on, almacenamiento y consumo que pueden operar de forma aislada o interconectada con la red principal, representan un paradigma fundamental en la transici\'on energ\'etica. Sin embargo, su operaci\'on eficiente enfrenta desaf\'ios considerables: la generaci\'on solar fotovoltaica es inherentemente intermitente y depende de condiciones meteorol\'ogicas impredecibles; los generadores di\'esel, aunque despachables, presentan costos operativos no lineales y externalidades ambientales; las bater\'ias introducen un estricto acoplamiento temporal entre per\'iodos consecutivos; y la red el\'ectrica externa impone restricciones de intercambio y tarifas variables.
+
+La toma de decisiones en este contexto requiere resolver, de forma continua, un problema de optimizaci\'on multi-per\'iodo bajo incertidumbre, alimentado por datos reales de sensores y proyecciones de condiciones futuras. Las soluciones tradicionales basadas en reglas heur\'isticas o en optimizaci\'on determinista simple no capturan adecuadamente la naturaleza estoc\'astica de las fuentes renovables ni aprovechan la granularidad temporal que ofrecen los sistemas modernos de adquisici\'on de datos.
+
+Frente a estos desaf\'ios, SIGE se concibe como una plataforma que unifica en un solo ecosistema tecnol\'ogico las siguientes capacidades: (1) adquisici\'on y monitoreo en tiempo real de variables el\'ectricas mediante sensores IoT desplegados sobre la microrred, utilizando el protocolo MQTT para la transmisi\'on de datos y MongoDB para su persistencia escalable; (2) predicci\'on de series temporales multi-horizonte de irradiancia solar y demanda de carga, empleando una interfaz modular de predictores que permite la integraci\'on progresiva de modelos de aprendizaje autom\'atico, incluyendo un modelo Temporal Fusion Transformer (TFT) entrenado de forma offline; (3) optimizaci\'on estoc\'astica con control predictivo por modelo (MPC), resolviendo un problema de despacho econ\'omico que considera m\'ultiples escenarios clim\'aticos ponderados por probabilidad, con un horizonte de 24 horas y resoluci\'on horaria, re-ejecutado autom\'aticamente cada 15 minutos; (4) detecci\'on de anomal\'ias en tiempo real mediante tres estrategias estad\'isticas complementarias (umbrales, tasa de cambio, puntuaci\'on Z contextual), que alimentan un sistema multi-agente basado en LLMs para la generaci\'on de diagn\'osticos y recomendaciones operativas en lenguaje natural; y (5) una interfaz de operador interactiva que incluye un editor de diagrama unifilar, visualizaci\'on gr\'afica de planes de despacho, monitoreo en tiempo real de sensores y dashboards generados din\'amicamente por inteligencia artificial. El objetivo central de la plataforma es constituirse en un sistema de an\'alisis en tiempo real que, a partir de datos reales de campo, predice condiciones futuras y optimiza de forma aut\'onoma la operaci\'on de la microrred, garantizando la reducci\'on de costos operativos y maximizando la confiabilidad del suministro.
+
+La gesti\'on inteligente de microrredes ha sido abordada desde m\'ultiples frentes en la literatura reciente. En el \'ambito de la predicci\'on de series temporales energ\'eticas, los modelos cl\'asicos como ARIMA y las redes LSTM han demostrado eficacia para horizontes cortos, pero presentan limitaciones para capturar patrones de largo plazo y m\'ultiples variables ex\'ogenas simult\'aneamente. El modelo Temporal Fusion Transformer (TFT) propuesto por Lim et al. \cite{ref-lim} introduce mecanismos de atenci\'on multi-cabeza junto con redes de selecci\'on de variables y compuertas adaptativas, permitiendo predicciones multi-horizonte con cuantiles de incertidumbre, lo que lo hace particularmente adecuado para el pron\'ostico de generaci\'on renovable y demanda el\'ectrica.
+
+En cuanto a la operaci\'on \'optima de microrredes, la programaci\'on estoc\'astica ha sido ampliamente utilizada para modelar la incertidumbre en la generaci\'on renovable y la demanda \cite{ref-birge}. El control predictivo por modelo (MPC) \cite{ref-rawlings} complementa este enfoque al implementar una estrategia de horizonte deslizante que recalcula peri\'odicamente la soluci\'on \'optima, adapt\'andose a nueva informaci\'on en tiempo real. Herramientas como Pyomo \cite{ref-bynum} facilitan la formulaci\'on algebraica de estos problemas, mientras que solvers como Gurobi \cite{ref-gurobi} y HiGHS \cite{ref-huangfu} permiten su resoluci\'on eficiente.
+
+En el frente de la inteligencia artificial aplicada a la supervisi\'on de infraestructura el\'ectrica, los grandes modelos de lenguaje (LLMs) han comenzado a integrarse como asistentes cognitivos para operadores. Frameworks como LangChain \cite{ref-chase} y LangGraph permiten orquestar flujos multi-agente que procesan datos de sensores, detectan patrones an\'omalos y generan diagn\'osticos en lenguaje natural. Sin embargo, la integraci\'on de estas tres dimensiones ---predicci\'on, optimizaci\'on estoc\'astica y agentes de IA--- en una plataforma unificada que opere en ciclo cerrado sobre datos reales de campo constituye una brecha que el presente trabajo busca abordar.
+
+Este trabajo se fundamenta en tres hip\'otesis espec\'ificas: (1) un modelo TFT entrenado con datos reales de sensores IoT y variables meteorol\'ogicas puede superar a los predictores cl\'asicos en la estimaci\'on de generaci\'on solar y demanda para microrredes; (2) la integraci\'on de predicciones multi-horizonte en un lazo MPC estoc\'astico permite reducir los costos operativos esperados frente a estrategias deterministas; y (3) un sistema multi-agente basado en LLMs que procesa an\'alisis estad\'isticos de anomal\'ias puede proporcionar asistencia operativa accionable en tiempo real sin intervenci\'on humana. Los resultados obtenidos muestran que la plataforma SIGE logra un coeficiente de determinaci\'on $R^2 = 0.744$ en la predicci\'on de generaci\'on solar con el modelo TFT, y que el ciclo MPC de 15 minutos con optimizaci\'on estoc\'astica permite una operaci\'on aut\'onoma y econ\'omicamente eficiente de la microrred.
+
+En conjunto, este trabajo presenta el dise\~no, implementaci\'on y validaci\'on de una plataforma integral para la operaci\'on aut\'onoma de microrredes h\'ibridas. Se describe la arquitectura tecnol\'ogica que integra monitoreo IoT en tiempo real, predicci\'on multi-horizonte mediante un modelo Temporal Fusion Transformer entrenado con datos de campo, optimizaci\'on estoc\'astica con control predictivo por modelo (MPC) resuelta en Pyomo/Gurobi, detecci\'on estad\'istica de anomal\'ias y un sistema multi-agente basado en LLMs que asiste al operador con diagn\'osticos en lenguaje natural. Los resultados experimentales, obtenidos sobre datos reales de una microrred en la zona andina colombiana, demuestran la viabilidad del enfoque h\'ibrido que combina optimizaci\'on matem\'atica rigurosa con inteligencia artificial para la toma de decisiones en infraestructura energ\'etica distribuida.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Materiales y M\'etodos}
+\subsection{Arquitectura general del sistema}
+SIGE se organiza en tres capas tecnol\'ogicas que se comunican mediante APIs REST, WebSockets, Redis y MQTT, como se ilustra en la Figura~\ref{fig:arquitectura}:
+\begin{figure}[H]
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
++------------------------------------------------------------------+
+|                  CAPA DE PRESENTACION (React)                    |
+|  Dashboard | Monitoreo | Editor Unifilar | Dispositivos | Admin  |
+|            Redux Toolkit . ReactFlow . Plotly . Socket.IO        |
++------------+----------------------+------------------------------+
+             | HTTP REST            | WebSocket (Socket.IO)
+             v                      v
++------------------------+  +--------------------------------------+
+|  CAPA DE SERVICIOS     |  |   CAPA DE OPTIMIZACION (Python)      |
+|  Express 5 . Node.js   |--|   FastAPI (prediccion, puerto 8000)  |
+|  JWT . MQTT Client     |  |   Pyomo + Gurobi/HiGHS (solver)      |
+|  LangChain Agents      |  |   Redis (cola de trabajos)           |
+|  BullMQ . MongoDB      |  |   Predictores modulares (Matlab/TFT) |
++--------+---------------+  +--------------------------------------+
+         |
+         v
++------------------------------------------------------------------+
+|                    INFRAESTRUCTURA DE DATOS                      |
+|  MongoDB (series temporales, usuarios, configuracion)            |
+|  Redis (cola de optimizacion, resultados, estado de progreso)    |
+|  MQTT Broker (datos de sensores)                                 |
+|  Docker (Redis)                                                  |
++------------------------------------------------------------------+
+\end{lstlisting}
+\caption{Arquitectura tecnol\'ogica multicapa del sistema SIGE.}
+\label{fig:arquitectura}
+\end{figure}
+
+La capa de presentaci\'on, implementada en React 19 con Vite, ofrece m\'odulos funcionales accesibles mediante navegaci\'on por pesta\~nas: Dashboard de optimizaci\'on, Monitoreo en tiempo real, Editor de diagrama unifilar, Gesti\'on de dispositivos IoT, Dashboard generado por IA (server-driven UI), y Administraci\'on de operadores. El estado de la aplicaci\'on se gestiona mediante Redux Toolkit, con reducers especializados. La comunicaci\'on en tiempo real con el backend se realiza mediante Socket.IO, mientras que las operaciones CRUD utilizan una API REST con autenticaci\'on JWT.
+
+La capa de servicios, ejecutada sobre Node.js con Express 5, act\'ua como orquestador central: gestiona la autenticaci\'on, mantiene la conexi\'on con el broker MQTT para la ingesta de datos, coordina los ciclos MPC, ejecuta el pipeline de agentes de IA, y sirve como puente con los servicios en Python.
+
+La capa de optimizaci\'on, implementada en Python, contiene dos servicios independientes: una API FastAPI que expone los pron\'osticos generados por predictores modulares (lector de series hist\'oricas Matlab como predictor por defecto, con un m\'odulo TFT en desarrollo), y un motor de resoluci\'on basado en Pyomo que construye y resuelve el modelo de despacho econ\'omico estoc\'astico utilizando Gurobi como solver principal, con HiGHS como alternativa de c\'odigo abierto.
+
+\subsubsection{Flujo de datos}
+El flujo de datos en la plataforma sigue un pipeline continuo dividido en dos circuitos principales:
+
+\textbf{Circuito de monitoreo y an\'alisis:}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+Sensor IoT -> MQTT Broker -> mqttService (Node.js)
+  |-- MongoDB (persistencia en coleccion por sensor)
+  |-- Socket.IO -> Frontend (visualizacion en tiempo real)
+  +-- ChangeStream -> BullMQ (cola de analisis)
+       +-- Estrategias de anomalias (umbrales, tasa de cambio, Z-Score)
+            +-- LangChain Agent Graph (router -> alerta/optimizacion -> formateador)
+                 +-- Socket.IO -> Frontend (diagnostico y recomendacion)
+\end{lstlisting}
+
+\textbf{Circuito de predicci\'on y optimizaci\'on (MPC):}
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+Ciclo automatico (cada 15 min) o disparo manual
+  |
+  |-- GET /predict/solar + /predict/load -> FastAPI -> Predictor (Matlab)
+  |
+  |-- Construccion del problema de optimizacion
+  |     (topologia del diagrama + predicciones + escenarios)
+  |
+  |-- Redis RPUSH optimization:pending -> Python solver
+  |     +-- Pyomo model builder -> Gurobi/HiGHS -> solucion
+  |          +-- Redis SET optimization:result:<jobId>
+  |
+  +-- Polling de resultado -> Socket.IO -> Redux -> Dashboard
+       (DispatchSchedule, CostCurve, BatterySOCChart, ScenarioTabs)
+\end{lstlisting}
+
+\subsection{Adquisici\'on y monitoreo en tiempo real}
+\subsubsection{Integraci\'on IoT mediante MQTT}
+La plataforma se conecta a un broker MQTT externo donde los sensores desplegados en la microrred publican sus mediciones en t\'opicos con el formato \texttt{DataSensor/<sensorId>}. El servicio \texttt{mqttService}, ejecutado en el backend de Node.js, mantiene una suscripci\'on activa al patr\'on \texttt{DataSensor/+}, recibiendo en tiempo real todas las lecturas de todos los sensores autorizados.
+
+Un mecanismo de lista blanca (\texttt{authorizedSensors}), mantenido en memoria RAM y sincronizado con la base de datos, garantiza que \'unicamente se procesen datos leg\'itimos. Los sensores no autorizados se descartan con registro de advertencia, aislando el sistema de inyecciones espontaneas.
+
+\subsubsection{Persistencia y propagaci\'on}
+Los datos validados se persisten en MongoDB utilizando un modelo din\'amico por sensor: cada dispositivo recibe autom\'aticamente su propia colecci\'on particionada. Esta estrategia facilita consultas eficientes de series temporales y permite aplicar pol\'iticas de retenci\'on diferenciadas. Simult\'aneamente, cada lectura se emite al frontend mediante Socket.IO en salas (\textit{rooms}) identificadas por el \texttt{sensorId}, actualizando las gr\'aficas de monitoreo con latencias de visualizaci\'on inferiores a un segundo. La Figura~\ref{fig:monitoreo} muestra la interfaz de monitoreo en tiempo real con las lecturas de los sensores y las alertas del sistema multi-agente.
+
+% ------------------------------------------------------------------
+% FIGURA: M\'odulo de monitoreo IoT en tiempo real
+% Sube a Overleaf: figures/ui_monitoreo_iot.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{images/ui_monitoreo_iot.png}
+    \caption{M\'odulo de monitoreo en tiempo real: lecturas de sensores MQTT
+    por sala (\textit{room}), detecci\'on de anomal\'ias activa y alertas del
+    sistema multi-agente de IA.}
+    \label{fig:monitoreo}
+\end{figure}
+% ------------------------------------------------------------------
+
+\subsubsection{Procesamiento continuo mediante ChangeStream}
+La funcionalidad de \textit{ChangeStream} de MongoDB permite a la plataforma detectar cada nueva inserci\'on sin necesidad de sondeo peri\'odico. El servicio \texttt{changeStreamService} mantiene cursores abiertos sobre todas las colecciones activas, encolando los datos de forma as\'incrona en BullMQ. Un worker especializado procesa estos trabajos aplicando las tres estrategias de detecci\'on de anomal\'ias y el pipeline de agentes LangChain sobre cada evento.
+
+\subsection{Predicci\'on de variables de entrada}
+\subsubsection{Arquitectura modular de predictores}
+El sistema de predicci\'on de SIGE se dise\~n\'o con una interfaz abstracta (\texttt{PredictorInterface}) que desacopla el motor de pron\'osticos del resto de la plataforma. Esto permite intercambiar m\'ultiples implementaciones de predictores sin modificar la orquestaci\'on del backend. Actualmente coexisten dos predictores:
+
+\begin{itemize}
+    \item \textbf{MatlabPredictor} (activo por defecto): Lee series temporales pre-procesadas desde archivos \texttt{.mat} (Irradiancia.mat y Consumo.mat), que contienen datos hist\'oricos curados de irradiancia solar y perfiles de carga (PL1, PL2, PL3). Este predictor opera con latencia m\'inima y no requiere infraestructura de GPU.
+    \item \textbf{TFTPredictor} (en desarrollo): Implementa una interfaz compatible con el modelo Temporal Fusion Transformer (TFT), cuyo entrenamiento se ha realizado de forma offline sobre datos reales de los sensores de la microrred y variables meteorol\'ogicas externas. Este m\'odulo est\'a dise\~nado para reemplazar progresivamente al MatlabPredictor una vez completada su validaci\'on en producci\'on.
+\end{itemize}
+
+\subsubsection{Modelo Temporal Fusion Transformer (entrenamiento offline)}
+Como parte del proyecto de investigaci\'on, se entren\'o un modelo \textbf{Temporal Fusion Transformer (TFT)} utilizando datos de dos sensores principales de la microrred (Energy Tablero 2 y Temperatura PV) junto con datos meteorol\'ogicos de Open-Meteo. El pipeline de entrenamiento, implementado como m\'odulo independiente, incluye:
+
+\begin{itemize}
+    \item \textbf{Adquisici\'on de datos}: Extracci\'on de series temporales desde MongoDB y la API de Open-Meteo, con un per\'iodo de entrenamiento de 20 d\'ias.
+    \item \textbf{Preprocesamiento}: Remuestreo horario, fusi\'on de datasets heterog\'eneos y c\'alculo de variables derivadas (generaci\'on solar estimada a partir de radiaci\'on de onda corta, eficiencia del panel y factor de temperatura).
+    \item \textbf{Entrenamiento}: Configuraci\'on multi-horizonte para 24 pasos futuros, con m\'etricas de evaluaci\'on (MAE, RMSE, MAPE) desglosadas por horizonte de pron\'ostico.
+    \item \textbf{Exportaci\'on}: El modelo entrenado se serializa para su futura integraci\'on en el predictor TFTPredictor del sistema en producci\'on.
+\end{itemize}
+
+El TFT aporta capacidades relevantes para el dominio: manejo de m\'ultiples variables ex\'ogenas, generaci\'on de predicciones probabil\'isticas con cuantiles de incertidumbre, y mecanismos de atenci\'on que permiten interpretar la importancia relativa de cada variable hist\'orica. Su integraci\'on completa en el lazo de MPC constituye una l\'inea de trabajo activa del proyecto. La Figura~\ref{fig:tft_pred} presenta las curvas de predicci\'on obtenidas durante la fase de entrenamiento offline para generaci\'on solar (Figura~\ref{fig:tft_solar}) y voltaje (Figura~\ref{fig:tft_carga}), mientras que la Figura~\ref{fig:tft_metricas} muestra la evoluci\'on del error de predicci\'on en funci\'on del horizonte de pron\'ostico ($h+1$ a $h+24$).
+
+% ------------------------------------------------------------------
+% FIGURA B: Curvas de predicci\'on --- solar y carga (subfiguras)
+% Sube a Overleaf: figures/tft_pred_solar.png  y  figures/tft_pred_carga.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    % Subfigura (a) - Generación Solar (Arriba)
+    \subfloat[Generación solar\label{fig:tft_solar}]{%
+        \includegraphics[width=0.75\textwidth]{images/tft_pred_solar.png}%
+    }
+    
+    \vspace{0.5cm} % Añade un espacio vertical de separación entre las dos imágenes
+    
+    % Subfigura (b) - Voltaje (Abajo)
+    \subfloat[Voltaje\label{fig:tft_carga}]{%
+        \includegraphics[width=0.75\textwidth]{images/tft_pred_carga.png}%
+    }
+    
+    % Leyenda principal
+    \caption{Resultados de predicción del modelo TFT (entrenamiento offline): serie real (azul) vs. predicha (naranja) con banda de incertidumbre P10--P90 para un horizonte de 24 horas.}
+    \label{fig:tft_pred}
+\end{figure}
+% ------------------------------------------------------------------
+
+% ------------------------------------------------------------------
+% FIGURA C: M\'etricas de error por horizonte
+% Sube a Overleaf: figures/tft_metricas.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/tft_metricas.png}
+    \caption{Error de predicci\'on (MAE, RMSE, MAPE) del modelo TFT en
+    funci\'on del horizonte de pron\'ostico (h+1 a h+24) para irradiancia
+    solar y demanda de carga, obtenido durante la fase de entrenamiento
+    offline.}
+    \label{fig:tft_metricas}
+\end{figure}
+% ------------------------------------------------------------------
+
+\subsubsection{API de predicci\'on}
+El servicio se implementa como una API FastAPI. El predictor activo se selecciona mediante la variable de entorno \texttt{PREDICTOR} (\texttt{"matlab"} por defecto), y la interfaz \texttt{PredictorInterface} garantiza que cualquier nuevo modelo pueda integrarse sin modificar el c\'odigo de orquestaci\'on.
+
+\subsection{Optimizaci\'on estoc\'astica y control predictivo por modelo}
+\subsubsection{Formulaci\'on del problema}
+El n\'ucleo matem\'atico de SIGE es un problema de despacho econ\'omico estoc\'astico formulado como un programa cuadr\'atico con variables continuas. La formulaci\'on abarca un horizonte temporal de 24 per\'iodos (horas) y maneja expl\'icitamente la incertidumbre.
+
+\paragraph{Variables de decisi\'on}
+Para cada hora $t$ y cada escenario $s$, se definen las variables presentadas en la Tabla~\ref{tab:variables_decision}.
+\begin{table}[H]
+\caption{Definici\'on de variables de decisi\'on del modelo Pyomo.\label{tab:variables_decision}}
+\begin{tabularx}{\textwidth}{lXC}
+\toprule
+\textbf{Variable} & \textbf{Descripci\'on} & \textbf{Unidad} \\
+\midrule
+\texttt{P\_diesel[d,t,s]} & Potencia generada por el generador di\'esel $d$ en la hora $t$, escenario $s$ & kW \\
+\texttt{P\_grid[t,s]} & Potencia intercambiada con la red principal (positiva = importaci\'on) & kW \\
+\texttt{P\_charge[b,t,s]} & Potencia de carga de la bater\'ia $b$ en la hora $t$, escenario $s$ & kW \\
+\texttt{P\_discharge[b,t,s]} & Potencia de descarga de la bater\'ia $b$ en la hora $t$, escenario $s$ & kW \\
+\texttt{SOC[b,t,s]} & Estado de carga de la bater\'ia $b$ al final de la hora $t$, escenario $s$ & kWh \\
+\bottomrule
+\end{tabularx}
+\end{table}
+La generaci\'on solar \texttt{P\_solar[t,s]} se modela como un par\'ametro estoc\'astico pre-calculado a partir de las predicciones de irradiancia y factores de escenario, inyectado directamente en la restricci\'on de balance de potencia. La Figura~\ref{fig:despacho} ilustra un plan de despacho t\'ipico obtenido por el solver para el escenario de mayor probabilidad.
+
+\paragraph{Funci\'on objetivo}
+El modelo minimiza el costo total esperado de operaci\'on, ponderado por las probabilidades de cada escenario, incluyendo funciones cuadr\'aticas de eficiencia di\'esel, tarifas de red y penalizaciones lineales por degradaci\'on de bater\'ias:
+\begin{equation}
+\min \sum_{s} \text{prob}[s] \cdot \sum_{t} \left[ \sum_{d} (c_d + b_d P_d + a_d P_d^2) C_{\text{comb}} + (C_{\text{fijo}} + C_{\text{var}} P_{\text{grid}}) + \sum_{b} \text{deg} (P_{\text{ch}} + P_{\text{dis}}) \right]
+\end{equation}
+
+\paragraph{Restricciones}
+El espacio de soluciones est\'a acotado por:
+\begin{itemize}
+    \item \textbf{Balance de potencia:} $\Sigma P_{\text{diesel}} + P_{\text{grid}} + P_{\text{solar}} + \Sigma P_{\text{discharge}} - \Sigma P_{\text{charge}} \ge P_{\text{load}}$
+    \item \textbf{L\'imites de generadores di\'esel:} $P_{\text{min}}[d] \le P_{\text{diesel}}[d,t,s] \le P_{\text{max}}[d]$
+    \item \textbf{L\'imites de red:} $P_{\text{grid\_min}} \le P_{\text{grid}}[t,s] \le P_{\text{grid\_max}}$
+    \item \textbf{L\'imites de estado de carga:} $SOC_{\text{min}}[b] \le SOC[b,t,s] \le SOC_{\text{max}}[b]$
+    \item \textbf{Din\'amica de bater\'ias:} Ecuaciones recursivas intertemporales acopladas que modelan la eficiencia de conversi\'on de carga/descarga y condiciones iniciales de instrumentaci\'on:
+    \begin{align}
+        SOC[b,0,s] &= SOC_{\text{ini}}[b] + \eta_{\text{ch}}[b] \cdot P_{\text{ch}}[b,0,s] - \frac{P_{\text{dis}}[b,0,s]}{\eta_{\text{dis}}[b]} \\
+        SOC[b,t,s] &= SOC[b,t-1,s] + \eta_{\text{ch}}[b] \cdot P_{\text{ch}}[b,t,s] - \frac{P_{\text{dis}}[b,t,s]}{\eta_{\text{dis}}[b]}, \quad t > 0
+    \end{align}
+\end{itemize}
+
+% ------------------------------------------------------------------
+% FIGURA G: Plan de despacho optimizado (stacked bar 24 horas)
+% Sube a Overleaf: figures/resultados_despacho.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{images/resultados_despacho.png}
+    \caption{Plan de despacho econ\'omico optimizado: contribuci\'on horaria de
+    fuentes solar, di\'esel, red el\'ectrica y bater\'ia durante el horizonte de
+    24 horas para el escenario de mayor probabilidad.}
+    \label{fig:despacho}
+\end{figure}
+% ------------------------------------------------------------------
+
+\subsubsection{Resoluci\'on y ciclo de control predictivo (MPC)}
+El problema se resuelve utilizando Gurobi como solver principal, con HiGHS como alternativa de código abierto en caso de indisponibilidad. El lazo cerrado de MPC recalcula de forma automática cada 15 minutos el horizonte completo de 24 horas, implementando únicamente la acción del primer período temporal según la estrategia de horizonte deslizante. La comunicación entre el backend Node.js y el solver Python se realiza mediante Redis: el backend encola los trabajos de optimización en una lista compartida dentro de Redis, y el solver los consume para su procesamiento; una vez resuelto el modelo, los resultados y el estado de progreso se almacenan en el mismo servidor Redis, desde donde el backend los recupera mediante sondeo periódico.
+
+\subsection{Detecci\'on de anomal\'ias y sistema multi-agente de IA}
+\subsubsection{Estrategias de detecci\'on estad\'istica}
+Cada lectura de sensor se somete a tres an\'alisis complementarios ejecutados en paralelo:
+
+\begin{enumerate}
+    \item \textbf{Estrategia de umbrales (\texttt{ThresholdStrategy}):} Verifica que cada variable el\'ectrica se encuentre dentro de rangos f\'isicos predefinidos, con l\'imites configurables por tipo de dispositivo (paneles solares, inversores, bater\'ias, medidores, microrred).
+    \item \textbf{Tasa de cambio (\texttt{RateOfChangeStrategy}):} Calcula la variaci\'on relativa entre lecturas consecutivas $|(x_t - x_{t-1}) / x_{t-1}|$ y dispara alertas cuando supera un umbral configurable (50\% por defecto).
+    \item \textbf{Puntuaci\'on Z contextual (\texttt{ZScoreStrategy}):} Eval\'ua cada lectura contra la media y desviaci\'on est\'andar de una ventana hist\'orica m\'ovil (30 lecturas por defecto), se\~nalando valores con $|Z| > 3.0$.
+\end{enumerate}
+
+Un registro de estrategias (\texttt{StrategyRegistry}) agrega los resultados de las tres t\'ecnicas y asigna un nivel de alerta: \texttt{critico} cuando dos o m\'as estrategias detectan anomal\'ia, \texttt{advertencia} cuando solo una la detecta, y \texttt{normal} en ausencia de se\~nales.
+
+\subsubsection{Sistema multi-agente basado en LLMs}
+SIGE integra un sistema cognitivo implementado con \textbf{LangChain} y \textbf{LangGraph} que procesa los resultados del an\'alisis estad\'istico y act\'ua como copiloto del operador:
+
+El grafo de estados (\texttt{StateGraph}) contiene cuatro nodos especializados:
+\begin{itemize}
+    \item \textbf{Router:} Eval\'ua la presencia de anomal\'ias en el an\'alisis previo y deriva el flujo hacia el nodo de alerta o de optimizaci\'on seg\'un corresponda.
+    \item \textbf{Alerta:} Ante condiciones an\'omalas, invoca al LLM (Llama 3.3 70B v\'ia Groq, o GPT-4o-mini v\'ia OpenAI como alternativa) para generar un resumen del diagn\'ostico y recomendaciones accionables.
+    \item \textbf{Optimizaci\'on:} En estado de operaci\'on normal, el LLM sugiere pautas de mantenimiento preventivo y eficiencia operativa.
+    \item \textbf{Formateador:} Estructura la respuesta final con datos de visualizaci\'on para el frontend.
+\end{itemize}
+
+Las respuestas del LLM se validan contra esquemas \texttt{Zod} para garantizar su integridad estructural antes de ser transmitidas al frontend v\'ia Socket.IO.
+
+\subsection{Interfaz de operador}
+\subsubsection{Editor de diagrama unifilar y visualizaciones}
+La plataforma incluye un editor de diagrama unifilar implementado con \textbf{ReactFlow} que permite a los operadores construir y modificar la topolog\'ia de la microrred mediante nodos arrastrables (panel solar, generador di\'esel, red el\'ectrica, inversor, bater\'ia y carga). La topolog\'ia definida en el editor se traduce autom\'aticamente en restricciones del solver al disparar una optimizaci\'on: cada nodo del diagrama se mapea a su correspondiente entrada en los arreglos \texttt{sources}, \texttt{storage}, \texttt{loads} o \texttt{grid} que consume el modelo Pyomo. La Figura~\ref{fig:editor} muestra el editor de diagrama unifilar con una topolog\'ia activa t\'ipica.
+
+% ------------------------------------------------------------------
+% FIGURA E: Editor de diagrama unifilar (ReactFlow)
+% Sube a Overleaf: figures/ui_editor_unifilar.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{images/ui_editor_unifilar.png}
+    \caption{Editor de diagrama unifilar en ReactFlow: topolog\'ia activa con
+    nodos de panel solar, generador di\'esel, bater\'ia, red el\'ectrica y carga.
+    La topolog\'ia es traducida autom\'aticamente en restricciones del solver.}
+    \label{fig:editor}
+\end{figure}
+% ------------------------------------------------------------------
+
+El dashboard de optimizaci\'on presenta los resultados del ciclo MPC mediante gr\'aficas interactivas: plan de despacho en barras apiladas de 24 horas, curva de costo esperado por hora, evoluci\'on del estado de carga (SOC) de bater\'ias, y comparaci\'on entre escenarios estoc\'asticos. Adicionalmente, los nodos del canvas del diagrama muestran badges con la potencia despachada en tiempo real, y un doble clic sobre cualquier nodo abre un modal con la gr\'afica de despacho espec\'ifica de ese dispositivo. La Figura~\ref{fig:dashboard} presenta el dashboard de optimizaci\'on con el plan de despacho de 24 horas y la proyecci\'on del estado de carga de las bater\'ias.
+
+% ------------------------------------------------------------------
+% FIGURA D: Dashboard principal de despacho
+% Sube a Overleaf: figures/ui_dashboard_despacho.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{images/ui_dashboard_despacho.png}
+    \caption{Dashboard de optimizaci\'on: plan de despacho en barras de
+    24 horas, curva de costo esperado por escenario y proyecci\'on del estado
+    de carga (SOC) con bandas probabil\'isticas. Las pesta\~nas superiores
+    permiten alternar entre los tres escenarios estoc\'asticos.}
+    \label{fig:dashboard}
+\end{figure}
+% ------------------------------------------------------------------
+
+\subsubsection{Dashboard generado por IA y an\'alisis multi-agente}
+SIGE ofrece funcionalidades complementarias impulsadas por inteligencia artificial:
+
+    \paragraph{Dashboard Server-Driven} El m\'odulo \texttt{dashboardAgent} emplea un LLM (Groq/OpenAI) con un \texttt{StructuredOutputParser} y esquema Zod para generar din\'amicamente una especificaci\'on JSON de dashboard. Esta especificaci\'on define widgets (tarjetas de m\'etricas, tablas de sensores, gr\'aficos de l\'inea y barras) que se renderizan con datos reales de los sensores autorizados del usuario. En ausencia de API key del LLM, el sistema produce un dashboard por defecto a partir de las \'ultimas lecturas disponibles. La Figura~\ref{fig:dashboard_ia} ilustra la consola del agente IA con el an\'alisis en tiempo real y las recomendaciones generadas por el grafo LangGraph.
+
+% ------------------------------------------------------------------
+% FIGURA I: Dashboard Server-Driven UI generado por IA
+% Sube a Overleaf: figures/ui_dashboard_ia.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.90\textwidth]{images/ui_dashboard_ia.png}
+    \caption{Consola del agente IA (Server-Driven UI): el sistema muestra
+    el an\'alisis en tiempo real del grafo LangGraph con diagn\'ostico,
+    recomendaciones accionables y visualizaci\'on de datos del sensor activo.}
+    \label{fig:dashboard_ia}
+\end{figure}
+% ------------------------------------------------------------------
+
+\subsection{Software y herramientas utilizadas}
+La Tabla~\ref{tab:software} resume las versiones y prop\'osito de cada componente de software empleado en el desarrollo de la plataforma.
+\begin{table}[H]
+\caption{Software y versiones utilizadas en SIGE.\label{tab:software}}
+\begin{tabularx}{\textwidth}{lXc}
+\toprule
+\textbf{Componente} & \textbf{Prop\'osito} & \textbf{Versi\'on} \\
+\midrule
+React + Vite & Interfaz de usuario (frontend) & 19 + 7.2.5 \\
+Redux Toolkit & Gesti\'on de estado & 2.x \\
+ReactFlow & Editor de diagrama unifilar & 12.x \\
+shadcn/ui & Componentes de interfaz & new-york \\
+Node.js + Express & Backend y orquestaci\'on & 20.19 + 5 \\
+Socket.IO & Comunicaci\'on en tiempo real & 4.x \\
+MongoDB + Mongoose & Persistencia de datos & 8.x \\
+Redis & Cola de optimizaci\'on y cach\'e & 7.x \\
+BullMQ & Cola de trabajos as\'incronos & 5.x \\
+Python & Servicios de predicci\'on y solver & 3.12 \\
+FastAPI & API de predicci\'on & 0.115 \\
+Pyomo & Modelado de optimizaci\'on & 6.8 \\
+Gurobi / HiGHS & Solver de programaci\'on matem\'atica & 12.0 / 1.7 \\
+TensorFlow/Keras & Entrenamiento del modelo TFT & 2.18 \\
+LangChain + LangGraph & Pipeline de agentes de IA & 0.3 + 0.2 \\
+Groq / OpenAI & Proveedores de LLM & Llama 3.3 70B / GPT-4o-mini \\
+Docker & Contenerizaci\'on (Redis) & 27.x \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Uso de inteligencia artificial generativa}
+Durante el desarrollo de este trabajo se utiliz\'o inteligencia artificial generativa (GenAI) exclusivamente para tareas de edici\'on superficial de texto (correcci\'on gramatical, ortogr\'afica, puntuaci\'on y formateo). No se emple\'o GenAI para la generaci\'on de datos, gr\'aficos, dise\~no experimental, an\'alisis o interpretaci\'on de resultados. Todo el contenido t\'ecnico, las formulaciones matem\'aticas, los diagramas de arquitectura, el c\'odigo fuente y los resultados experimentales fueron producidos por los autores sin asistencia de GenAI.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Resultados}
+\subsection{Indicadores clave de desempe\~no del sistema SIGE}
+El dashboard de optimizaci\'on expone las siguientes m\'etricas tras cada ciclo MPC:
+
+\begin{enumerate}
+    \item \textbf{Costo total optimizado:} Valor de la funci\'on objetivo (costo esperado) obtenido por el solver, desglosado por componente (di\'esel, red, bater\'ias) y por escenario estoc\'astico.
+    \item \textbf{Potencia pico total:} M\'axima potencia agregada en el horizonte de 24 horas, permitiendo evaluar la capacidad de la microrred para limitar picos de demanda.
+    \item \textbf{Estado del sistema y escenarios:} Seguimiento del ciclo de resoluci\'on (\texttt{idle} $\rightarrow$ \texttt{queued} $\rightarrow$ \texttt{running} $\rightarrow$ \texttt{complete}) mediante sondeo peri\'odico de Redis, con timeout configurable de 5 minutos.
+\end{enumerate}
+
+La Figura~\ref{fig:metricas} resume los indicadores clave de desempe\~no mostrados en el Dashboard de SIGE tras la ejecuci\'on de un ciclo MPC.
+
+% ------------------------------------------------------------------
+% FIGURA: Resumen de m\'etricas KPI del Dashboard
+% Sube a Overleaf: figures/resultados_metricas_dashboard.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{images/resultados_despacho.png}
+    \caption{Resumen de indicadores clave de desempe\~no mostrados en el
+    Dashboard de SIGE tras la ejecuci\'on del ciclo MPC: costo total
+    optimizado, potencia pico y estado de resoluci\'on por escenario.}
+    \label{fig:metricas}
+\end{figure}
+% ------------------------------------------------------------------
+
+La Figura~\ref{fig:red_mpc} muestra la topolog\'ia de la microrred de ejemplo utilizada para la validaci\'on del ciclo MPC en el dashboard de optimizaci\'on. La red incluye un panel solar fotovoltaico, un generador di\'esel, un sistema de almacenamiento con bater\'ias, una carga el\'ectrica y la conexi\'on a la red principal, modelados como nodos del diagrama unifilar que el solver traduce autom\'aticamente en restricciones del modelo Pyomo.
+
+% ------------------------------------------------------------------
+% FIGURA: Topolog\'ia de la microrred utilizada en el ciclo MPC
+% Sube a Overleaf: figures/red_topologia_microrred.png
+%                y figures/red_diagrama_unifilar.png
+% ------------------------------------------------------------------
+\begin{figure}[H]
+    \centering
+    % Subfigura (a) - Topología de la microrred (Arriba)
+    \subfloat[Topolog\'ia de la microrred\label{fig:red_topologia}]{%
+        \includegraphics[width=0.85\textwidth]{images/red_topologia_microrred.png}%
+    }
+    
+    \vspace{0.5cm}
+    
+    % Subfigura (b) - Diagrama unifilar (Abajo)
+    \subfloat[Diagrama unifilar en el editor\label{fig:red_unifilar}]{%
+        \includegraphics[width=0.85\textwidth]{images/red_diagrama_unifilar.png}%
+    }
+    
+    \caption{Topolog\'ia de la microrred de ejemplo empleada en la validaci\'on
+    del ciclo MPC. (a) Esquema de conexi\'on de los componentes de la microrred:
+    panel solar, generador di\'esel, bater\'ia, carga y red principal. (b) Diagrama
+    unifilar correspondiente en el editor ReactFlow, cuya disposici\'on determina
+    las restricciones del problema de optimizaci\'on estoc\'astica.}
+    \label{fig:red_mpc}
+\end{figure}
+% ------------------------------------------------------------------
+
+\subsection{Rendimiento del modelo TFT en entrenamiento offline}
+La Tabla~\ref{tab:tft_metrics} presenta las m\'etricas de rendimiento obtenidas por el modelo Temporal Fusion Transformer durante su fase de entrenamiento offline sobre 20 d\'ias de datos reales de la microrred. El modelo fue entrenado con una ventana de contexto de 96 pasos temporales (24 horas a resoluci\'on de 15 minutos) y 10 variables de entrada: VA, VB, Fre, Temp, temp\_2m, shortwave\_radiation, wind\_speed\_10m, pressure\_msl, cloud\_cover y Generacion\_Solar. La mejor \'epoca de entrenamiento se alcanz\'o en la \'epoca 10 de un total de 14 \'epocas, utilizando decaimiento coseno de la tasa de aprendizaje, recorte de gradiente y parada temprana.
+
+\begin{table}[H]
+\caption{M\'etricas de rendimiento del modelo TFT por variable objetivo.\label{tab:tft_metrics}}
+\begin{tabularx}{\textwidth}{lCCC}
+\toprule
+\textbf{Variable objetivo} & \textbf{MAE} & \textbf{RMSE} & \textbf{$R^2$} \\
+\midrule
+VA (Voltaje Fase A) & 0.480 & 0.625 & 0.677 \\
+VB (Voltaje Fase B) & 0.482 & 0.628 & 0.674 \\
+Generacion\_Solar & 0.294 & 0.432 & 0.744 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Los resultados muestran que el modelo TFT alcanza un desempe\~no s\'olido en las tres variables objetivo, con coeficientes de determinaci\'on $R^2$ superiores a 0.67 en todos los casos. La predicci\'on de generaci\'on solar es la m\'as precisa ($R^2 = 0.744$, MAE = 0.294), mientras que las predicciones de voltaje (VA y VB) presentan un error ligeramente mayor pero aceptable para aplicaciones de monitoreo. El uso de una ventana de contexto de 24 horas (seq\_len=96) mejor\'o el $R^2$ en aproximadamente 0.06 puntos respecto a una ventana de 3 horas (seq\_len=12), confirmando la importancia de la memoria de largo plazo para la predicci\'on de variables energ\'eticas con estacionalidad diaria.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Discusi\'on}
+\subsection{Interpretaci\'on de los resultados}
+Los resultados obtenidos aportan evidencia favorable respecto a las tres hip\'otesis planteadas en este trabajo, aunque con distintos grados de respaldo emp\'irico. En primer lugar, el modelo TFT entrenado con datos de los sensores IoT de la microrred alcanz\'o un $R^2 = 0.744$ en la predicci\'on de generaci\'on solar y valores de $R^2$ superiores a 0.67 para las variables de voltaje (VA y VB). Estas m\'etricas son comparables en orden de magnitud a las reportadas por Lim et al. \cite{ref-lim} para aplicaciones de predicci\'on energ\'etica, aunque debe notarse que los conjuntos de datos y las condiciones experimentales difieren. La mejora de aproximadamente 0.06 puntos de $R^2$ al extender la ventana de contexto de 3 a 24 horas es consistente con la hip\'otesis de que los mecanismos de atenci\'on multi-cabeza del TFT pueden capturar patrones de largo plazo, si bien la magnitud de esta mejora debe interpretarse con cautela dado el tama\~no limitado del conjunto de entrenamiento (20 d\'ias). No se realiz\'o una comparaci\'on cuantitativa directa contra modelos LSTM o ARIMA sobre el mismo conjunto de datos, por lo que la afirmaci\'on de superioridad frente a predictores cl\'asicos requiere verificaci\'on experimental adicional.
+
+En segundo lugar, la integraci\'on del predictor en el lazo MPC estoc\'astico fue evaluada en condiciones de laboratorio, mostrando que la arquitectura basada en Redis para la comunicaci\'on entre el backend Node.js y el solver Python mantiene latencias compatibles con un ciclo de 15 minutos. La formulaci\'on con escenarios estoc\'asticos (soleado 60\%, nublado 30\%, lluvia 10\%) ofrece al operador m\'ultiples trayectorias de despacho, en contraste con los enfoques deterministas que generan una \'unica soluci\'on. No obstante, la selecci\'on de tres escenarios discretos con factores de irradiancia fijos constituye una aproximaci\'on simplificada de la incertidumbre real, y no se ha evaluado el desempe\~no del lazo MPC en operaci\'on continua prolongada ni bajo condiciones de falla o degradaci\'on de componentes.
+
+En tercer lugar, el sistema multi-agente basado en LLMs proces\'o correctamente las salidas del detector estad\'istico de anomal\'ias y gener\'o respuestas estructuradas en lenguaje natural. No obstante, la verificaci\'on de estos diagn\'osticos se restringi\'o a la conformidad estructural con esquemas Zod, sin incluir una evaluaci\'on cuantitativa de la exactitud t\'ecnica de las recomendaciones (tasa de falsos positivos, cobertura de fallos reales, latencia de respuesta) ni una medici\'on de la utilidad percibida por parte de operadores humanos. La validaci\'on de la efectividad del sistema como herramienta de asistencia a la decisi\'on requiere un estudio controlado con operadores, que contraste las acciones tomadas con y sin el apoyo del agente de IA.
+
+\subsection{Limitaciones del estudio}
+El presente trabajo presenta varias limitaciones que deben ser consideradas al interpretar sus resultados:
+
+\begin{enumerate}
+    \item \textbf{Disponibilidad de datos para el entrenamiento del TFT:} El modelo fue entrenado con aproximadamente 20 d\'ias de datos reales (1663 registros a resoluci\'on de 15 minutos), lo cual constituye una muestra limitada para modelos de aprendizaje profundo. Adicionalmente, el sensor de Temperatura PV present\'o un hiato de 9 d\'ias (del 17 al 26 de mayo) que fue interpolado linealmente, introduciendo potencial sesgo en los datos de entrenamiento. Un per\'iodo de al menos 30 d\'ias continuos mejorar\'ia la robustez del modelo.
+    \item \textbf{Ausencia de comparaci\'on cuantitativa con l\'ineas base:} No se implementaron ni evaluaron modelos de referencia (LSTM, ARIMA, persistencia) sobre el mismo conjunto de datos, lo que limita la capacidad de atribuir las diferencias de desempe\~no exclusivamente a la arquitectura TFT.
+    \item \textbf{Falta de sensores de corriente y potencia:} Las variables objetivo actuales (VA, VB) miden estabilidad de voltaje pero no capturan directamente la potencia o energ\'ia consumida. La instalaci\'on de sensores de corriente permitir\'ia incorporar targets de potencia activa y energ\'ia, enriqueciendo las salidas del modelo.
+    \item \textbf{Predictor Matlab como fuente del lazo MPC:} El ciclo MPC en producci\'on a\'un utiliza el MatlabPredictor basado en series hist\'oricas pre-procesadas, no el modelo TFT. La integraci\'on completa del TFT en el lazo cerrado est\'a pendiente de validaci\'on experimental.
+    \item \textbf{Tres escenarios clim\'aticos discretos:} La formulaci\'on estoc\'astica actual utiliza solo tres escenarios con factores de irradiancia fijos. Un enfoque m\'as refinado podr\'ia emplear los cuantiles P10-P90 generados directamente por el TFT, reduciendo la discretizaci\'on arbitraria.
+    \item \textbf{Validaci\'on en un solo sitio:} La plataforma ha sido evaluada \'unicamente con datos de una microrred en la zona andina colombiana (0.7\textdegree N, 77.6\textdegree W). La generalizaci\'on a otras ubicaciones geogr\'aficas y configuraciones de microrred requiere estudios adicionales.
+\end{enumerate}
+
+\subsection{Trabajo futuro}
+Las l\'ineas de trabajo futuro incluyen: (1) la integraci\'on en producci\'on del modelo TFT para reemplazar el predictor basado en archivos \texttt{.mat}, acompa\~nada de una comparaci\'on cuantitativa contra l\'ineas base; (2) la incorporaci\'on de modelos de flujo de carga no lineales (AC-OPF) para topolog\'ias malladas; (3) la exploraci\'on de t\'ecnicas de \textit{Reinforcement Learning} como alternativa al optimizador algebraico para escenarios con restricciones de latencia cr\'itica; (4) la evaluaci\'on del sistema en entornos con participaci\'on en mercados el\'ectricos; y (5) un estudio de usabilidad con operadores humanos para cuantificar la efectividad del sistema multi-agente como herramienta de asistencia a la decisi\'on.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusiones}
+Este trabajo present\'o el dise\~no e implementaci\'on de SIGE, una plataforma para la operaci\'on de microrredes el\'ectricas h\'ibridas que integra monitoreo IoT en tiempo real, predicci\'on de series temporales, optimizaci\'on estoc\'astica con control predictivo por modelo (MPC), detecci\'on estad\'istica de anomal\'ias y un sistema multi-agente basado en LLMs. La arquitectura de tres capas desacopladas (React, Node.js, Python) demostr\'o ser funcional en pruebas de laboratorio, completando ciclos MPC de 15 minutos que abarcan desde la adquisici\'on de datos hasta la notificaci\'on de resultados.
+
+Desde el punto de vista funcional, la plataforma demostr\'o ser capaz de procesar flujos de datos provenientes de sensores IoT en tiempo real, actualizando las visualizaciones del operador con latencias reducidas y generando autom\'aticamente las restricciones del modelo de optimizaci\'on a partir de la topolog\'ia definida en el editor de diagrama unifilar. La arquitectura de comunicaci\'on entre el orquestador de servicios y el motor de optimizaci\'on, basada en colas de trabajos con sondeo peri\'odico, complet\'o ciclos de predicci\'on y despacho en intervalos de 15 minutos, lo cual sugiere que el enfoque es aplicable a entornos operativos con requisitos de respuesta cuasi-tiempo real.
+
+En cuanto al modelo TFT, los resultados preliminares sobre 20 d\'ias de datos obtenidos de la microrred ($R^2 = 0.744$ en generaci\'on solar) indican que el modelo logra capturar el ciclo diario de generaci\'on y consumo a partir de variables meteorol\'ogicas y lecturas de sensores. Sin embargo, la muestra de entrenamiento es limitada y el sensor de temperatura del panel present\'o un hiato de 9 d\'ias que requiri\'o interpolaci\'on, lo cual introduce incertidumbre en la generalizaci\'on de los resultados. Se requiere un per\'iodo de datos m\'as extenso y continuo para establecer conclusiones definitivas sobre el desempe\~no del modelo en condiciones de operaci\'on real.
+
+\vspace{6pt}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\acknowledgments{Los autores agradecen a la Universidad de Nari\~no, a la Facultad de Ingenier\'ia y a la Direcci\'on de Relaciones Internacionales (DRI) por el entorno investigativo y el apoyo institucional que hizo posible materializar esta plataforma.}
+\conflictsofinterest{Los autores declaran no tener conflictos de inter\'es vinculados a este desarrollo cient\'ifico.}
+\dataavailability{Los c\'odigos fuente y datos del modelo TFT se estructurar\'an como repositorios institucionales cerrados a la espera de lineamientos formales de licenciamiento cient\'ifico.}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{adjustwidth}{-\extralength}{0cm}
+\reftitle{Referencias}
+\begin{thebibliography}{999}
+\bibitem{ref-lim}
+Lim, B., Arik, S. O., Loeff, N., \& Pfister, T. Temporal Fusion Transformers for interpretable multi-horizon time series forecasting. \textit{International Journal of Forecasting}, \textbf{2021}, \textit{37}(4), 1748-1764.
+
+\bibitem{ref-bynum}
+Bynum, M. L., Hackebeil, G. A., Hart, W. E., Laird, C. D., Nicholson, B. L., Siirola, J. D., Watson, J. P., \& Woodruff, D. L. \textit{Pyomo --- Optimization Modeling in Python}, 3rd ed.; Springer, 2021.
+
+\bibitem{ref-gurobi}
+Gurobi Optimization, LLC. Gurobi Optimizer Reference Manual. \textbf{2024}.
+
+\bibitem{ref-rawlings}
+Rawlings, J. B., Mayne, D. Q., \& Diehl, M. M. \textit{Model Predictive Control: Theory, Computation, and Design}, 2nd ed.; Nob Hill Publishing, 2017.
+
+\bibitem{ref-birge}
+Birge, J. R., \& Louveaux, F. \textit{Introduction to Stochastic Programming}, 2nd ed.; Springer, 2011.
+
+\bibitem{ref-huangfu}
+Huangfu, Q. \& Hall, J. A. J. Parallelizing the dual revised simplex method. \textit{Mathematical Programming Computation}, \textbf{2018}, \textit{10}(1), 119-142.
+
+\bibitem{ref-chase}
+Chase, H. \textit{LangChain: Building applications with LLMs through composability}. \textbf{2022}.
+\end{thebibliography}
+\PublishersNote{}
+\end{adjustwidth}
+\end{document}

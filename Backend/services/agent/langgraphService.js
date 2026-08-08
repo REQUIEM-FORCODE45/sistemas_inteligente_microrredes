@@ -1,4 +1,5 @@
 const { getAgentGraph } = require('./agentGraph');
+const { validateAgentOutput, auditRecord } = require('./llmSafety');
 const AuthorizedDevice = require('../../data/models/Device');
 
 const runAgent = async (io, analysisResult) => {
@@ -50,12 +51,31 @@ const runAgent = async (io, analysisResult) => {
 
     const finalPayload = result.resultadoFinal || result;
 
+    // Capa de seguridad (comentario 10): valida allowlist + rangos físicos + audita.
+    // El LLM es consultivo; esto garantiza que nada fuera de lo permitido llegue al frontend.
+    const inputBounds = datosActuales
+      ? Object.fromEntries(
+          Object.entries(datosActuales)
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .map(([k, v]) => [k, { min: v * 0.5, max: v * 1.5 }])
+        )
+      : {};
+    const safety = validateAgentOutput(finalPayload, inputBounds);
+    if (safety.rejectedReasons.length) {
+      console.warn(
+        `LangGraphService: Recomendación del LLM filtrada para "${initialState.sensorName}":`,
+        safety.rejectedReasons
+      );
+    }
+    const audit = auditRecord(sensor_id, safety);
+    console.log('LangGraphService: Auditoría de agente:', JSON.stringify(audit));
+
     io.to(sensor_id).emit('agent_result', {
       sensor_id,
       sensor_nombre: initialState.sensorName,
       sensor_tipo: initialState.sensorType,
       timestamp: timestamp || new Date().toISOString(),
-      ...finalPayload,
+      ...safety.payload,
     });
 
     console.log(

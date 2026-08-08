@@ -10,11 +10,13 @@ class MongoDatabase {
         try {
             await mongoose.connect(url, {
                 dbName: name,
+                serverSelectionTimeoutMS: 5000,
+                socketTimeoutMS: 10000,
             });
-            console.log('Conexion exitosa');
+            console.log('Conexion exitosa a MongoDB');
         } catch (error) {
-            console.log(error);
-            console.log('Error en la conexion');
+            console.error('Error en la conexion a MongoDB:', error.message);
+            throw error;
         }
     }
 }

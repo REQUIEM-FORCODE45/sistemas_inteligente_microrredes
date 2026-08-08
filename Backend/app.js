@@ -46,29 +46,34 @@ const dbUrl = process.env.MONGO_URL;
 const dbName = process.env.MONGO_DB_NAME;
 
 const startInfrastructure = async () => {
-  await MongoDatabase.connect(dbUrl, dbName);
-  syncAuthorizedSensors();
+  try {
+    await MongoDatabase.connect(dbUrl, dbName);
+    syncAuthorizedSensors();
 
-  initMQTT(io);
+    initMQTT(io);
 
-  const { initChangeStreams, shutdownChangeStreams } = require('./services/changeStreamService');
-  const { registerWorker, shutdownQueue } = require('./services/queueService');
+    const { initChangeStreams, shutdownChangeStreams } = require('./services/changeStreamService');
+    const { registerWorker, shutdownQueue } = require('./services/queueService');
 
-  await initChangeStreams();
-  const { createAnalysisWorker } = require('./services/analysis/analysisWorker');
-  registerWorker(createAnalysisWorker(io));
+    await initChangeStreams();
+    const { createAnalysisWorker } = require('./services/analysis/analysisWorker');
+    registerWorker(createAnalysisWorker(io));
 
-  const { startMpcScheduler, stopMpcScheduler } = require('./services/mpcScheduler');
-  const mpcInterval = parseInt(process.env.MPC_INTERVAL_MINUTES, 10) || 15;
-  startMpcScheduler(io, mpcInterval);
+    const { startMpcScheduler, stopMpcScheduler } = require('./services/mpcScheduler');
+    const mpcInterval = parseInt(process.env.MPC_INTERVAL_MINUTES, 10) || 15;
+    startMpcScheduler(io, mpcInterval);
 
-  process.on('SIGTERM', async () => {
-    await shutdownChangeStreams();
-    await shutdownQueue();
-    stopMpcScheduler();
-    const { shutdownOptimization } = require('./services/optimizationService');
-    await shutdownOptimization();
-  });
+    process.on('SIGTERM', async () => {
+      await shutdownChangeStreams();
+      await shutdownQueue();
+      stopMpcScheduler();
+      const { shutdownOptimization } = require('./services/optimizationService');
+      await shutdownOptimization();
+    });
+  } catch (err) {
+    console.error('Fallo al inicializar la infraestructura (MongoDB/MQTT/Redis):', err.message);
+    console.error('La API REST sigue disponible, pero los servicios dependientes pueden estar inactivos. Revisa MONGO_URL, REDIS_URL y la conectividad del broker MQTT.');
+  }
 };
 
 startInfrastructure();

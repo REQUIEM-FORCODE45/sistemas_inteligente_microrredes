@@ -164,3 +164,69 @@ Results flow to **3 places** after a solver run:
 - `docker-compose.yml` requires `command: redis-server --protected-mode no`
 - ECONNRESET from Docker bridge means protected-mode blocks connections — NOT a code bug
 - `pollProgress` has 150 poll limit (5 min) then times out with `status: 'timeout'`
+
+---
+
+## Paper SIGE (LaTeX) — Estado actual (2026-08-08, revisado 2026-08-08)
+
+### Working copy del paper
+| Archivo | Propósito |
+|---------|-----------|
+| `paper_mdpi/EngPaper.tex` | **Versión canónica de trabajo** (formato MDPI). Copia de `PaperSIGE_Review.zip`. Se edita aquí. |
+| `paper_mdpi/Definitions/` | Clase MDPI, .bst, .sty, logos. |
+| `paper_mdpi/images/`, `paper_mdpi/ENGimages/` | Figuras referenciadas por el paper. |
+| `paper.tex`, `paper.txt` | Versiones antiguas en raíz. NO tocar (legacy). |
+| `analisis_observaciones_SIGE.md` | Observaciones del revisor (11 comentarios). |
+| `refs.zip` / `PaperSIGE_Review.zip` | PDFs y fuente original del zip del revisor (en /tmp al extraer). |
+
+> Nota: el paper promete TFT en la Introduction (líneas 47, 67, 126), pero el
+> predictor TFT del código es un **stub** (`optimization/prediction/tft_predictor.py`
+> devuelve `[0.0]*hours`). En producción el MPC usa `MatlabPredictor` (series históricas).
+> Mantener cualquier corrección de código **independiente del TFT** salvo que el usuario lo indique.
+
+### Correcciones del revisor — ejecutadas (sesión 2026-08-07)
+Puntos corregidos punto por punto (uno a la vez, con confirmación): puntos 3, 4, 7, 10 (cerrados en código+paper) y 11 (cerrado salvo Gurobi MIQP real, que requiere licencia completa y queda "--"). Verificado 2026-08-08 que los textos de los puntos 4, 7 y 10 ya estaban escritos en `EngPaper.tex` (no eran pendientes de paper).
+El punto 6 (Tabla 1) quedó excluido por decisión del usuario.
+
+- **Punto 7 (referencia de resiliencia):** `bibitem{Han2026}` (Han et al., *J. Mar. Sci. Eng.* 2026, 14(9), 779) + cita `\cite{Han2026}` en literatura review (`EngPaper.tex` l.67) y `\bibitem` (l.398). Verificado 2026-08-08: `\cite`↔`\bibitem` resuelven. **CERRADO** (checklist I y IV).
+- **Punto 4 (rate of change):** `Backend/services/analysis/strategies/RateOfChangeStrategy.js` reescrito — eliminada la falsa alarma por división-por-cero (noche, PV=0) y añadidos umbrales por variable (voltage ±10%, power/current ±50%, soc ±20%). Verificado 8/8. **Texto del paper YA ESCRITO** (`EngPaper.tex` l.171, ítem 2 "Rate of change"): documenta protección div/0 + umbrales por variable con justificación física. **CERRADO** (código + paper).
+- **Punto 3 (complementariedad de batería):** `optimization/solver/model_builder.py` — variables binarias `Y_charge/Y_discharge` + restricciones de exclusión mutua. Ec.(4) en `EngPaper.tex` (l.155–160, Sección 2.1). **CERRADO**. Solve real no verificable aquí (Gurobi size-limited; HiGHS libre no resuelve MIQP).
+- **Punto 10 (LLM seguridad):** `Backend/services/agent/llmSafety.js` (allowlist + verificación numérica + auditoría) conectado en `langgraphService.js` (l.2, 54–63, `validateAgentOutput` con `inputBounds` del sensor). **Texto del paper YA ESCRITO** (`EngPaper.tex` l.186): declara LLM estrictamente consultivo, fuera del camino de control, validación multicapa (allowlist + verificación numérica + auditoría). Verificado integración. **CERRADO en texto+código**. Falta el experimento cuantitativo que pidió el revisor (set ~50–100 eventos etiquetados + API key) — fuera de alcance sin datos/API.
+- **Punto 11 (indicadores de rendimiento):** scripts en `optimization/benchmarks/` (`bench_solver.py`, `bench_mongo.py`, `bench_mqtt.py`, `bench_api.js`, `bench_ws.js`) + subsección "System performance" + `tab:performance` en `EngPaper.tex`. **Todo medido real 2026-08-08** (Backend corriendo en :3000; Mongo cluster remoto; broker MQTT remoto 34.69.148.115): MQTT p50=248.5/p95=295.4/p99=298.2 ms + 99.4 msg/s; MongoDB insert p50=1001.1/p95=2004.0 ms + 380.1 docs/s; Solver LP-relax (HiGHS) p50=24.8/p95=101.8 ms; WebSocket push (Socket.IO `optimization_started`, 20 eventos) p50=1.2/p95=1.4/p99=5.6 ms; REST API 10,770 RPS (p50 4 / p99 10 ms). Gurobi MIQP rechazado por licencia size-limited (confirmado empíricamente) → celda "--" como future work. **CERRADO salvo Gurobi MIQP.**
+
+### Convenciones de estilo (ÉTICA IEEE — NO VIOLAR)
+(mantener igual que antes)
+1. **Lenguaje neutro, sin hipérboles.**
+2. **Toda afirmación fuerte calificada** con condiciones/limitaciones/evidencia.
+3. **Sin auto-elogios.**
+4. **Métricas con contexto** (R²=0.744 → "sobre 20 días de datos", "muestra limitada").
+
+### Referencias
+- `Han2026` añadida y citada (ver Punto 7). Verificado 2026-08-08: `\cite{Han2026}` (l.67) ↔ `\bibitem{Han2026}` (l.398) resuelven.
+- Las 5 añadidas previas (ref-alternar, ref-rao, ref-tasmant, ref-lami, ref-medicion) siguen vigentes.
+
+### Figuras
+Mismas que antes; `red_microrred_mpc.png` pendiente de subir.
+
+### Agradecimientos
+Universidad de Nariño, Facultad de Ingeniería, Programa de Ingeniería Electrónica, DRI.
+
+---
+
+## Backend — arranque robusto (sesión 2026-08-07)
+
+- `Backend/app.js`: `startInfrastructure()` ahora envuelto en `try/catch` y loguea claramente si Mongo/MQTT/Redis fallan; **la API REST sigue viva** aunque los servicios caigan (graceful, sin crash por unhandled rejection).
+- `Backend/data/database.js`: `MongoDatabase.connect` usa `serverSelectionTimeoutMS: 5000`, `socketTimeoutMS: 10000` y **propaga el error** (antes lo tragaba con `console.log`). Esto hace el arranque determinista y diagnósticable.
+- MQTT broker está **hardcodeado** a `mqtt://34.69.148.115` en `mqttService.js` (IP externa de Google Cloud). Redis default `redis://localhost:6379` (vía `docker-compose.yml` solo sube Redis, no Mongo ni Mosquitto).
+- Docker daemon en esta máquina está DOWN (sin sudo passwordless) → no se pueden levantar Mongo/Redis/Mosquitto locales aquí. Para benchmarks end-to-end usar entorno con docker + Gurobi completo.
+
+## Benchmarks (optimization/benchmarks/)
+| Script | Mide | Estado aquí |
+|--------|------|-----------|
+| `bench_solver.py` | Tiempo solve MPC (Gurobi / highspy / highspy-lp). `--solver highspy-lp` resuelve de verdad (LP relaxation). | EJECUTADO: p50≈24.8 ms, p95≈101.8 ms. Gurobi MIQP rechazado (licencia size-limited). |
+| `bench_mongo.py` | Latencia/throughput insert MongoDB. | EJECUTADO con cluster remoto: p50=1001.1 ms, 380.1 docs/s |
+| `bench_mqtt.py` | Latencia end-to-end + throughput MQTT. | EJECUTADO con broker remoto: p50=248.5 ms, 99.4 msg/s |
+| `bench_api.js` | RPS/latencia API REST (autocannon). Resuelve deps desde `Backend/node_modules`. | EJECUTADO contra :3000: 10,770 RPS, p50=4 ms |
+| `bench_ws.js` | Latencia push Socket.IO backend→frontend (evento `optimization_started`). Firma JWT de prueba con `SECRET_JWT_SEED` desde `Backend/.env` (no se imprime). | EJECUTADO contra :3000: p50=1.2 ms, p95=1.4 ms, p99=5.6 ms (20 eventos) |
+
+Instalar deps: `pip install paho-mqtt pymongo` (mqtt/mongo); en `Backend/`: `npm install --save commander autocannon socket.io-client`. Nota: `socket.io-client` se instaló en esta sesión para el benchmark WS (modifica package.json/lock del Backend; reversible con `npm remove socket.io-client`).
