@@ -1,9 +1,109 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { X, Activity, GripHorizontal } from 'lucide-react';
+import { X, Activity, GripHorizontal, LineChart as LineChartIcon } from 'lucide-react';
 import { closeDispatchModal } from '@/Dashboard/store/diagram/diagramSlice';
 import NodeDispatchSparkline from './components/NodeDispatchSparkline';
+import GridAPI from '@/api/grid-api';
+import {
+  ResponsiveContainer, AreaChart, Area, Line, XAxis, YAxis, Tooltip,
+} from 'recharts';
 import { DEVICE_DEFINITIONS, getDeviceDispatchTypes } from './constants/deviceTypes';
+
+const SENSOR_TYPE_BY_DEVICE = {
+  solar_panel: 'solar',
+  load: 'load',
+  battery: 'bess',
+  wind_turbine: 'wind',
+};
+
+function SensorPredictionSection({ nodeId, deviceType }) {
+  const sensorMappings = useSelector((state) => state.diagram.sensorMappings);
+  const sensorId = sensorMappings?.[nodeId];
+  const tipo = SENSOR_TYPE_BY_DEVICE[deviceType];
+  const [pred, setPred] = useState(null);
+  const [loading, setLoading] = useState(Boolean(sensorId && tipo));
+
+  useEffect(() => {
+    if (!sensorId || !tipo) return;
+    let alive = true;
+    GridAPI.get('/front/prediction/sensor', {
+      params: { sensor_id: sensorId, type: tipo, hours: 24 },
+    })
+      .then((res) => {
+        if (!alive) return;
+        const values = res.data?.values || [];
+        setPred({
+          unit: res.data?.unit || 'kW',
+          data: values.map((v, i) => ({ hour: i + 1, ...v })),
+        });
+      })
+      .catch(() => {
+        if (alive) setPred(null);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => { alive = false; };
+  }, [sensorId, tipo]);
+
+  if (!sensorId || !tipo) {
+    return (
+      <div className="mt-3 rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-[10px] text-muted-foreground">
+        Sin sensor mapeado. Lígalo desde el panel del diagrama para ver la predicción calibrada de este activo.
+      </div>
+    );
+  }
+
+  const bandColor = deviceType === 'solar_panel' ? '#f59e0b' : '#14b8a6';
+  return (
+    <div className="mt-3 rounded-lg border bg-muted/10 p-2">
+      <div className="flex items-center justify-between px-1 pb-1">
+        <p className="text-[10px] font-semibold text-foreground flex items-center gap-1">
+          <LineChartIcon className="w-3 h-3 text-chart-5" />
+          Predicción del sensor (24h · modelo calibrado)
+        </p>
+        <span className="text-[9px] text-muted-foreground font-mono">{sensorId.slice(-10)}</span>
+      </div>
+      {loading && (
+        <p className="text-[10px] text-muted-foreground px-1 py-4">
+          Cargando predicción (si es la primera vez, calibra el modelo del sensor)...
+        </p>
+      )}
+      {!loading && !pred && (
+        <p className="text-[10px] text-muted-foreground px-1 py-4">
+          Predicción no disponible (¿servicio Python en :8000?).
+        </p>
+      )}
+      {!loading && pred && (
+        <>
+          <ResponsiveContainer width="100%" height={110}>
+            <AreaChart data={pred.data} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+              <defs>
+                <linearGradient id="bandFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={bandColor} stopOpacity={0.25} />
+                  <stop offset="100%" stopColor={bandColor} stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="hour" hide />
+              <YAxis hide domain={[0, 'dataMax']} />
+              <Tooltip
+                contentStyle={{ fontSize: 10, borderRadius: 8 }}
+                formatter={(v, name) => [`${Number(v).toFixed(1)} ${pred.unit}`, name]}
+              />
+              <Area type="monotone" dataKey="P90" stroke="none" fill="url(#bandFill)" />
+              <Area type="monotone" dataKey="P10" stroke="none" fill="var(--card)" fillOpacity={1} />
+              <Line type="monotone" dataKey="P50" stroke={bandColor} strokeWidth={2} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div className="flex justify-between px-1 pt-1 text-[9px] text-muted-foreground">
+            <span>banda P10-P90</span>
+            <span>pico P50: {Math.max(...pred.data.map((d) => d.P50)).toFixed(1)} {pred.unit}</span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function NodeDispatchModal() {
   const dispatch = useDispatch();
@@ -132,6 +232,8 @@ export default function NodeDispatchModal() {
             <p className="font-semibold tabular-nums">{nodeEntries.filter((d) => Math.abs(d.power_kw) > 0.5).length}h</p>
           </div>
         </div>
+
+        <SensorPredictionSection nodeId={dispatchModalNodeId} deviceType={node.data?.deviceType} />
       </div>
     </div>
   );

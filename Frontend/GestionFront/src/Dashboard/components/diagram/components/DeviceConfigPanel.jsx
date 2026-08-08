@@ -6,7 +6,6 @@ import {
   removeNode,
   removeEdge,
 } from '@/Dashboard/store/diagram/diagramSlice';
-import { cn } from '@/lib/utils';
 import { X, Save, Trash2, Pencil, Check } from 'lucide-react';
 import { DEVICE_DEFINITIONS } from '../constants/deviceTypes';
 
@@ -49,12 +48,18 @@ export default function DeviceConfigPanel({ onClose }) {
   const [editingLabel, setEditingLabel] = useState(false);
   const labelInputRef = useRef(null);
 
+  // OJO: dependemos del ID (estable), NO de `selectedNode` (referencia nueva en
+  // cada dispatch de Redux). Asi las ediciones locales no se borran cuando
+  // ocurre cualquier otra actualizacion (drag, sensorMappings, param saves).
+  const selectedNodeId = selectedElement?.type === 'node' ? selectedElement.id : null;
+
   useEffect(() => {
-    if (selectedNode) {
+    if (selectedNode && selectedNodeId) {
       setParams({ ...selectedNode.data.params });
       setLabel(selectedNode.data.label || '');
     }
-  }, [selectedNode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNodeId]);
 
   const handleSave = useCallback(() => {
     if (!selectedNode) return;
@@ -181,15 +186,38 @@ export default function DeviceConfigPanel({ onClose }) {
               <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
                 Parámetros
               </p>
-              {paramKeys.map((key) => (
-                <ParamField
-                  key={key}
-                  label={paramLabels[key] || key}
-                  value={params[key]}
-                  type={typeof nodeDeviceDef.defaultParams[key] === 'number' ? 'number' : 'text'}
-                  onChange={(val) => setParams((prev) => ({ ...prev, [key]: val }))}
-                />
-              ))}
+              {nodeDeviceDef?.type === 'load' && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-medium text-muted-foreground">
+                    Fuente de carga
+                  </label>
+                  <select
+                    value={params.loadSource === 'mat' ? 'mat' : 'static'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setParams((prev) => ({ ...prev, loadSource: val }));
+                      if (selectedNode) {
+                        dispatch(updateNodeParams({ nodeId: selectedNode.id, params: { loadSource: val } }));
+                      }
+                    }}
+                    className="w-full px-2 py-1.5 text-[11px] rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring/40"
+                  >
+                    <option value="static">Estática (fija)</option>
+                    <option value="mat">Perfil modular Consumo.mat</option>
+                  </select>
+                </div>
+              )}
+              {paramKeys
+                .filter((key) => key !== 'loadSource')
+                .map((key) => (
+                  <ParamField
+                    key={key}
+                    label={paramLabels[key] || key}
+                    value={params[key]}
+                    type={typeof nodeDeviceDef.defaultParams[key] === 'number' ? 'number' : 'text'}
+                    onChange={(val) => setParams((prev) => ({ ...prev, [key]: val }))}
+                  />
+                ))}
             </div>
           )}
 

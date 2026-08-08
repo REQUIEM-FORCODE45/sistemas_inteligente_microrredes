@@ -1,8 +1,41 @@
+# ===== SIGEMM optimization/ — dependencies =====
+# Servicio de prediccion (FastAPI :8000) + solver estocastico (Pyomo/Gurobi)
+# + bucle clima -> forecast -> fisica -> calibracion -> control
+
+# --- API / solver (ya presentes) ---
 fastapi>=0.115.0
 uvicorn>=0.34.0
+pydantic>=2.0.0
 scipy>=1.10.0
 numpy>=1.24.0
 gurobipy>=12.0.0
 highspy>=1.5.0
 redis>=5.0.0
-pydantic>=2.0.0
+pyomo>=6.7.0
+# pyomo ya estaba en uso (solver/model_builder.py) pero faltaba en requirements
+
+# --- Clima / forecast (Fase 1-2) ---
+requests>=2.25.0
+pandas>=2.0.0
+pvlib>=0.10.0            # modelos fisicos PV (POA, temp celda, DC/AC)
+requests-retry>=2.5.0    # retry exponencial en descarga Open-Meteo
+
+# --- Calibracion (Fase 4) y ML de residuos ---
+scikit-learn>=1.3.0      # GradientBoostingRegressor
+
+# --- Acceso a sensores sinteticos/real (Fase 1b/1c) ---
+pymongo>=4.6.0
+paho-mqtt>=2.0.0
+
+# --- Forecast TimesFM 2.5 (Fase 2; optativo segun hardware/GPU) ---
+# torch se instala aparte segun CUDA (ver HANDOFF_TECNICO_2).
+# ATENCION: timesfm[all] requiere ~2GB de disco; NO instalar en CI.
+transformers>=4.46.0
+accelerate>=1.0.0
+
+# --- Baselines de tesis (Fase 2b) ---
+statsmodels>=0.14.0      # ARIMA univariante por variable
+
+# --- Tests / tooling ---
+pytest>=8.0.0
+PyYAML>=5.4.0

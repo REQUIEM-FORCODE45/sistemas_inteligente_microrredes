@@ -26,18 +26,27 @@ export const BatterySOCChart = ({ socEvolution, totalHours = 24 }) => {
     });
 
     const layout = {
-      title: 'Estado de Carga de Baterias',
-      xaxis: { title: 'Hora', dtick: 1 },
-      yaxis: { title: 'SOC (kWh)' },
-      margin: { l: 50, r: 20, t: 40, b: 40 },
+      // sin title interno: el <h3> React titula (evita colision leyenda/titulo)
+      xaxis: { title: 'Hora', dtick: 1, automargin: true },
+      yaxis: { title: 'SOC (kWh)', automargin: true },
+      margin: { l: 60, r: 20, t: 30, b: 75 },
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
-      font: { color: '#64748b' },
-      legend: { orientation: 'h', y: 1.12 },
+      font: { color: '#64748b', size: 11 },
+      legend: {
+        orientation: 'h',
+        y: -0.28,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 11 },
+      },
       height: 320,
     };
 
-    Plotly.react(chartRef.current, traces, layout, { responsive: true });
+    Plotly.react(chartRef.current, traces, layout, {
+      responsive: true,
+      displaylogo: false,
+    });
 
     const observer = new ResizeObserver(() => {
       if (chartRef.current) Plotly.Plots.resize(chartRef.current);

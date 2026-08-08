@@ -26,6 +26,9 @@ const CopyButton = ({ text }) => {
 export const DeviceList = () => {
     const { devices, loading, shareSensor, unshareSensor } = useDevices();
     const [sharingSensor, setSharingSensor] = useState(null);
+    // NOTA: el clima no es un sensor de la planta (entrada externa
+    // Open-Meteo/TimesFM); pasto_weather se excluye de la gestion de equipos.
+    const plantDevices = (devices || []).filter((d) => String(d._id) !== 'pasto_weather');
 
     if (loading) return <p className="text-slate-500 text-sm">Cargando dispositivos...</p>;
 
@@ -58,7 +61,7 @@ export const DeviceList = () => {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                    {devices.map(d => (
+                    {plantDevices.map(d => (
                         <tr key={d._id} className="hover:bg-slate-50/50 transition-colors">
                             <td className="px-6 py-4 font-semibold text-slate-800">
                                 {d.name}
@@ -92,7 +95,7 @@ export const DeviceList = () => {
                             </td>
                         </tr>
                     ))}
-                    {devices.length === 0 && (
+                    {plantDevices.length === 0 && (
                         <tr>
                             <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
                                 No hay dispositivos registrados.

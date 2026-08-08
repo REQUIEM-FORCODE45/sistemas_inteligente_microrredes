@@ -1,4 +1,4 @@
-const AuthorizedDevice = require('../../data/models/Device');
+const { findDeviceById } = require('../../helpers/deviceLookup');
 const { getStrategyRegistry } = require('./strategyRegistry');
 const { fetchLatestSnapshotsForSensors } = require('../sensorDataService');
 const { runAgent } = require('../agent/langgraphService');
@@ -12,7 +12,7 @@ const createAnalysisWorker = (io) => {
       return { omitido: true, motivo: 'datos insuficientes' };
     }
 
-    const sensorMeta = await AuthorizedDevice.findById(sensorId).select('name type').lean();
+    const sensorMeta = await findDeviceById(sensorId);
     const sensorType = sensorMeta?.type || 'meter';
     const sensorName = sensorMeta?.name || 'Sensor desconocido';
 

@@ -4,14 +4,18 @@ const path = require('path');
 const {
   enqueueOptimization,
   getLatestOptimizationResult,
+  getRedis,
 } = require('./optimizationService');
 
 const PREDICTION_API = process.env.PREDICTION_API_URL || 'http://localhost:8000';
+const LAST_TOPOLOGY_KEY = 'optimization:last_topology';
 
 let mpcTimer = null;
 let io = null;
 let mpcRunning = false;
 let mpcIntervalMinutes = 15;
+let lastTopology = null;
+let lastSensorMappings = null;
 
 const DEFAULT_TOPOLOGY = {
   sources: [
@@ -36,13 +40,17 @@ const DEFAULT_TOPOLOGY = {
 
 async function fetchPredictions() {
   try {
-    const [solarRes, loadRes] = await Promise.all([
+    const [solarRes, loadRes, powerRes] = await Promise.all([
       axios.get(`${PREDICTION_API}/predict/solar?hours=24`, { timeout: 5000 }),
       axios.get(`${PREDICTION_API}/predict/load?hours=24`, { timeout: 5000 }),
+      axios.get(`${PREDICTION_API}/predict/power?hours=24`, { timeout: 5000 }).catch(() => null),
     ]);
+    const power = powerRes?.data?.values || [];
     return {
       solar: solarRes.data.values || [],
       load: loadRes.data.values || [],
+      power,
+      pv_kw: power.map((v) => (v?.P50 != null ? v.P50 : 0)),
     };
   } catch (err) {
     console.warn('  [MPC] No se pudo obtener predicciones del servicio Python:', err.message);
@@ -58,6 +66,50 @@ function computeLoadTotal(loadValues) {
     const pl3 = entry.PL3 || 0;
     return pl1 + pl2 + pl3;
   });
+}
+
+// Decide el perfil de carga segun la fuente elegida en cada bloque Carga:
+//  - 'mat': perfil modular de Consumo.mat (perfilTotal) + sumar staticos.
+//  - 'static' (o sin etiqueta, legado): su fixed_kw constante.
+const LOAD_HOURS = 24;
+
+function blendLoads(topologyLoads, profileTotal) {
+  const loads = topologyLoads || [];
+
+  const matBlocks = loads.filter((l) => l.load_source === 'mat');
+  const staticKw = loads
+    .filter((l) => l.load_source !== 'mat')
+    .reduce((s, l) => s + (l.fixed_kw || 0), 0);
+
+  if (matBlocks.length === 0) {
+    // Sin bloques "mat": si hay consumo fijo configurado, perfil constante;
+    // si no, legado: usar el perfil (sensor o Consumo.mat) tal cual.
+    if (staticKw > 0) {
+      return {
+        loadTotal: Array.from({ length: LOAD_HOURS }, () => staticKw),
+        staticLoadKw: staticKw,
+      };
+    }
+    return { loadTotal: profileTotal || [], staticLoadKw: null };
+  }
+
+  // Al menos un bloque 'mat': el perfil se ESCALA a la capacidad total de los
+  // bloques mat (suma de max_kw). Asi el perfil modular de Consumo.mat conserva
+  // su forma (curva horaria real) pero su pico queda limitado a lo que el
+  // bloque declara, evitando infactibilidades con grids/generadores chicos.
+  const base = (profileTotal && profileTotal.length)
+    ? profileTotal
+    : Array.from({ length: LOAD_HOURS }, () => 0);
+  const matCapacity = matBlocks.reduce((s, l) => s + (l.max_kw || 0), 0);
+  const peak = Math.max(...base, 1);
+  const scale = matCapacity > 0 ? matCapacity / peak : 1;
+  if (scale !== 1) {
+    console.log(`  [MPC] Escalando perfil Consumo.mat: pico ${peak.toFixed(1)} kW -> ${matCapacity} kW (capacidad bloques mat).`);
+  }
+  return {
+    loadTotal: base.map((v) => v * scale + staticKw),
+    staticLoadKw: staticKw > 0 ? staticKw : null,
+  };
 }
 
 async function executeMpcCycle(userTopology = null, userPredictions = null) {
@@ -77,7 +129,28 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
       });
     }
 
+    // Ciclo AUTOMATICO (sin topologia propia): usa el ultimo diagrama enviado
+    // desde el frontend ("Optimizar") o, si nunca hubo, el DEFAULT_TOPOLOGY.
+    let topology = userTopology;
+    if (!topology) {
+      const saved = await loadLastTopology();
+      topology = saved || DEFAULT_TOPOLOGY;
+    }
+
     let predictions = userPredictions;
+
+    // Bucle completo (Opcion A): si el ultimo trigger trajo sensor_mappings,
+    // calibrar + predecir por sensor, igual que el boton "Optimizar".
+    if (!predictions && !userTopology && lastSensorMappings && Object.keys(lastSensorMappings).length) {
+      try {
+        const { runPredictionPipeline } = require('./predictionPipeline');
+        const pipe = await runPredictionPipeline(lastSensorMappings, topology);
+        if (pipe) predictions = pipe.predictions;
+      } catch (err) {
+        console.warn('  [MPC] Pipeline automatico fallo, usa default:', err.message);
+      }
+    }
+
     if (!predictions) {
       predictions = await fetchPredictions();
     }
@@ -89,7 +162,32 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
 
     const loadTotal = computeLoadTotal(predictions.load);
 
-    const topology = userTopology || DEFAULT_TOPOLOGY;
+    // CARGA por bloque: cada bloque Carga elige su fuente en el diagrama:
+    //  - 'mat'    -> perfil modular de Consumo.mat (PL1+PL2+PL3)
+    //  - 'static' -> perfil constante (fixed_kw = consumption o maxLoad)
+    const topologyLoads = topology.loads || [];
+    console.log('  [MPC] Bloques carga:', topologyLoads.map((l) => ({
+      id: l.id, src: l.load_source || 'static', fk: l.fixed_kw,
+    })));
+    let profileTotal = loadTotal;
+
+    // Si el bloque dice 'mat' pero no llego perfil (pipeline sin sensor de
+    // carga), trer el perfil modular real desde el servicio Python (.mat).
+    const matBlocks = topologyLoads.filter((l) => l.load_source === 'mat');
+    if (matBlocks.length > 0 && profileTotal.length === 0) {
+      try {
+        const r = await axios.get(`${PREDICTION_API}/predict/load?hours=24`, { timeout: 5000 });
+        profileTotal = computeLoadTotal(r.data?.values);
+        console.log('  [MPC] Perfil modular de Consumo.mat obtenido para carga "mat".');
+      } catch (err) {
+        console.warn('  [MPC] No se pudo obtener perfil Consumo.mat:', err.message);
+      }
+    }
+
+    const { loadTotal: blendedLoad, staticLoadKw } = blendLoads(
+      topologyLoads,
+      profileTotal,
+    );
 
     const optimizationInput = {
       sources: topology.sources || [],
@@ -98,7 +196,10 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
       loads: topology.loads || [],
       grid: topology.grid || {},
       predictions_solar: predictions.solar,
-      predictions_load_total: loadTotal,
+      predictions_pv_kw: predictions.pv_kw || null,   // kW calibrados de /predict/power
+      predictions_pv_band: predictions.power || null, // banda P10/P50/P90 (Fase 5)
+      predictions_load_total: blendedLoad,
+      static_load_kw: staticLoadKw,
       horizon: 24,
       time_step_minutes: 60,
       scenarios: null,
@@ -152,15 +253,20 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
 }
 
 function startMpcScheduler(socketIO, intervalMinutes = 15) {
+  io = socketIO;
+  mpcIntervalMinutes = intervalMinutes > 0 ? intervalMinutes : 15;
+
+  if (intervalMinutes <= 0) {
+    console.log('  [MPC] Scheduler deshabilitado al arranque (MPC_INTERVAL_MINUTES=0 o ausente).');
+    console.log('  [MPC] Activalo desde el frontend (switch "Ciclo automatico") o con MPC_INTERVAL_MINUTES>0.');
+    return;
+  }
   if (mpcTimer) return;
 
-  io = socketIO;
-  mpcIntervalMinutes = intervalMinutes;
   const ms = intervalMinutes * 60 * 1000;
-
   console.log(`  [MPC] Scheduler iniciado cada ${intervalMinutes} min`);
-
   mpcTimer = setInterval(executeMpcCycle, ms);
+  if (io) io.emit('mpc_status', getMpcStatus());
 }
 
 function stopMpcScheduler() {
@@ -169,13 +275,66 @@ function stopMpcScheduler() {
     mpcTimer = null;
     console.log('  [MPC] Scheduler detenido');
   }
+  if (io) io.emit('mpc_status', getMpcStatus());
+}
+
+async function setMpcEnabled(enabled) {
+  if (enabled) {
+    if (mpcTimer) return getMpcStatus();
+    const ms = mpcIntervalMinutes * 60 * 1000;
+    mpcTimer = setInterval(executeMpcCycle, ms);
+    console.log(`  [MPC] Scheduler arrancado manualmente cada ${mpcIntervalMinutes} min`);
+  } else {
+    stopMpcScheduler();
+  }
+  if (io) io.emit('mpc_status', getMpcStatus());
+  return getMpcStatus();
+}
+
+async function setLastTopology(topology, sensorMappings) {
+  lastTopology = topology || null;
+  lastSensorMappings = sensorMappings || null;
+
+  try {
+    const redis = getRedis();
+    await redis.set(LAST_TOPOLOGY_KEY, JSON.stringify({
+      topology: lastTopology,
+      sensor_mappings: lastSensorMappings,
+      updated_at: new Date().toISOString(),
+    }));
+    await redis.expire(LAST_TOPOLOGY_KEY, 60 * 60 * 24 * 7);
+  } catch (err) {
+    console.warn('  [MPC] No se pudo persistir topologia en Redis:', err.message);
+  }
+}
+
+async function loadLastTopology() {
+  if (lastTopology) return lastTopology;
+  try {
+    const redis = getRedis();
+    const raw = await redis.get(LAST_TOPOLOGY_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data && data.topology) {
+        lastTopology = data.topology;
+        lastSensorMappings = data.sensor_mappings || null;
+        console.log('  [MPC] Topologia recuperada de Redis (ultimo diagrama).');
+        return lastTopology;
+      }
+    }
+  } catch (err) {
+    console.warn('  [MPC] No se pudo recuperar topologia de Redis:', err.message);
+  }
+  return null;
 }
 
 function getMpcStatus() {
   return {
     running: !!mpcTimer,
+    enabled: !!mpcTimer,
     interval_minutes: mpcIntervalMinutes,
     cycle_active: mpcRunning,
+    uses_current_topology: !!(lastTopology || lastSensorMappings),
   };
 }
 
@@ -186,6 +345,9 @@ function resetMpcCycle() {
 module.exports = {
   startMpcScheduler,
   stopMpcScheduler,
+  setMpcEnabled,
+  setLastTopology,
+  loadLastTopology,
   executeMpcCycle,
   getMpcStatus,
   resetMpcCycle,

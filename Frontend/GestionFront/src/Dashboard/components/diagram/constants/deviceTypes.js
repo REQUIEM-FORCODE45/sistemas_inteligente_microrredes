@@ -7,6 +7,7 @@ import {
   Power,
   ArrowLeftRight,
   Fuel,
+  Wind,
 } from 'lucide-react';
 
 export const CURRENT_TYPE = {
@@ -24,7 +25,9 @@ export const DEVICE_CATEGORIES = {
 
 export const DEVICE_TYPE = {
   SOLAR_PANEL: 'solar_panel',
+  SOLAR_PANEL_AC: 'solar_panel_ac',
   DIESEL_GENERATOR: 'diesel_generator',
+  WIND_TURBINE: 'wind_turbine',
   GRID: 'grid',
   INVERTER: 'inverter',
   BATTERY: 'battery',
@@ -46,7 +49,7 @@ export const CATEGORY_META = {
     bgClass: 'bg-amber-50 dark:bg-amber-950/30',
     borderClass: 'border-amber-200 dark:border-amber-800',
     textClass: 'text-amber-700 dark:text-amber-300',
-      types: [DEVICE_TYPE.SOLAR_PANEL, DEVICE_TYPE.DIESEL_GENERATOR, DEVICE_TYPE.GRID],
+      types: [DEVICE_TYPE.SOLAR_PANEL, DEVICE_TYPE.SOLAR_PANEL_AC, DEVICE_TYPE.DIESEL_GENERATOR, DEVICE_TYPE.WIND_TURBINE, DEVICE_TYPE.GRID],
   },
   [DEVICE_CATEGORIES.CONVERSION]: {
     label: 'Conversión',
@@ -112,6 +115,27 @@ export const DEVICE_DEFINITIONS = {
       { type: 'solar', color: '#f59e0b', label: 'Solar' },
     ],
   },
+  [DEVICE_TYPE.SOLAR_PANEL_AC]: {
+    type: DEVICE_TYPE.SOLAR_PANEL_AC,
+    category: DEVICE_CATEGORIES.SOURCES,
+    label: 'Panel Solar AC',
+    icon: Sun,
+    // Con microinversor integrado: la conversion DC->AC la hace el propio panel,
+    // por eso su salida ya es AC y puede ir directo a una carga AC.
+    currentType: CURRENT_TYPE.AC,
+    bitrate: BITRATE.SOURCE,
+    defaultParams: {
+      maxCapacity: 5000,
+      efficiency: 0.21,
+      invEfficiency: 0.95,
+    },
+    dimension: { width: 185, height: 110 },
+    solverCategory: SOLVER_CATEGORY.SOURCES,
+    solverType: 'solar',
+    dispatchTypes: [
+      { type: 'solar', color: '#f59e0b', label: 'Solar' },
+    ],
+  },
   [DEVICE_TYPE.DIESEL_GENERATOR]: {
     type: DEVICE_TYPE.DIESEL_GENERATOR,
     category: DEVICE_CATEGORIES.SOURCES,
@@ -132,6 +156,24 @@ export const DEVICE_DEFINITIONS = {
     solverType: 'diesel',
     dispatchTypes: [
       { type: 'diesel', color: '#3b82f6', label: 'Diesel' },
+    ],
+  },
+  [DEVICE_TYPE.WIND_TURBINE]: {
+    type: DEVICE_TYPE.WIND_TURBINE,
+    category: DEVICE_CATEGORIES.SOURCES,
+    label: 'Aerogenerador',
+    icon: Wind,
+    currentType: CURRENT_TYPE.AC,
+    bitrate: BITRATE.SOURCE,
+    defaultParams: {
+      maxCapacity: 100000,
+      efficiency: 0.4,
+    },
+    dimension: { width: 185, height: 110 },
+    solverCategory: SOLVER_CATEGORY.SOURCES,
+    solverType: 'wind',
+    dispatchTypes: [
+      { type: 'wind', color: '#14b8a6', label: 'Eólica' },
     ],
   },
   [DEVICE_TYPE.GRID]: {
@@ -198,6 +240,7 @@ export const DEVICE_DEFINITIONS = {
     defaultParams: {
       maxLoad: 3000,
       consumption: 0,
+      loadSource: 'static', // 'mat' -> perfil modular Consumo.mat | 'static' -> fija
     },
     dimension: { width: 180, height: 110 },
     solverCategory: SOLVER_CATEGORY.LOADS,

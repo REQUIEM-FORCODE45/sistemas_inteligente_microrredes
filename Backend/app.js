@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const { initMQTT } = require('./services/mqttService');
 const MongoDatabase = require('./data/database');
 const { syncAuthorizedSensors } = require('./helpers/securityManager');
+const { findDeviceById } = require('./helpers/deviceLookup');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const AuthorizedDevice = require('./data/models/Device');
@@ -13,6 +14,8 @@ const { canAccessSensor, buildAccessQuery } = require('./helpers/deviceAuthoriza
 require('dotenv').config();
 
 const app = express();
+
+const { setIO } = require('./services/ioBus');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -42,6 +45,8 @@ const io = new Server(server, {
     }
 });
 
+setIO(io);
+
 const dbUrl = process.env.MONGO_URL;
 const dbName = process.env.MONGO_DB_NAME;
 
@@ -59,7 +64,9 @@ const startInfrastructure = async () => {
   registerWorker(createAnalysisWorker(io));
 
   const { startMpcScheduler, stopMpcScheduler } = require('./services/mpcScheduler');
-  const mpcInterval = parseInt(process.env.MPC_INTERVAL_MINUTES, 10) || 15;
+  // Apagado por defecto: el ciclo automatico de 15 min solo corre si
+  // MPC_INTERVAL_MINUTES > 0 (o se activa desde el switch del frontend).
+  const mpcInterval = parseInt(process.env.MPC_INTERVAL_MINUTES || '', 10) || 0;
   startMpcScheduler(io, mpcInterval);
 
   process.on('SIGTERM', async () => {
@@ -106,7 +113,7 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            const sensor = await AuthorizedDevice.findById(sensorId).select('userId sharedWith status');
+            const sensor = await findDeviceById(sensorId);
             if (!sensor) {
                 socket.emit('sensor_error', { message: 'Sensor no encontrado' });
                 return;
@@ -117,8 +124,7 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            socket.join(sensorId);
-            console.log(`Cliente ${socket.id} escuchando al sensor: ${sensorId}`);
+            socket.join(sensorId);            console.log(`Cliente ${socket.id} escuchando al sensor: ${sensorId}`);
         } catch (err) {
             console.error('Error validando acceso al sensor del socket', err);
             socket.emit('sensor_error', { message: 'Ocurrió un error durante la validación' });

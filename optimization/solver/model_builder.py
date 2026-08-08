@@ -13,13 +13,21 @@ Soporte:
 import logging
 from typing import Any
 
-from optimization.solver.cost_functions import (
-    diesel_cost,
-    battery_degradation_cost,
-    no_cost,
-)
+import numpy as np
+import pyomo.environ as pyo
+
+from optimization.solver.cost_functions import diesel_cost, battery_degradation_cost
 from optimization.solver.scenarios import build_scenarios
 from optimization.solver.solvers import solve, SolverResult
+
+# Linealizacion por tramos del costo cuadratico del diesel (Fase 6):
+# - La licencia gratuita de Gurobi es size-limited (~200 vars) y el modelo
+#   estocastico (24h x 3 escenarios) la excede -> Gurobi no sirve siempre.
+# - El fallback HiGHS (appsi_highs) NO soporta objetivos cuadraticos (QP).
+# - Solucion: costo diesel por tramos (MILP) -> HiGHS resuelve sin limite.
+# El costo cuadratico REAL se sigue reportando en cost_breakdown.
+PW_DIESEL_N_PTS = 10
+PW_DIESEL_BIGM = 1e6
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +53,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     scenarios_raw = input_data.get("scenarios")
     predictions_solar = input_data.get("predictions_solar", [])
     predictions_load_total = input_data.get("predictions_load_total", [])
+    predictions_pv_kw = input_data.get("predictions_pv_kw", [])
+    predictions_pv_band = input_data.get("predictions_pv_band", [])
     sources = input_data.get("sources", [])
     storage_list = input_data.get("storage", [])
     converters = input_data.get("converters", [])
@@ -63,6 +73,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             s_ids=s_ids,
             predictions_solar=predictions_solar,
             predictions_load_total=predictions_load_total,
+            predictions_pv_kw=predictions_pv_kw,
+            predictions_pv_band=predictions_pv_band,
             sources=sources,
             storage_list=storage_list,
             loads=loads,
@@ -134,10 +146,12 @@ def _build_pyomo_model(
     s_ids: list,
     predictions_solar: list,
     predictions_load_total: list,
-    sources: list,
-    storage_list: list,
-    loads: list,
-    grid_raw: dict,
+    predictions_pv_kw: list = None,
+    predictions_pv_band: list = None,
+    sources: list = None,
+    storage_list: list = None,
+    loads: list = None,
+    grid_raw: dict = None,
 ) -> tuple[Any, dict]:
     """Construye el ConcreteModel de Pyomo.
 
@@ -154,18 +168,43 @@ def _build_pyomo_model(
     model.T = pyo.RangeSet(0, horizon - 1)
     model.S = pyo.RangeSet(0, len(scenarios) - 1)
 
-    solar_src = next((s for s in sources if s.get("type") == "solar"), None)
+    sources = sources or []
+    storage_list = storage_list or []
+    loads = loads or []
+    grid_raw = grid_raw or {}
+    predictions_pv_kw = list(predictions_pv_kw) if predictions_pv_kw else []
+    predictions_pv_band = list(predictions_pv_band) if predictions_pv_band else []
+
+    def _band_at(t: int, key: str) -> float:
+        """Valor P10/P50/P90 de la banda horaria t (dict o tupla [p10,p50,p90])."""
+        if not predictions_pv_band or t >= len(predictions_pv_band):
+            return 0.0
+        b = predictions_pv_band[t]
+        if isinstance(b, dict):
+            return float(b.get(key, b.get("P50", 0.0)))
+        try:
+            order = {"P10": 0, "P50": 1, "P90": 2}
+            return float(b[order[key]])
+        except (IndexError, TypeError):
+            return 0.0
+
+    # Tipos de generacion solar pasiva (mismo modelo de irradiancia -> kW)
+    SOLAR_TYPES = ("solar", "solar_panel_ac")
+
+    solar_src = next((s for s in sources if s.get("type") in SOLAR_TYPES), None)
     solar_max_kw = solar_src.get("max_kw", 900) if solar_src else 900
     solar_eff = solar_src.get("efficiency", 0.4 * 0.9) if solar_src else (0.4 * 0.9)
 
     solar_devices = []
     for src in sources:
-        if src.get("type") == "solar":
+        if src.get("type") in SOLAR_TYPES:
             solar_devices.append({
                 "id": src.get("id", "solar"),
                 "max_kw": src.get("max_kw", 900),
                 "efficiency": src.get("efficiency", 0.4 * 0.9),
+                "weight": src.get("max_kw", 900) * src.get("efficiency", 0.4 * 0.9),
             })
+    total_solar_kw = sum(d["weight"] for d in solar_devices) or 1.0
 
     diesel_devices = []
     for src in sources:
@@ -237,6 +276,7 @@ def _build_pyomo_model(
                 "discharge_eff": bat.get("discharge_efficiency", 0.95),
             })
 
+    pv_first_kw = 0.0   # probe para tests: valor usado en balance (t=0, s=0)
     for s_idx in s_ids:
         sc = scenarios[s_idx]
         factor_pv = sc["factor_pv"]
@@ -245,7 +285,19 @@ def _build_pyomo_model(
             t_idx = int(t)
             irrad = predictions_solar[t_idx] if t_idx < len(predictions_solar) else 0.0
 
-            pv_kw = sum(sd["max_kw"] * sd["efficiency"] * irrad * factor_pv for sd in solar_devices)
+            if predictions_pv_band:
+                # MPC ROBUSTO por cuantiles (Fase 5): el balance se garantiza
+                # con la generacion de PEOR CASO (P10 del forecast calibrado).
+                pv_kw = _band_at(t_idx, "P10") * factor_pv
+            elif predictions_pv_kw:
+                # perfil CALIBRADO (kW) de /predict/power; la fisica ya se aplico
+                pv_kw = (predictions_pv_kw[t_idx] if t_idx < len(predictions_pv_kw)
+                         else 0.0) * factor_pv
+            else:
+                pv_kw = sum(sd["max_kw"] * sd["efficiency"] * irrad * factor_pv
+                            for sd in solar_devices)
+            if t_idx == 0 and s_idx == s_ids[0]:
+                pv_first_kw = float(pv_kw)
 
             diesel_total = (
                 sum(model.P_diesel[di, t, s_idx] for di in range(num_diesel))
@@ -304,15 +356,35 @@ def _build_pyomo_model(
     grid_d = grid_raw.get("cost_fixed", 40)
     grid_e = grid_raw.get("cost_variable", 60)
 
+    # Linealizacion por tramos del costo diesel (MILP; HiGHS-compatible).
+    # DIESEL_COST[di,t,s] = aprox. por tramos de (c + b*P + a*P^2) * fuel
+    if num_diesel > 0:
+        model.DIESEL_COST = pyo.Var(model.P_diesel.index_set(),
+                                    domain=pyo.NonNegativeReals, initialize=0.0)
+        for di in range(num_diesel):
+            d = diesel_devices[di]
+            pts = [float(p) for p in np.linspace(d["min_kw"], d["max_kw"],
+                                                 PW_DIESEL_N_PTS)]
+            vals = [(d["cost_c"] + d["cost_b"] * p + d["cost_a"] * p ** 2)
+                    * d["fuel_cost"] for p in pts]
+            for t in model.T:
+                for s_idx in s_ids:
+                    pw = pyo.Piecewise(
+                        model.DIESEL_COST[di, t, s_idx],
+                        model.P_diesel[di, t, s_idx],
+                        pw_pts=pts, f_rule=vals,
+                        pw_constr_type="EQ", pw_repn="MC",
+                    )
+                    model.add_component(f"pw_diesel_{di}_{t}_{s_idx}", pw)
+
     def obj_rule(m):
         total = 0.0
         for s_idx in s_ids:
             prob = scenarios[s_idx]["probability"]
             for t in model.T:
-                for di in range(num_diesel):
-                    p = m.P_diesel[di, t, s_idx]
-                    d = diesel_devices[di]
-                    total += prob * diesel_cost(pyo, d, p)
+                if num_diesel > 0:
+                    for di in range(num_diesel):
+                        total += prob * m.DIESEL_COST[di, t, s_idx]
 
                 total += prob * (grid_d + grid_e * m.P_grid[t, s_idx])
 
@@ -334,12 +406,16 @@ def _build_pyomo_model(
     variables = {
         "gen_vars": gen_vars,
         "P_diesel": model.P_diesel if num_diesel > 0 else None,
+        "DIESEL_COST": model.DIESEL_COST if num_diesel > 0 else None,
         "P_grid": model.P_grid,
         "num_diesel": num_diesel,
         "solar_max_kw": solar_max_kw,
         "solar_eff": solar_eff,
         "solar_devices": solar_devices,
         "predictions_solar": predictions_solar,
+        "predictions_pv_kw": predictions_pv_kw,
+        "predictions_pv_band": predictions_pv_band,
+        "pv_balance_first_kw": pv_first_kw,
         "predictions_load_total": predictions_load_total,
         "load_ids": [l.get("id", "load") for l in loads],
     }
@@ -440,8 +516,23 @@ def _extract_dispatch_plan(
     solar_eff = variables.get("solar_eff", 0.36)
     solar_devices = variables.get("solar_devices", [])
     predictions_solar = variables.get("predictions_solar", [])
+    predictions_pv_kw = variables.get("predictions_pv_kw", [])
+    predictions_pv_band = variables.get("predictions_pv_band", [])
     predictions_load_total = variables.get("predictions_load_total", [])
     load_ids = variables.get("load_ids", ["load"])
+    total_solar_kw = sum(d.get("weight", 0.0) for d in solar_devices) or 1.0
+
+    def _band_at(t: int, key: str) -> float:
+        if not predictions_pv_band or t >= len(predictions_pv_band):
+            return 0.0
+        b = predictions_pv_band[t]
+        if isinstance(b, dict):
+            return float(b.get(key, b.get("P50", 0.0)))
+        try:
+            order = {"P10": 0, "P50": 1, "P90": 2}
+            return float(b[order[key]])
+        except (IndexError, TypeError):
+            return 0.0
 
     for s_idx in s_ids:
         sc = scenarios[s_idx]
@@ -450,7 +541,15 @@ def _extract_dispatch_plan(
         for t in range(horizon):
             irrad = predictions_solar[t] if t < len(predictions_solar) else 0.0
             for sd in solar_devices:
-                pv_kw = sd["max_kw"] * sd["efficiency"] * irrad * factor_pv
+                if predictions_pv_band:
+                    pv_total = _band_at(t, "P50") * factor_pv
+                    pv_kw = pv_total * sd.get("weight", 0.0) / total_solar_kw
+                elif predictions_pv_kw:
+                    pv_total = (predictions_pv_kw[t] if t < len(predictions_pv_kw)
+                                else 0.0) * factor_pv
+                    pv_kw = pv_total * sd.get("weight", 0.0) / total_solar_kw
+                else:
+                    pv_kw = sd["max_kw"] * sd["efficiency"] * irrad * factor_pv
                 if pv_kw > 0.001:
                     plan.append({
                         "device_id": sd["id"],

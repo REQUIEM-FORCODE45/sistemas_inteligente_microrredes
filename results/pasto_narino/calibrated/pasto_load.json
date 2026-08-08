@@ -1,0 +1,7 @@
+{
+ "sensor_id": "pasto_load",
+ "type": "load",
+ "profile": "calibrado",
+ "q10": 0.0,
+ "q90": 0.0
+}

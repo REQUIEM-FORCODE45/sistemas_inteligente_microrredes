@@ -1,5 +1,5 @@
 const { getAgentGraph } = require('./agentGraph');
-const AuthorizedDevice = require('../../data/models/Device');
+const { findDeviceById } = require('../../helpers/deviceLookup');
 
 const runAgent = async (io, analysisResult) => {
   const { sensor_id, sensor_nombre, sensor_tipo, timestamp, ...analisis } = analysisResult;
@@ -11,7 +11,7 @@ const runAgent = async (io, analysisResult) => {
 
   const sensorMeta = sensor_tipo && sensor_nombre
     ? { type: sensor_tipo, name: sensor_nombre }
-    : await AuthorizedDevice.findById(sensor_id).select('name type').lean();
+    : await findDeviceById(sensor_id);
 
   const contexto = `Sensor ${sensor_nombre || sensorMeta?.name || 'desconocido'} ` +
     `(${sensor_tipo || sensorMeta?.type || 'meter'}) en ${new Date(timestamp).toLocaleString()}. ` +

@@ -28,7 +28,14 @@ function LoadNode({ data, selected }) {
           <p className="text-xs font-semibold text-foreground truncate">
             {data.label || 'Carga / Edificio'}
           </p>
-          <p className="text-[10px] text-muted-foreground font-medium">AC</p>
+          <p className="text-[10px] text-muted-foreground font-medium">
+            AC
+            {params.loadSource === 'mat' ? (
+              <span className="ml-1 px-1 py-px rounded bg-teal-500/15 text-teal-600 dark:text-teal-400 font-medium">.mat</span>
+            ) : (
+              <span className="ml-1 px-1 py-px rounded bg-muted text-muted-foreground font-medium">estática</span>
+            )}
+          </p>
         </div>
       </div>
       <div className="px-3 py-2 space-y-1.5">

@@ -107,6 +107,12 @@ const getOptimizationResult = async (jobId) => {
 const getLatestOptimizationResult = async () => {
   try {
     const redis = getRedis();
+    // Clave dedicada escrita por run_once.py (resultado mas reciente NO error).
+    // Evita el bug de orden lexicografico de UUIDs (resultado viejo como "latest").
+    const latestRaw = await redis.get('optimization:latest');
+    if (latestRaw) return JSON.parse(latestRaw);
+
+    // fallback (jobs previos al cambio): ultimo por orden lexicografico
     const keys = await redis.keys(`${RESULT_PREFIX}*`);
     if (keys.length === 0) return null;
 
@@ -170,4 +176,5 @@ module.exports = {
   pollProgress,
   cleanupPoll,
   shutdownOptimization,
+  getRedis,
 };

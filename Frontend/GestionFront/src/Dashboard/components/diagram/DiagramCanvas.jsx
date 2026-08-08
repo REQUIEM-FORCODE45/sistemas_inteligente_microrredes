@@ -1,6 +1,8 @@
-import { useMemo, useCallback } from 'react';
+import { useCallback } from 'react';
 import SolarPanelNode from './nodes/SolarPanelNode';
+import SolarPanelAcNode from './nodes/SolarPanelAcNode';
 import DieselGeneratorNode from './nodes/DieselGeneratorNode';
+import WindTurbineNode from './nodes/WindTurbineNode';
 import GridNode from './nodes/GridNode';
 import InverterNode from './nodes/InverterNode';
 import BatteryNode from './nodes/BatteryNode';
@@ -10,7 +12,9 @@ import { DEVICE_TYPE } from './constants/deviceTypes';
 
 export const nodeTypes = {
   [DEVICE_TYPE.SOLAR_PANEL]: SolarPanelNode,
+  [DEVICE_TYPE.SOLAR_PANEL_AC]: SolarPanelAcNode,
   [DEVICE_TYPE.DIESEL_GENERATOR]: DieselGeneratorNode,
+  [DEVICE_TYPE.WIND_TURBINE]: WindTurbineNode,
   [DEVICE_TYPE.GRID]: GridNode,
   [DEVICE_TYPE.INVERTER]: InverterNode,
   [DEVICE_TYPE.BATTERY]: BatteryNode,

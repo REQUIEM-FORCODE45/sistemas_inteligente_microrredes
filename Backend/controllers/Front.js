@@ -3,6 +3,7 @@ const Usuario = require('../data/models/Usuario');
 const mongoose = require('mongoose');
 const { canAccessSensor, canManageSensor, buildAccessQuery } = require('../helpers/deviceAuthorization');
 const { authorizedSensors } = require('../helpers/securityManager');
+const { findDeviceById, updateDeviceSharedWith } = require('../helpers/deviceLookup');
 
 const sanitizeUser = (user) => {
     if (!user) return null;
@@ -75,7 +76,7 @@ exports.getSensorData = async (req, res) => {
             });
         }
 
-        const sensor = await AuthorizedDevice.findById(id_sensor).select('userId sharedWith status');
+        const sensor = await findDeviceById(id_sensor);
         if (!sensor) {
             return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
         }
@@ -158,7 +159,7 @@ exports.shareSensorWithUser = async (req, res) => {
     try {
         const { id } = req.params;
         const { email, userId: targetId } = req.body;
-        const sensor = await AuthorizedDevice.findById(id).populate('sharedWith', 'name email role').populate('userId', 'name email role');
+        const sensor = await findDeviceById(id);
 
         if (!sensor) {
             return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
@@ -181,18 +182,26 @@ exports.shareSensorWithUser = async (req, res) => {
             return res.status(400).json({ success: false, message: 'El dueño ya tiene acceso al sensor' });
         }
 
-        const alreadyShared = sensor.sharedWith.some(u => String(u._id) === String(targetUser._id));
+        const sharedRaw = sensor.sharedWith || [];
+        const ids = sharedRaw.map((u) => ((u && u._id) ? u._id : u));
+        const alreadyShared = ids.some((u) => String(u) === String(targetUser._id));
         if (!alreadyShared) {
-            sensor.sharedWith.push(targetUser._id);
+            ids.push(targetUser._id);
         }
 
-        await sensor.save();
-        await sensor.populate('sharedWith', 'name email role');
+        if (typeof sensor.save === 'function') {
+            sensor.sharedWith = ids;
+            await sensor.save();
+        } else {
+            await updateDeviceSharedWith(id, ids);
+        }
 
+        const users = await Usuario.find({ _id: { $in: ids } })
+            .select('name email role').lean();
         res.json({
             success: true,
             message: 'Sensor compartido correctamente',
-            sharedWith: sensor.sharedWith.map(sanitizeUser)
+            sharedWith: users.map(sanitizeUser)
         });
     } catch (err) {
         console.error('❌ Error al compartir sensor:', err);
@@ -208,7 +217,7 @@ exports.unshareSensorForUser = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Se requiere el ID del usuario a remover' });
         }
 
-        const sensor = await AuthorizedDevice.findById(id).populate('sharedWith', 'name email role').populate('userId', 'name email role');
+        const sensor = await findDeviceById(id);
         if (!sensor) {
             return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
         }
@@ -217,14 +226,23 @@ exports.unshareSensorForUser = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Solo el dueño o administradores pueden modificar este sensor' });
         }
 
-        sensor.sharedWith = sensor.sharedWith.filter(user => String(user._id) !== String(targetId));
-        await sensor.save();
-        await sensor.populate('sharedWith', 'name email role');
+        const ids = (sensor.sharedWith || [])
+            .map((u) => ((u && u._id) ? u._id : u))
+            .filter((u) => String(u) !== String(targetId));
 
+        if (typeof sensor.save === 'function') {
+            sensor.sharedWith = ids;
+            await sensor.save();
+        } else {
+            await updateDeviceSharedWith(id, ids);
+        }
+
+        const users = await Usuario.find({ _id: { $in: ids } })
+            .select('name email role').lean();
         res.json({
             success: true,
             message: 'Acceso revocado correctamente',
-            sharedWith: sensor.sharedWith.map(sanitizeUser)
+            sharedWith: users.map(sanitizeUser)
         });
     } catch (err) {
         console.error('❌ Error al remover compartido:', err);

@@ -3,6 +3,9 @@ import { useDevices } from "../../../../Hooks/useDevices";
 
 export const SensorSelector = ({ selectedIds, onToggle }) => {
     const { devices, loading } = useDevices();
+    // NOTA: el clima no es un sensor (entrada externa Open-Meteo/TimesFM);
+    // pasto_weather se excluye del selector de monitoreo en tiempo real.
+    const plantDevices = (devices || []).filter((d) => String(d._id) !== 'pasto_weather');
 
     if (loading) return <p className="text-sm text-muted-foreground">Cargando sensores...</p>;
 
@@ -12,7 +15,7 @@ export const SensorSelector = ({ selectedIds, onToggle }) => {
                 Selecciona sensores
             </p>
             <div className="flex flex-wrap gap-2">
-                {devices.map(d => {
+                {plantDevices.map(d => {
                     const isSelected = selectedIds.includes(d._id);
                     return (
                         <button
@@ -39,7 +42,7 @@ export const SensorSelector = ({ selectedIds, onToggle }) => {
                         </button>
                     );
                 })}
-                {devices.length === 0 && (
+                {plantDevices.length === 0 && (
                     <p className="text-sm text-muted-foreground italic">No hay sensores registrados.</p>
                 )}
             </div>

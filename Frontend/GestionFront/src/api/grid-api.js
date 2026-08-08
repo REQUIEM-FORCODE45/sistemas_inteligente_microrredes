@@ -3,7 +3,10 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const GridAPI = axios.create({
-    baseURL: API_URL
+    baseURL: API_URL,
+    // timeout global: nada queda colgado indefinidamente (peticiones del
+    // dashboard del clima/sensores fallan visible en vez de quedarse en blanco)
+    timeout: 30000,
 });
 
 GridAPI.interceptors.request.use((config) => {

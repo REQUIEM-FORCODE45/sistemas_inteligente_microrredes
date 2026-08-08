@@ -4,6 +4,11 @@ import Plotly from 'plotly.js-dist-min';
 export const CostCurve = ({ costBreakdown }) => {
   const chartRef = useRef(null);
 
+  // total en el <h3> (render scope): sumatoria del costo ponderado por hora
+  const totalCost = costBreakdown?.hourly
+    ? costBreakdown.hourly.reduce((a, h) => a + (h.weighted_cost ?? h.cost ?? 0), 0)
+    : 0;
+
   useEffect(() => {
     if (!chartRef.current || !costBreakdown?.hourly || costBreakdown.hourly.length === 0) return;
 
@@ -38,26 +43,34 @@ export const CostCurve = ({ costBreakdown }) => {
       },
     ];
 
-    const totalCost = costs.reduce((a, b) => a + b, 0);
-
     const layout = {
-      title: `Costo Total de Operacion: $${totalCost.toFixed(2)}`,
-      xaxis: { title: 'Hora', dtick: 1 },
-      yaxis: { title: 'Costo (u.m.)' },
-      margin: { l: 50, r: 20, t: 45, b: 40 },
+      // sin title interno: el <h3> React titula (evita colision leyenda/titulo)
+      xaxis: { title: 'Hora', dtick: 1, automargin: true },
+      yaxis: { title: 'Costo (u.m.)', automargin: true },
+      margin: { l: 60, r: 20, t: 30, b: 75 },
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
-      font: { color: '#64748b' },
-      legend: { orientation: 'h', y: 1.12 },
+      font: { color: '#64748b', size: 11 },
+      legend: {
+        orientation: 'h',
+        y: -0.28,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 11 },
+      },
       height: 320,
     };
 
-    Plotly.react(chartRef.current, traces, layout, { responsive: true });
-
-    const observer = new ResizeObserver(() => {
-      if (chartRef.current) Plotly.Plots.resize(chartRef.current);
+    Plotly.react(chartRef.current, traces, layout, {
+      responsive: true,
+      displaylogo: false,
     });
-    observer.observe(chartRef.current);
+
+    const el = chartRef.current;
+    const observer = new ResizeObserver(() => {
+      if (el) Plotly.Plots.resize(el);
+    });
+    observer.observe(el);
 
     return () => observer.disconnect();
   }, [costBreakdown]);
@@ -75,7 +88,14 @@ export const CostCurve = ({ costBreakdown }) => {
 
   return (
     <div className="bg-card border rounded-xl p-6 shadow-sm">
-      <h3 className="font-semibold text-lg mb-4">Costo de Operacion</h3>
+      <h3 className="font-semibold text-lg mb-4">
+        Costo de Operación{' '}
+        {typeof totalCost === 'number' && (
+          <span className="text-sm font-medium text-muted-foreground">
+            · total ${totalCost.toFixed(2)}
+          </span>
+        )}
+      </h3>
       <div ref={chartRef} className="w-full" />
     </div>
   );

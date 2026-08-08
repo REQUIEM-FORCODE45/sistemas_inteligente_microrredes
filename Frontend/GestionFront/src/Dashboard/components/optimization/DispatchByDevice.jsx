@@ -5,21 +5,46 @@ import { DEVICE_DEFINITIONS, getDispatchChartInfo } from '@/Dashboard/components
 const GENERATION_TYPES = new Set(['solar', 'diesel', 'grid_import', 'battery_discharge']);
 const CONSUMPTION_TYPES = new Set(['grid_export', 'battery_charge', 'load']);
 
+// nombre legible por device_type cuando el id del plan no coincide con un nodo
+const TYPE_LABELS = {
+  solar: 'Solar', diesel: 'Diésel', wind: 'Eólica',
+  grid_import: 'Red (import)', grid_export: 'Red (export)',
+  battery_charge: 'Batería (carga)', battery_discharge: 'Batería (descarga)',
+  load: 'Carga',
+};
+
 export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalHours = 24 }) => {
   const chartRef = useRef(null);
 
+  // Colores/labels POR device_id del plan: se resuelven desde el device_type
+  // primario de sus entradas (no desde el id del nodo del diagrama, que puede
+  // no coincidir -> era la causa del "todo gris").
   const deviceMeta = useMemo(() => {
     const { colors } = getDispatchChartInfo();
     const meta = {};
 
+    if (dispatchPlan) {
+      for (const did of [...new Set(dispatchPlan.map((d) => d.device_id))]) {
+        const entries = dispatchPlan.filter((d) => d.device_id === did);
+        const counts = {};
+        for (const e of entries) counts[e.device_type] = (counts[e.device_type] || 0) + 1;
+        const primaryType = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+        meta[did] = {
+          label: TYPE_LABELS[primaryType] || did,
+          color: colors[primaryType] || '#f59e0b',
+        };
+      }
+    }
+
+    // si el id coincide con un nodo del diagrama, usa su nombre/color
     if (diagramNodes) {
       for (const n of diagramNodes) {
         const def = DEVICE_DEFINITIONS[n.data?.deviceType];
         const primary = def?.dispatchTypes?.[0];
-        meta[n.id] = {
-          label: n.data?.label || n.id,
-          color: primary?.color || colors.solar || '#f59e0b',
-        };
+        if (meta[n.id]) {
+          meta[n.id].label = n.data?.label || meta[n.id].label;
+          if (primary?.color) meta[n.id].color = primary.color;
+        }
       }
     }
 
@@ -28,7 +53,7 @@ export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalH
     }
 
     return meta;
-  }, [diagramNodes]);
+  }, [dispatchPlan, diagramNodes]);
 
   useEffect(() => {
     if (!chartRef.current || !dispatchPlan || dispatchPlan.length === 0) return;
@@ -45,7 +70,7 @@ export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalH
     const deviceIds = [...new Set(scenarioPlan.map((d) => d.device_id))];
 
     const traces = deviceIds.map((did) => {
-      const meta = deviceMeta[did] || { label: did, color: '#94a3b8' };
+      const meta = deviceMeta[did] || { label: did, color: '#f59e0b' };
 
       const y = hours.map((h) => {
         const entries = scenarioPlan.filter((d) => d.hour === h && d.device_id === did);
@@ -77,18 +102,33 @@ export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalH
     });
 
     const layout = {
-      title: 'Plan Despacho por Generador',
-      xaxis: { title: 'Hora', dtick: 1 },
-      yaxis: { title: 'Potencia (kW)', zeroline: true, zerolinecolor: '#64748b', zerolinewidth: 1 },
-      margin: { l: 50, r: 20, t: 40, b: 40 },
+      // sin title interno: el <h3> React titula (evita colision con la leyenda)
+      xaxis: { title: 'Hora', dtick: 1, automargin: true },
+      yaxis: {
+        title: 'Potencia (kW)',
+        zeroline: true,
+        zerolinecolor: '#64748b',
+        zerolinewidth: 1,
+        automargin: true,
+      },
+      margin: { l: 60, r: 20, t: 30, b: 75 },
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
-      font: { color: '#64748b' },
-      legend: { orientation: 'h', y: 1.15, font: { size: 9 } },
+      font: { color: '#64748b', size: 11 },
+      legend: {
+        orientation: 'h',
+        y: -0.28,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 11 },
+      },
       height: 420,
     };
 
-    Plotly.react(chartRef.current, traces, layout, { responsive: true });
+    Plotly.react(chartRef.current, traces, layout, {
+      responsive: true,
+      displaylogo: false,
+    });
 
     const observer = new ResizeObserver(() => {
       if (chartRef.current) Plotly.Plots.resize(chartRef.current);

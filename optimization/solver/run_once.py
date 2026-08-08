@@ -25,6 +25,7 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 PENDING_LIST = "optimization:pending"
 RESULT_PREFIX = "optimization:result:"
 PROGRESS_PREFIX = "optimization:progress:"
+LATEST_KEY = "optimization:latest"
 
 
 def main():
@@ -54,10 +55,18 @@ def main():
         logger.info(f"Job {job_id} completado: {output.get('status')}")
         r.set(f"{RESULT_PREFIX}{job_id}", json.dumps(output))
         r.set(f"{PROGRESS_PREFIX}{job_id}", "completed")
+        # "latest" solo guarda resultados utiles (no errores): el frontend
+        # consume /optimization/results/latest para el Dashboard.
+        if output.get("status") != "error":
+            r.set(LATEST_KEY, json.dumps(output))
+            r.expire(LATEST_KEY, 86400)
     except Exception as exc:
         logger.exception(f"Error en job {job_id}")
         error_result = {"job_id": job_id, "status": "error", "error": str(exc)}
         r.set(f"{RESULT_PREFIX}{job_id}", json.dumps(error_result))
+        # marca failed para que pollProgress de Node cierre el ciclo rapido
+        # (antes quedaba 'running' y el poll hacia timeout de 5 min)
+        r.set(f"{PROGRESS_PREFIX}{job_id}", "failed")
         r.set(f"{PROGRESS_PREFIX}{job_id}", "failed")
 
     r.expire(f"{RESULT_PREFIX}{job_id}", 86400)

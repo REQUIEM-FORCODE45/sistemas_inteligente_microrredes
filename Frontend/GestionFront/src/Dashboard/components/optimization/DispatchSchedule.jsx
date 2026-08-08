@@ -38,34 +38,42 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
       };
     });
 
-    const totalEntries = dispatchPlan.length;
-    const uniqueDeviceIds = [...new Set(dispatchPlan.map((d) => d.device_id))].length;
-
     const layout = {
       barmode: 'stack',
-      title: `Plan de Despacho 24h — ${uniqueDeviceIds} equipos, ${totalEntries} registros`,
-      xaxis: { title: 'Hora', dtick: 1 },
-      yaxis: { title: 'Potencia (kW)' },
-      margin: { l: 50, r: 20, t: 40, b: 40 },
+      // sin title interno (el <h3> React ya titula): evita doble titulo y la
+      // colision leyenda/titulo con margin.t pequeno.
+      xaxis: { title: 'Hora', dtick: 1, automargin: true },
+      yaxis: { title: 'Potencia (kW)', automargin: true },
+      margin: { l: 60, r: 20, t: 30, b: 75 },   // b: espacio para la leyenda abajo
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
-      font: { color: '#64748b' },
-      legend: { orientation: 'h', y: 1.12 },
+      font: { color: '#64748b', size: 11 },
+      legend: {
+        orientation: 'h',
+        y: -0.28,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 11 },
+      },
       bargap: 0.15,
       height: 380,
     };
 
     Plotly.purge(chartRef.current);
-    Plotly.newPlot(chartRef.current, traces, layout, { responsive: true });
-
-    const observer = new ResizeObserver(() => {
-      if (chartRef.current) Plotly.Plots.resize(chartRef.current);
+    Plotly.newPlot(chartRef.current, traces, layout, {
+      responsive: true,
+      displaylogo: false,
     });
-    observer.observe(chartRef.current);
+
+    const el = chartRef.current;
+    const observer = new ResizeObserver(() => {
+      if (el) Plotly.Plots.resize(el);
+    });
+    observer.observe(el);
 
     return () => {
       observer.disconnect();
-      if (chartRef.current) Plotly.purge(chartRef.current);
+      if (el) Plotly.purge(el);
     };
   }, [dispatchPlan, scenarios, totalHours]);
 

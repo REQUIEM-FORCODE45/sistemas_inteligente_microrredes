@@ -1,0 +1,122 @@
+# ============================================================
+# Sitio de estudio: Pasto, Nariño (Colombia)
+# Caso: SOLAR + BESS. El viento local es ~nulo (HO#1: ~1.48 m/s a 100m),
+# por lo que la validacion de la metodologia recae en solar+carga+BESS.
+# Fuente de clima: Open-Meteo (ERA5 archive + forecast).
+# ============================================================
+
+site:
+  id: pasto_narino            # DEBE coincidir con el nombre del archivo YAML
+  name: "Pasto, Nariño"
+  latitude: 1.2136
+  longitude: -77.2811
+  elevation_masl: 2600
+  timezone: America/Bogota
+
+# ---------- Variables climáticas contratadas (10) ----------
+# Mismo contrato para TimesFM (Fase 2) y PatchTST (futuro).
+# shortwave_radiation:  GHI (W/m2)
+# direct_normal_irradiance: DNI (W/m2)
+# diffuse_radiation:    DHI (W/m2)
+# temperature_2m:       C
+# relative_humidity_2m: %
+# cloud_cover:          %
+# wind_speed_100m:      m/s
+# wind_speed_10m:       m/s
+# surface_pressure:     hPa
+# precipitation:        mm
+weather_variables:
+  - shortwave_radiation        # GHI
+  - direct_normal_irradiance   # DNI
+  - diffuse_radiation          # DHI
+  - temperature_2m             # C
+  - relative_humidity_2m       # %
+  - cloud_cover                # %
+  - wind_speed_100m            # m/s
+  - wind_speed_10m             # m/s
+  - surface_pressure           # hPa
+  - precipitation              # mm
+
+# ============================================================
+# Activos de la planta (parametros de catalogo pvlib)
+# ============================================================
+pv:
+  capacity_kwp: 50.0
+  tilt_deg: 2.0            # casi plano (latitud tropical)
+  azimuth_deg: 180.0       # sur
+  surface_tilt_deg: 2.0
+  surface_azimuth_deg: 180.0
+  # Parametros calibrables (HO#3)
+  losses_pct: 14.0        # nominal catalogo
+  inverter_eta: 0.96      # nominal catalogo
+  temp_coeff_pct_per_c: -0.38   # gamma, %/C
+  sapm_cell_a: -3.56
+  sapm_cell_b: -0.075
+  sapm_cell_deltaT: 3.0
+  dc_voltage_v: 48.0
+
+wind:
+  # Turbina incluida como dispositivo/modelo, pero con senal ~0 en Pasto
+  # (el sitio no tiene viento). Se evalua curva y soporte, no calibracion con senal.
+  hub_height_m: 40.0
+  reference_height_m: 100.0
+  z0: 0.1
+  capacity_kw: 100.0
+  cut_in_ms: 3.0
+  rated_ms: 11.0
+  cut_out_ms: 25.0
+  air_density_ref: 1.225
+  # Eficiencia oculta para sinteticos (canal eolica), ~0 en Pasto
+
+bess:
+  capacity_kwh: 200.0
+  power_kw: 50.0
+  soc_min: 0.10
+  soc_max: 0.95
+  init_soc: 0.30
+  charge_efficiency: 0.95
+  discharge_efficiency: 0.95
+
+load:
+  annual_kwh: 18000.0          # perfil residencial placeholder
+  morning_peak_h: 7
+  evening_peak_h: 19
+
+# ============================================================
+# Sensores virtuales / Sinteticos (Fase 1b/1c)
+# ============================================================
+synthetic:
+  seed_days: 14                # ventana historica sembrada (backfill)
+  step_minutes: 5              # granularidad de medicion (5 min)
+  # Seeds de la "clave de respuestas" (HO#3): cual experimento?
+  # seed 7  = planta limpia (losses 21, eta 0.93, gamma -0.42), soiling OFF
+  # seed 42 = planta realista (soiling progresivo + sombra 6-10h)
+  truth_seed: 7
+  noise_sigma_kw: 0.5          # ruido de medicion (HO#3)
+  soiling_fraction: 0.15       # maxima caida por suciedad (1.0 -> 0.85)
+  soiling_days: 150            # tiempo que tarda esa caida
+  shade_factor: 0.6            # sombra matutina
+  shade_hour_start: 6
+  shade_hour_end: 10
+  # Sensores virtuales a poblar (nombre de coleccion / device type)
+  # NOTA de arquitectura: el CLIMA no es un sensor de la planta; es la entrada
+  # externa del sistema (Open-Meteo NWP / TimesFM). 'weather' solo se genera
+  # con --include-weather en el backfill (historico sintetico opcional).
+  sensors:
+    solar_pv: { dev_type: solar,  desc: "Medidor PM del PV" }
+    load:     { dev_type: meter,  desc: "Medidor de carga/consumo" }
+    bess:     { dev_type: battery, desc: "Medidor BESS/SOC" }
+    wind:     { dev_type: meter,  desc: "Medidor eolica (~0 en Pasto)" }
+    weather:  { dev_type: meter,  desc: "Opcional (--include-weather)" }
+
+# --- Conectividad (no commitear secretos) ---
+# Se leen de env vars en el runtime (Backend/.env)
+mongo:
+  uri_env: MONGO_URL
+  db_env: MONGO_DB_NAME
+  timeout_ms: 10000
+
+mqtt:
+  broker_env: MQTT_BROKER
+  default_broker: mqtt://34.69.148.115   # broker ya usado por el backend
+  topic_prefix: DataSensor/

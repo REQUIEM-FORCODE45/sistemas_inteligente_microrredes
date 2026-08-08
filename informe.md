@@ -435,4 +435,100 @@ La plataforma está diseñada para evolucionar en las siguientes direcciones:
 
 ---
 
+# Anexo — Resultados consolidados (Fase 2: calibración y pronóstico)
+
+Resultados reproducibles (semillas fijas, clima ERA5 real de Pasto, 6 meses
+horarios, split temporal 70/30). Artefactos en `results/pasto_narino/`.
+
+## Calibración PV en dos niveles (HO#3)
+
+| Experimento | Nominal | Derating K | Calibrado | Híbrido (N1+N2) |
+|---|---|---|---|---|
+| seed 7 — planta limpia | 1.671 kW | 0.429 kW | **0.427 kW** | 0.502 kW |
+| seed 42 — planta realista (suciedad+sombra) | 4.019 kW | 1.534 kW | 1.507 kW | **0.496 kW** |
+
+- seed 7: la identificación recupera la verdad oculta (losses 20.1 vs 21.0,
+  η 0.918 vs 0.93, γ −0.409 vs −0.42); el ML no aporta donde solo hay ruido.
+- seed 42: los parámetros se contaminan (losses 27.3, η 0.869, γ=−0.10 en el
+  límite) al absorber suciedad/sombra; el residual ML gana −67% y sus
+  features dominantes (`hour_sin`, `elapsed_days`) coinciden con los efectos
+  inyectados. Reproduce cualitativamente HO#3.
+
+## Banda probabilística P10-P90 (split-conformal)
+
+| seed | Radio conformal | Cobertura holdout | @nivel q90 | @nivel q95 |
+|---|---|---|---|---|
+| 7 | 0.555 kW | 50.2% | 85% | 92% |
+| 42 | 0.848 kW | 54.8% | 98% | 100% |
+
+Hallazgo (replica HO#1 §6.6): con split-conformal disjunto la cobertura
+nominal 80% NO se alcanza bajo deriva temporal; el nivel q95 la garantiza.
+Documentado para el capítulo de calibración probabilística.
+
+## Baselines de pronóstico (walk-forward, ERA5, MAE diurno)
+
+| Variable | Persistencia | Climatología | ARIMA (h=12) |
+|---|---|---|---|
+| GHI [W/m²] | 90–115 | 85–106 | 90–500 (inestable) |
+| Temperatura [°C] | 0.93–1.48 | 0.89–1.15 | 0.52–4.81 |
+| Humedad [%] | 7.4–8.9 | 7.2–8.1 | 3.7–12.7 |
+
+Referencia HO2: TimesFM 2.5 logró GHI MAE 26–30 W/m² → los baselines quedan
+por debajo, como se espera; la integración TimesFM/PatchTST está cableada
+(`FORECASTER=timesfm`, contexto 512 h) y lista en la máquina con la pila ML.
+
+## Endpoints y cadena de valor
+
+`/predict/power` → P10/P50/P90 calibrados → `mpcScheduler` envía
+`predictions_pv_band` → solver Pyomo usa **P10 (peor caso) en el balance**
+(MPC robusto por cuantiles) y reporta P50 en el dispatch.
+
+## Nota de resolución — solver sin licencia Gurobi (hallazgo operativo)
+
+Durante la puesta en operación se detectó que los jobs de optimización
+terminaban en `error` con "Solver not available". Diagnóstico:
+1. La licencia gratuita de Gurobi es **size-limited** (~200-300 variables); el
+   modelo estocástico (24 h × 3 escenarios) la excede y Gurobi falla.
+2. El fallback HiGHS (`appsi_highs`) no soporta objetivos cuadráticos (QP).
+3. **Solución implementada**: el costo cuadrático del diésel se **linealiza
+   por tramos** (10 tramos, representación `mc` con binarios) → el modelo es
+   un MILP que HiGHS resuelve sin límite de licencia. El costo cuadrático
+   REAL se sigue reportando en `cost_breakdown` (extraído de los valores
+   óptimos, no del objetivo).
+4. Además: `run_once.py` marca `progress='failed'` en excepciones (antes
+   quedaba `running` → timeout de 5 min) y publica `optimization:latest`
+   para que `/optimization/results/latest` no dependa del orden de UUIDs.
+5. Frontend: el Dashboard ahora refetchea `/optimization/results/latest` al
+   montar (antes solo recibía resultados por socket del panel del diagrama).
+
+Verificado E2E: trigger → Redis `status: optimal` con dispatch_plan (281 ítems).
+
+## El bucle del diagrama (Opcion A) — calibrar → predecir → optimizarEl diagrama unifilar ahora ejecuta el bucle completo con los sensores mapeados:
+
+```
+Diagrama (nodo ↔ sensor mapeado) → trigger con sensor_mappings
+  PASO 1  Ajuste: /predict/calibrate por activo (PV: N1/N2+conformal;
+          BESS: eficiencias; Wind: K+GBR; Load: perfil) — auto solo si falta
+          artefacto results/pasto_narino/calibrated/<sensor_id>.pkl
+  PASO 2  Predicción de clima (Open-Meteo/TimesFM)
+  PASO 3  Predicción de sensores: /predict/sensor → P10/P50/P90 por activo
+  PASO 4  Optimización con esas predicciones (predictions_pv_kw/band, load)
+  PASO 5  Visibilidad: progreso del bucle en el panel (calibrating →
+          predicting → optimizing) y banda P10/P50/P90 en el modal del nodo
+```
+
+Hallazgos de la puesta en marcha:
+- **El clima NO es un sensor**: es la entrada externa del sistema (Open-Meteo
+  NWP operativo / TimesFM ML). Se eliminó `pasto_weather` (colección +
+  dispositivo) y su generación por defecto en el backfill (`--include-weather`
+  para historial sintético opcional); el clima se muestra en la tarjeta
+  "Pronóstico del clima" con selector de proveedor, no entre los sensores.
+- BSON guarda `createAt` en UTC; el servicio de calibración ahora convierte a
+  hora local antes de alinear con ERA5 (antes: desfase de 5 h → ajustes
+  degenerados, K=0.35).
+- Viento sin señal medida (<2% capacidad) → modelo nulo honesto (Pasto).
+
+Verificado E2E: pipeline (sensores reales `pasto_*`) → ciclo MPC → Redis
+`status: optimal` con dispatch_plan (195 ítems).
+
 *Documento generado el 30 de mayo de 2026. Plataforma en desarrollo activo.*

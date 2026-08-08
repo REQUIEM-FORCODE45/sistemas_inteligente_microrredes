@@ -1,0 +1,10 @@
+{
+ "sensor_id": "pasto_bess",
+ "type": "bess",
+ "rmse_soc_final_pct": 1.6339745908445742,
+ "meta": {
+  "sensor_id": "pasto_bess",
+  "type": "bess",
+  "n_muestras": 360
+ }
+}

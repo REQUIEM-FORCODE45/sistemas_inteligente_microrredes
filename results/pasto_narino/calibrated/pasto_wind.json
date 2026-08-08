@@ -1,0 +1,6 @@
+{
+ "sensor_id": "pasto_wind",
+ "type": "wind",
+ "provider": "calibrado",
+ "seed": 7
+}
