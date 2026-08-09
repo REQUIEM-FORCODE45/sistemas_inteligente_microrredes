@@ -1,4 +1,4 @@
-"""Worker Python de optimizacion para SIGEMM.
+"""Worker Python de optimizacion para SIGE.
 
 Escucha trabajos de optimizacion desde Redis (patron Bridge con BullMQ de Node.js)
 y ejecuta el modelo Pyomo/Gurobi.

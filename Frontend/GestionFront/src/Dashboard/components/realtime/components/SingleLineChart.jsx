@@ -31,15 +31,22 @@ export const SingleLineChart = ({ data, dataKey, color }) => {
     useEffect(() => {
         if (!plotRef.current || !data || data.length === 0) return;
 
+        // Filtra fechas invalidas (evita Dec 1969/Jan 2010) y no dibuja
+        // con menos de 2 puntos validos.
+        const valid = data.filter((d) => d.timestamp
+            && !Number.isNaN(new Date(d.timestamp).getTime()));
+        if (valid.length < 2) return;
+
         const trace = {
-            x: data.map(d => d.timestamp),
-            y: data.map(d => d[dataKey]),
+            x: valid.map(d => new Date(d.timestamp)),
+            y: valid.map(d => d[dataKey]),
             type: 'scatter',
             mode: 'lines',
             name: meta.label,
             line: { color, width: 2 },
             fill: 'tozeroy',
             fillcolor: `${color}20`,
+            hovertemplate: `%{x|%d/%m %H:%M}<br>%{y:.2f}<extra></extra>`,
         };
 
         const isMobile = dimensions.width < 640;
@@ -53,10 +60,10 @@ export const SingleLineChart = ({ data, dataKey, color }) => {
             plot_bgcolor: 'rgba(0,0,0,0)',
             xaxis: {
                 title: isMobile ? '' : 'Tiempo',
+                type: 'date',
+                tickformat: '%d/%m %H:%M',
                 tickfont: { size: 10 },
                 gridcolor: '#e2e8f0',
-                tickmode: 'linear',
-                dtick: Math.ceil(data.length / 4),
             },
             yaxis: {
                 title: isMobile ? '' : meta.unit,

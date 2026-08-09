@@ -2,5 +2,9 @@
  "sensor_id": "pasto_wind",
  "type": "wind",
  "provider": "calibrado",
- "seed": 7
+ "seed": 7,
+ "rmse_nominal_kw": 16.170086300755944,
+ "rmse_hibrido_kw": 16.10135509413387,
+ "k": 0.750140221140018,
+ "n_horas": 360
 }

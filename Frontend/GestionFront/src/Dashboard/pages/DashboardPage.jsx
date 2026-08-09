@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import GridAPI from '@/api/grid-api';
 import { setOptimizationResult, setMpcStatus } from '../store/optimization/optimizationSlice';
@@ -224,14 +224,14 @@ function WeatherCard() {
   );
 }
 
-function PvBandCard() {
+function GenerationBandCard({ label, color, sensorId, tipo }) {
   const [pred, setPred] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [retryTick, setRetryTick] = useState(0);
 
   // layout y trazas estables (memo): el redibujo solo ocurre si cambia pred
-  const pvLayout = useMemo(() => ({
+  const bandLayout = useMemo(() => ({
     margin: { l: 40, r: 8, t: 8, b: 22 },
     xaxis: { title: { text: 'Hora', font: { size: 9 } }, tickfont: { size: 9 },
              showgrid: true, gridcolor: 'var(--border)', dtick: 4 },
@@ -239,29 +239,23 @@ function PvBandCard() {
     hovermode: 'x unified',
   }), []);
 
-  const pvTraces = (rows) => [
+  const bandTraces = useCallback((rows) => [
     { x: rows.map((d) => d.hour), y: rows.map((d) => d.P90),
-      type: 'scatter', mode: 'lines', line: { color: '#f59e0b', width: 0 },
-      fill: 'tonexty', fillcolor: 'rgba(245,158,11,0.18)', name: 'P90' },
+      type: 'scatter', mode: 'lines', line: { color, width: 0 },
+      fill: 'tonexty', fillcolor: `${color}2e`, name: 'P90' },
     { x: rows.map((d) => d.hour), y: rows.map((d) => d.P10),
-      type: 'scatter', mode: 'lines', line: { color: '#f59e0b', width: 0 }, name: 'P10' },
+      type: 'scatter', mode: 'lines', line: { color, width: 0 }, name: 'P10' },
     { x: rows.map((d) => d.hour), y: rows.map((d) => d.P50),
-      type: 'scatter', mode: 'lines', line: { color: '#f59e0b', width: 2 }, name: 'P50' },
-  ];
+      type: 'scatter', mode: 'lines', line: { color, width: 2 }, name: 'P50' },
+  ], [color]);
 
   useEffect(() => {
     let alive = true;
     GridAPI.get('/front/prediction/sensor', {
-      params: { sensor_id: 'pasto_solar_pv', type: 'solar', hours: 24 },
+      params: { sensor_id: sensorId, type: tipo, hours: 24 },
     })
       .then((res) => {
         if (!alive) return;
-        console.log('[PvBandCard] respuesta:', {
-          status: res.data?.status,
-          provider: res.data?.provider,
-          filas: Array.isArray(res.data?.values) ? res.data.values.length : 'no-array',
-          error: res.data?.error || null,
-        });
         if (res.data?.status === 'error' || res.data?.error) {
           setError(res.data.error || 'Modelo del sensor no disponible');
           setLoading(false);
@@ -269,7 +263,7 @@ function PvBandCard() {
         }
         const values = Array.isArray(res.data?.values) ? res.data.values : [];
         if (values.length === 0) {
-          setError('Sin predicción disponible para el sensor solar');
+          setError('Sin predicción disponible para el sensor');
           setLoading(false);
           return;
         }
@@ -292,7 +286,7 @@ function PvBandCard() {
         setLoading(false);
       });
     return () => { alive = false; };
-  }, [retryTick]);
+  }, [sensorId, tipo, retryTick]);
 
   const peak = pred?.data?.length ? Math.max(...pred.data.map((d) => d.P50)) : 0;
   const energy = pred?.data?.length ? pred.data.reduce((s, d) => s + d.P50, 0) : 0;
@@ -301,16 +295,18 @@ function PvBandCard() {
     <div className="bg-card border rounded-xl shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-amber-500/10"><Gauge className="w-4 h-4 text-amber-500" /></div>
+          <div className="p-2 rounded-lg" style={{ backgroundColor: `${color}1a` }}>
+            <Gauge className="w-4 h-4" style={{ color }} />
+          </div>
           <div>
-            <p className="text-sm font-semibold">Generación solar calibrada (24 h)</p>
+            <p className="text-sm font-semibold">{label}</p>
             <p className="text-[10px] text-muted-foreground">P10/P50/P90 · modelo ajustado del sensor</p>
           </div>
         </div>
         <div className="flex gap-3 text-right">
           <div>
             <p className="text-[9px] text-muted-foreground uppercase">Pico P50</p>
-            <p className="text-sm font-bold text-amber-500">{peak.toFixed(1)} kW</p>
+            <p className="text-sm font-bold" style={{ color }}>{peak.toFixed(1)} kW</p>
           </div>
           <div>
             <p className="text-[9px] text-muted-foreground uppercase">Energía 24h</p>
@@ -333,13 +329,52 @@ function PvBandCard() {
       {!loading && !error && pred && (
         <PlotlyMini
           height={180}
-          layout={pvLayout}
-          data={pvTraces(pred.data)}
+          layout={bandLayout}
+          data={bandTraces(pred.data)}
         />
       )}
     </div>
   );
 }
+
+// Variables conocidas: etiqueta + unidad (los sensores pueden traer otras;
+// las desconocidas se grafican con su nombre crudo y sin unidad).
+const VAR_META = {
+  power_kw: { label: 'Potencia', unit: 'kW' },
+  power_truth_kw: { label: 'Potencia real', unit: 'kW' },
+  wind_speed_ms: { label: 'Viento', unit: 'm/s' },
+  soc_pct: { label: 'SOC', unit: '%' },
+  battery_power_kw: { label: 'Pot. batería', unit: 'kW' },
+  p_unmet_kw: { label: 'No abastecida', unit: 'kW' },
+  temperature: { label: 'Temperatura', unit: '°C' },
+  irradiance_ghi: { label: 'Irradiancia', unit: 'W/m²' },
+};
+
+// Pista de variable principal POR TIPO (no es fuente de verdad: si el sensor
+// no trae esa clave, se usa la primera clave numerica real del documento).
+const PRIMARY_KEY_HINT = {
+  solar_panel: ['power_kw', 'irradiance_ghi', 'power_truth_kw'],
+  solar_panel_ac: ['power_kw', 'irradiance_ghi', 'power_truth_kw'],
+  wind_turbine: ['wind_speed_ms', 'power_kw'],
+  battery: ['soc_pct', 'battery_power_kw'],
+  load: ['power_kw'],
+  diesel_generator: ['power_kw'],
+  grid: ['power_kw'],
+  inverter: ['power_kw'],
+  sensor_iot: [],
+};
+
+const SENSOR_ROW_EXCLUDED = new Set(['_id', 'createAt', 'timestamp', 'sensorId']);
+const STALE_AFTER_MS = 2 * 60 * 60 * 1000; // > 2h sin datos = desactualizado
+
+const fmtShortDate = (d) => {
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm} ${hh}:${mi}`;
+};
 
 function SensorsRow() {
   const diagramNodes = useSelector((state) => state.diagram.nodes);
@@ -358,17 +393,58 @@ function SensorsRow() {
 
   useEffect(() => {
     let alive = true;
-    mappedNodes.forEach(({ sensorId, meta }) => {
-      if (!sensorId) return;
-      GridAPI.get(`/front/sensors_data/${sensorId}/24`)
-        .then((res) => {
-          if (!alive) return;
-          const pts = (res.data?.data || []).map((it) => ({ v: Number(it[meta.key] ?? 0) }));
-          setSeries((prev) => ({ ...prev, [sensorId]: { meta, pts: pts.reverse() } }));
-        })
-        .catch(() => {});
-    });
-    return () => { alive = false; };
+
+    const loadAll = () => {
+      mappedNodes.forEach(({ node, sensorId }) => {
+        if (!sensorId) return;
+        GridAPI.get(`/front/sensors_data/${sensorId}/24`)
+          .then((res) => {
+            if (!alive) return;
+            const docs = res.data?.data || [];
+            if (docs.length === 0) return;
+
+            // Fecha REAL del ultimo dato (solo lectura; no modifica nada).
+            const lastDoc = docs[0];
+            const lastAt = lastDoc.createAt ? new Date(lastDoc.createAt) : null;
+
+            // Claves numericas REALES del sensor (no asumir nombres fijos).
+            const numericKeys = Object.keys(lastDoc).filter((k) =>
+              !SENSOR_ROW_EXCLUDED.has(k)
+              && typeof lastDoc[k] === 'number'
+              && Number.isFinite(lastDoc[k])
+            );
+
+            const hints = PRIMARY_KEY_HINT[node.data?.deviceType] || [];
+            const primary = hints.find((k) => numericKeys.includes(k)) || numericKeys[0];
+            const secondary = numericKeys.find((k) => k !== primary) || null;
+
+            const pts = docs.map((it) => {
+              const t = it.createAt ? new Date(it.createAt) : null;
+              return {
+                v: Number(it[primary] ?? 0),
+                s: secondary ? Number(it[secondary] ?? 0) : null,
+                // timestamp REAL del punto: si es invalido se filtra abajo
+                // (Plotly + fecha invalida -> tooltip Dec 1969 / Jan 2010).
+                t: t && !Number.isNaN(t.getTime()) ? t : null,
+              };
+            }).filter((p) => p.t !== null);
+
+            const pm = VAR_META[primary] || { label: primary, unit: '' };
+            const sm = secondary ? (VAR_META[secondary] || { label: secondary, unit: '' }) : null;
+
+            setSeries((prev) => ({
+              ...prev,
+              [sensorId]: { primary, secondary, pm, sm, pts: pts.reverse(), lastAt },
+            }));
+          })
+          .catch(() => {});
+      });
+    };
+
+    loadAll();
+    // Refresco periodico (solo relee los datos, no los crea ni modifica).
+    const interval = setInterval(loadAll, 60000);
+    return () => { alive = false; clearInterval(interval); };
   }, [mappedNodes]);
 
   if (mappedNodes.length === 0) {
@@ -385,6 +461,7 @@ function SensorsRow() {
       {mappedNodes.map(({ node, sensorId, meta }) => {
         const s = series[sensorId];
         const last = s?.pts?.length ? s.pts[s.pts.length - 1].v : 0;
+        const stale = !!s?.lastAt && (Date.now() - s.lastAt.getTime()) > STALE_AFTER_MS;
 
         if (!sensorId) {
           return (
@@ -403,25 +480,48 @@ function SensorsRow() {
         }
 
         return (
-          <div key={node.id} className="bg-card border rounded-xl shadow-sm p-4">
+          <div
+            key={node.id}
+            className={`bg-card border rounded-xl shadow-sm p-4 ${stale ? 'border-amber-500/40 opacity-80' : ''}`}
+          >
             <div className="flex items-center justify-between mb-1">
               <p className="text-[10px] font-semibold">{node.data?.label}</p>
-              <span className="text-[9px] text-muted-foreground font-mono">{meta.label}</span>
+              <span className="text-[9px] text-muted-foreground font-mono">
+                {s?.pm?.label || meta.label}
+              </span>
             </div>
             <p className="text-lg font-bold tabular-nums">
-              {last.toFixed(1)} <span className="text-[10px] font-medium text-muted-foreground">{meta.unit}</span>
+              {last.toFixed(1)} <span className="text-[10px] font-medium text-muted-foreground">{s?.pm?.unit || meta.unit}</span>
             </p>
+            {s?.sm && (
+              <p className="text-[9px] text-muted-foreground mt-0.5">
+                {s.sm.label}: {Number(s.pts?.[s.pts.length - 1]?.s ?? 0).toFixed(1)} {s.sm.unit}
+              </p>
+            )}
+            <p className="text-[9px] text-muted-foreground/70 mt-0.5">
+              último: {s?.lastAt ? fmtShortDate(s.lastAt) : '—'}
+            </p>
+            {stale && (
+              <p className="text-[9px] font-medium text-amber-500 mt-0.5">
+                Sin datos recientes
+              </p>
+            )}
             <PlotlyMini
               height={40}
-              layout={{ margin: { l: 0, r: 0, t: 2, b: 2 } }}
+              layout={{
+                margin: { l: 0, r: 0, t: 2, b: 2 },
+                xaxis: { type: 'date', showticklabels: false, showgrid: false },
+                hovermode: 'x',
+              }}
               data={[{
-                x: (s?.pts || []).map((_, i) => i),
+                x: (s?.pts || []).map((p) => p.t),
                 y: (s?.pts || []).map((p) => p.v),
                 type: 'scatter',
                 mode: 'lines',
                 line: { color: '#f59e0b', width: 1.5 },
                 fill: 'tozeroy',
                 fillcolor: 'rgba(245,158,11,0.12)',
+                hovertemplate: '%{x|%d/%m %H:%M}<br>%{y:.2f}<extra></extra>',
               }]}
             />
           </div>
@@ -432,6 +532,7 @@ function SensorsRow() {
 }
 
 function CalibrationCard() {
+  const sensorMappings = useSelector((state) => state.diagram?.sensorMappings || {});
   const [data, setData] = useState(null);
 
   useEffect(() => {
@@ -442,24 +543,31 @@ function CalibrationCard() {
     return () => { alive = false; };
   }, []);
 
+  // COHERENCIA: solo mostrar artefactos de los sensores USADOS en el diagrama
+  // (sensorMappings), no todos los calibrados del sistema.
+  const models = useMemo(() => {
+    const mapped = new Set(Object.values(sensorMappings || {}));
+    return (data?.models || []).filter((m) => mapped.has(m.sensor_id));
+  }, [data, sensorMappings]);
+
   return (
     <div className="bg-card border rounded-xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-3">
         <div className="p-2 rounded-lg bg-emerald-500/10"><BatteryCharging className="w-4 h-4 text-emerald-500" /></div>
         <div>
           <p className="text-sm font-semibold">Ajuste de modelos (calibración)</p>
-          <p className="text-[10px] text-muted-foreground">Artefactos por sensor · cascada N1/N2</p>
+          <p className="text-[10px] text-muted-foreground">Artefactos por sensor · cascada N1/N2 · solo sensores del diagrama</p>
         </div>
       </div>
       {!data && <p className="text-[11px] text-muted-foreground py-4 text-center">Cargando...</p>}
-      {data && data.models.length === 0 && (
+      {data && models.length === 0 && (
         <p className="text-[11px] text-muted-foreground py-4 text-center">
           Aún no hay modelos calibrados. Liga un sensor en el diagrama y ejecuta la optimización.
         </p>
       )}
-      {data && data.models.length > 0 && (
+      {data && models.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {data.models.map((m) => (
+          {models.map((m) => (
             <div key={m.sensor_id} className="rounded-lg border bg-muted/10 p-3">
               <p className="text-[10px] font-semibold">{m.sensor_id} <span className="text-muted-foreground">({m.type})</span></p>
               <div className="mt-1 text-[10px] text-muted-foreground space-y-0.5">
@@ -483,6 +591,21 @@ export default function DashboardPage() {
   const dispatch = useDispatch();
   const optimization = useSelector((state) => state.optimization);
   const diagramNodes = useSelector((state) => state.diagram?.nodes || []);
+  const sensorMappings = useSelector((state) => state.diagram?.sensorMappings || {});
+
+  // Tarjetas de "Generacion calibrada" COHERENTES con el diagrama: solo para
+  // bloques de generacion (solar/solar_panel_ac/wind) con sensor ligado.
+  // Sin bloque solar no aparece "solar"; con eolica aparece la eolica.
+  const generationCards = useMemo(() => {
+    const GEN_META = {
+      solar_panel: { label: 'Generación solar calibrada (24 h)', color: '#f59e0b', tipo: 'solar' },
+      solar_panel_ac: { label: 'Generación solar calibrada (24 h)', color: '#f59e0b', tipo: 'solar' },
+      wind_turbine: { label: 'Generación eólica calibrada (24 h)', color: '#14b8a6', tipo: 'wind' },
+    };
+    return (diagramNodes || [])
+      .filter((n) => GEN_META[n.data?.deviceType] && sensorMappings?.[n.id])
+      .map((n) => ({ key: n.id, sensorId: sensorMappings[n.id], ...GEN_META[n.data.deviceType] }));
+  }, [diagramNodes, sensorMappings]);
 
   // Refetch del ultimo resultado de optimizacion + estado MPC al montar.
   useEffect(() => {
@@ -547,9 +670,16 @@ export default function DashboardPage() {
       <ErrorBoundary compact>
         <WeatherCard />
       </ErrorBoundary>
-      <ErrorBoundary compact>
-        <PvBandCard />
-      </ErrorBoundary>
+      {generationCards.map((card) => (
+        <ErrorBoundary compact key={card.key}>
+          <GenerationBandCard
+            label={card.label}
+            color={card.color}
+            sensorId={card.sensorId}
+            tipo={card.tipo}
+          />
+        </ErrorBoundary>
+      ))}
 
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Sensores</p>

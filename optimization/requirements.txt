@@ -1,4 +1,4 @@
-# ===== SIGEMM optimization/ — dependencies =====
+# ===== SIGE optimization/ — dependencies =====
 # Servicio de prediccion (FastAPI :8000) + solver estocastico (Pyomo/Gurobi)
 # + bucle clima -> forecast -> fisica -> calibracion -> control
 
@@ -39,3 +39,8 @@ statsmodels>=0.14.0      # ARIMA univariante por variable
 # --- Tests / tooling ---
 pytest>=8.0.0
 PyYAML>=5.4.0
+
+# --- Experimentos de validacion (respuesta a comentarios del revisor) ---
+matplotlib>=3.8.0          # figuras del Experimento A (costo acumulado)
+tabulate>=0.9.0            # tabla markdown de metricas (Exp A)
+psutil>=5.9.0              # muestreo de recursos (Exp C)

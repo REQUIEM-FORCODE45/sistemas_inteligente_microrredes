@@ -52,3 +52,5 @@ Thumbs.db
 .settings/
 .classpath
 .project
+# --- DEV LAUNCHER ---
+.dev-logs/

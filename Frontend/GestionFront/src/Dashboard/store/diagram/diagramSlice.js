@@ -135,7 +135,14 @@ const diagramSlice = createSlice({
       const { nodes, edges, sensorMappings } = action.payload;
       state.nodes = nodes || [];
       state.edges = edges || [];
-      state.sensorMappings = sensorMappings || {};
+      // PODA ANTI-FANTASMA: al cargar un snapshot, solo se conservan los
+      // mappings cuyo nodo EXISTE en el diagrama cargado. Asi un guardado
+      // viejo (con nodos borrados despues) no puede reinyectar mappings
+      // huerfanos (bug: "bloque que no esta por ningun lado").
+      const validIds = new Set((nodes || []).map((n) => n.id));
+      state.sensorMappings = Object.fromEntries(
+        Object.entries(sensorMappings || {}).filter(([nodeId]) => validIds.has(nodeId)),
+      );
       state.propagationDeps = propagateSensorDependencies(
         state.nodes,
         state.edges,

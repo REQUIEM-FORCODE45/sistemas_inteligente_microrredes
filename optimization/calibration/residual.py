@@ -58,6 +58,38 @@ def residual_features(climate: pd.DataFrame, t0: pd.Timestamp,
     return pd.DataFrame(feats, index=idx)
 
 
+# --------------------------------------------------------------------------- #
+def residual_features_wind(climate: pd.DataFrame, t0: pd.Timestamp) -> pd.DataFrame:
+    """Matriz de features de residuo EOLICAS (sin radiacion solar).
+
+    El residuo del viento NO debe acoplarse al sol: por eso aqui NO se usan
+    'ghi' ni ninguna variable de radiacion (a diferencia de residual_features
+    para PV). En su lugar, features fisicas de viento/densidad:
+        - wind_speed_100m / wind_speed_10m: el viento mismo (causalidad)
+        - surface_pressure / temperature_2m: densidad del aire (rho en la
+          curva de potencia del WindTurbine)
+        - hour_sin/cos, doy_sin/cos, elapsed_days: patrones temporales
+    Sin precip_cum (irrelevante para palas).
+    """
+    idx = climate.index
+    hour = idx.hour.to_numpy()
+    doy = idx.dayofyear.to_numpy()
+    t_days = ((idx - t0).total_seconds().to_numpy() / 86400.0)
+
+    feats = {
+        "hour_sin": np.sin(2 * np.pi * hour / 24.0),
+        "hour_cos": np.cos(2 * np.pi * hour / 24.0),
+        "doy_sin": np.sin(2 * np.pi * doy / 365.25),
+        "doy_cos": np.cos(2 * np.pi * doy / 365.25),
+        "elapsed_days": t_days,
+        "wind_speed_100m": climate["wind_speed_100m"].to_numpy().astype(float),
+        "wind_speed_10m": climate["wind_speed_10m"].to_numpy().astype(float),
+        "surface_pressure": climate["surface_pressure"].to_numpy().astype(float),
+        "temperature_2m": climate["temperature_2m"].to_numpy().astype(float),
+    }
+    return pd.DataFrame(feats, index=idx)
+
+
 def precip_accum(mm: np.ndarray, threshold: float = 1.0) -> np.ndarray:
     """'Dias/horas desde la ultima lluvia fuerte' que limpia los paneles.
 

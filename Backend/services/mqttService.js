@@ -1,6 +1,7 @@
 const mqtt = require('mqtt');
 const { authorizedSensors } = require('../helpers/securityManager');
 const mongoose = require('mongoose');
+const perf = require('./perfMetrics');
 
 const modelCache = new Map();
 
@@ -43,16 +44,28 @@ function initMQTT(io) {
             return;
         }
 
+        const tNow = Date.now();
+        perf.recordCount('mqtt_msg_ingest');
+
         try {
             const payload = JSON.parse(message.toString());
+            // Latencia end-to-end MQTT: el publicador incluye sent_ts (epoch ms).
+            // (El broker no inyecta timestamps; con sent_ts se mide publicacion->recepción.)
+            if (typeof payload.sent_ts === 'number' && payload.sent_ts > 0) {
+                perf.record('mqtt_latency_end_to_end_ms', tNow - payload.sent_ts);
+            }
             // Cada sensor a su propia colección profesionalmente
             const Model = getModel(sensorId);
-            await Model.collection.insertOne({
-                ...payload,
-                createAt: getColombiaDate()
+            await perf.timeAsync('mongo_insert_ms', async () => {
+                await Model.collection.insertOne({
+                    ...payload,
+                    createAt: getColombiaDate()
+                });
             });
 
-            io.to(sensorId).emit('sensor_update', { ...payload, _id: sensorId });
+            await perf.timeAsync('ws_push_ms', async () => {
+                io.to(sensorId).emit('sensor_update', { ...payload, _id: sensorId });
+            });
         } catch (e) {
             console.error("Error procesando mensaje:", e);
         }

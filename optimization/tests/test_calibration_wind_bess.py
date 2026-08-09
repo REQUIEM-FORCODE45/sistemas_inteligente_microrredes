@@ -10,6 +10,26 @@ from optimization.physics.wind import WindTurbine
 from optimization.physics.bess import Bess
 from optimization.calibration.wind import calibrate_wind, estimate_wind_derating
 from optimization.calibration.bess import calibrate_bess, calibrated_bess
+from optimization.calibration.residual import residual_features_wind
+
+
+def test_wind_features_no_usa_radiacion_solar():
+    """Regresion: el residuo eolico NO debe usar ghi/radiacion (opcion A).
+
+    El viento no debe acoplarse al sol; las features eolicas son fisicas de
+    viento (wind_speed_*, presion, temperatura) + temporales.
+    """
+    climate = windy_climate(3)
+    feats = residual_features_wind(climate, climate.index[0])
+    cols = set(feats.columns)
+    assert "wind_speed_100m" in cols
+    assert "wind_speed_10m" in cols
+    assert "surface_pressure" in cols
+    # ninguna columna de radiacion solar
+    assert not cols.intersection({"ghi", "shortwave_radiation",
+                                  "direct_normal_irradiance",
+                                  "diffuse_radiation"})
+    assert len(feats) == len(climate)
 
 
 def windy_climate(days: int = 40) -> pd.DataFrame:

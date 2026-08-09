@@ -13,6 +13,15 @@ const KEY_LABELS = {
     pf: { label: 'Factor Potencia', unit: '' },
 };
 
+// Formatea el ultimo dato: floats a 2 decimales, enteros tal cual,
+// fechas/strings/etc. se muestran sin cambios.
+const formatLastValue = (v) => {
+    if (typeof v === 'number' && Number.isFinite(v)) {
+        return Number.isInteger(v) ? String(v) : v.toFixed(2);
+    }
+    return v;
+};
+
 export const SensorPanel = ({ 
     dataKeys, 
     lastPoint, 
@@ -55,7 +64,7 @@ export const SensorPanel = ({
                                 {meta.label}
                             </p>
                             <p className="text-base font-black" style={{ color: isActive ? color : '#94a3b8' }}>
-                                {lastPoint[key]}
+                                {formatLastValue(lastPoint[key])}
                             </p>
                             {meta.unit && (
                                 <p className="text-[8px] text-muted-foreground font-medium">{meta.unit}</p>
@@ -174,7 +183,7 @@ export const SensorPanel = ({
                                 <div className="text-left">
                                     <p className="font-medium">{meta.label}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        {lastPoint[key]} {meta.unit}
+                                        {formatLastValue(lastPoint[key])} {meta.unit}
                                     </p>
                                 </div>
                             </div>

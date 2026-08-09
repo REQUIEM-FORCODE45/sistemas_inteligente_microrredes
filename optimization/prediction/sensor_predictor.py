@@ -51,7 +51,10 @@ def predict_sensor(site_id: str, sensor_id: str, activo_type: str,
                     "provider": fc.provider, "unit": "kW",
                     "values": _series(zeros, zeros, zeros, "kW")}
         band = model.predict_band(climate)
-        if "shortwave_radiation" in climate.columns:
+        # La mascara nocturna es SOLO para PV (una planta solar no produce de
+        # noche). El viento NO se enmascara: su fisica (cut-in/cut-out en la
+        # curva de potencia) ya decide si genera de noche o no.
+        if activo_type == "solar" and "shortwave_radiation" in climate.columns:
             night = climate["shortwave_radiation"] < 5.0
             band.loc[night, ["P10", "P50", "P90"]] = 0.0
         return {"sensor_id": sensor_id, "type": activo_type,

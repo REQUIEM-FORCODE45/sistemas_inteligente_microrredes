@@ -24,7 +24,8 @@ export default function NodeDispatchSparkline({ dispatchPlan, nodeId, totalHours
     const traces = deviceTypes.map((type) => {
       const y = hours.map((h) => {
         const entry = nodeEntries.find((d) => d.hour === h && d.device_type === type);
-        return entry ? Math.abs(entry.power_kw) : null;
+        // 0 (no null): horas sin entrada se dibujan como cero, no como hueco.
+        return entry ? Math.abs(entry.power_kw) : 0;
       });
 
       return {

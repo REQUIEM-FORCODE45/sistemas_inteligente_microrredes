@@ -14,7 +14,7 @@ from optimization.prediction.predictor_interface import PredictorInterface
 from optimization.prediction.matlab_predictor import MatlabPredictor
 from optimization.prediction.tft_predictor import TFTPredictor
 
-app = FastAPI(title="SIGEMM Prediction API", version="0.1.0")
+app = FastAPI(title="SIGE Prediction API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

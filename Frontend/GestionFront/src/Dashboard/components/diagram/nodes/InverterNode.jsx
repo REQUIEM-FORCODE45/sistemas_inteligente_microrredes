@@ -41,6 +41,9 @@ function InverterNode({ data, selected }) {
             {params.efficiency != null ? `${(params.efficiency * 100).toFixed(0)}%` : '—'}
           </span>
         </div>
+        <div className="text-[10px] text-muted-foreground/70 border-t border-border/50 pt-1">
+          Solo visual · no participa en el modelo
+        </div>
       </div>
       {data.hasSensor && (
         <div className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-chart-5 border-2 border-card shadow-sm" />

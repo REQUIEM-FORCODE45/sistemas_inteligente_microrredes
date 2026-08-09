@@ -120,7 +120,7 @@ export const App = () => {
               <div className="bg-primary p-1 rounded-md text-primary-foreground">
                 <Activity size={20} />
               </div>
-              <span>SIGEMM</span>
+              <span>SIGE</span>
             </div>
           )}
           {isCollapsed && (

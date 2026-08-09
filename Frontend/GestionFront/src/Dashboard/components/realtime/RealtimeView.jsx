@@ -9,14 +9,15 @@ import { ChevronDown, ChevronUp, Menu, X } from 'lucide-react';
 import GridAPI from '@/api/grid-api';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
-const MAX_POINTS = 20;
-const HISTORICAL_LIMIT = 20;
+const DEFAULT_HISTORY = 20;
+const HISTORY_OPTIONS = [20, 50, 100, 200, 500];
 const EXCLUDED_KEYS = ['createAt', '_id', 'sensorId', 'timestamp'];
 
 export const RealtimeView = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [sensors, setSensors] = useState({});
     const [chartOptions, setChartOptions] = useState({});
+    const [historyLimits, setHistoryLimits] = useState({});
     const [collapsedSensors, setCollapsedSensors] = useState({});
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [activeSensorMobile, setActiveSensorMobile] = useState(null);
@@ -39,7 +40,7 @@ export const RealtimeView = () => {
 
             if (!selectedIdsRef.current.includes(sensorId)) return;
 
-            const timestamp = new Date().toLocaleTimeString();
+            const timestamp = new Date();
             const parsed = Object.fromEntries(
                 Object.entries(payload)
                     .filter(([k]) => !EXCLUDED_KEYS.includes(k))
@@ -60,11 +61,15 @@ export const RealtimeView = () => {
 
                 const newPoint = { timestamp, ...parsed };
                 const updated = [...sensor.data, newPoint];
+                // Buffer dinamico: cada sensor conserva SU historial elegido
+                // (bufferSize); si no se definio, usa el default.
+                const cap = sensor.bufferSize || DEFAULT_HISTORY;
 
                 return {
                     ...prev,
                     [sensorId]: {
-                        data: updated.length > MAX_POINTS ? updated.slice(-MAX_POINTS) : updated,
+                        ...sensor,
+                        data: updated.length > cap ? updated.slice(-cap) : updated,
                         dataKeys: keys,
                         activeKeys,
                     }
@@ -100,14 +105,18 @@ export const RealtimeView = () => {
             let initialData = [];
             let dataKeys = [];
 
+            const historyLimit = historyLimits[id] || DEFAULT_HISTORY;
+
             try {
-                const response = await GridAPI.get(`/front/sensors_data/${id}/${HISTORICAL_LIMIT}`);
+                const response = await GridAPI.get(`/front/sensors_data/${id}/${historyLimit}`);
                 if (response.data.success && response.data.data.length > 0) {
                     const historicalData = response.data.data.reverse();
                     initialData = historicalData.map(item => {
+                        // Fecha COMPLETA como Date: con historiales de varios
+                        // dias el eje X no debe superponer horas de dias distintos.
                         const timestamp = item.createAt
-                            ? new Date(item.createAt).toLocaleTimeString()
-                            : new Date().toLocaleTimeString();
+                            ? new Date(item.createAt)
+                            : new Date();
                         const parsed = Object.fromEntries(
                             Object.entries(item)
                                 .filter(([k]) => !EXCLUDED_KEYS.includes(k))
@@ -126,7 +135,8 @@ export const RealtimeView = () => {
                 [id]: {
                     data: initialData,
                     dataKeys,
-                    activeKeys: dataKeys
+                    activeKeys: dataKeys,
+                    bufferSize: historyLimit,
                 }
             }));
 
@@ -149,6 +159,36 @@ export const RealtimeView = () => {
                 : [...sensor.activeKeys, key];
             return { ...prev, [sensorId]: { ...sensor, activeKeys } };
         });
+    };
+
+    const handleHistoryChange = async (sensorId, limit) => {
+        const id = String(sensorId);
+        setHistoryLimits(prev => ({ ...prev, [id]: limit }));
+        try {
+            const response = await GridAPI.get(`/front/sensors_data/${id}/${limit}`);
+            if (response.data.success && response.data.data.length > 0) {
+                const historicalData = response.data.data.reverse();
+                const newData = historicalData.map(item => {
+                    // Fecha COMPLETA como Date (igual que la carga inicial).
+                    const timestamp = item.createAt
+                        ? new Date(item.createAt)
+                        : new Date();
+                    const parsed = Object.fromEntries(
+                        Object.entries(item)
+                            .filter(([k]) => !EXCLUDED_KEYS.includes(k))
+                            .map(([k, v]) => [k, isNaN(v) ? v : Number(v)])
+                    );
+                    return { timestamp, ...parsed };
+                });
+                setSensors(prev => {
+                    const sensor = prev[id];
+                    if (!sensor) return prev;
+                    return { ...prev, [id]: { ...sensor, data: newData, bufferSize: limit } };
+                });
+            }
+        } catch (error) {
+            console.error('Error cargando historial:', error);
+        }
     };
 
     const toggleSensorCollapse = (sensorId) => {
@@ -292,6 +332,20 @@ export const RealtimeView = () => {
                                 {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
                                 <span className="font-mono">{sensorId}</span>
                             </button>
+                            {!isCollapsed && (
+                                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <span>Historial:</span>
+                                    <select
+                                        value={historyLimits[sensorId] || DEFAULT_HISTORY}
+                                        onChange={(e) => handleHistoryChange(sensorId, Number(e.target.value))}
+                                        className="px-2 py-1 text-[11px] rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+                                    >
+                                        {HISTORY_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>{opt} pts</option>
+                                        ))}
+                                    </select>
+                                </label>
+                            )}
                         </div>
 
                         {!isCollapsed && (

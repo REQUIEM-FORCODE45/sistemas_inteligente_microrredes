@@ -9,12 +9,15 @@ const authorizedSensors = new Set();
  */
 async function syncAuthorizedSensors() {
     try {
-        // Buscamos solo los IDs de los dispositivos activos
-        const devices = await AuthorizedDevice.find({ status: 'active' }).select('_id');
-        
+        // Driver NATIVO (no mongoose): mongoose castea _id a ObjectId y
+        // descarta los id_sensor string ('pasto_*') devolviendo undefined.
+        const docs = await AuthorizedDevice.collection
+            .find({ status: 'active' }, { projection: { _id: 1 } })
+            .toArray();
+
         authorizedSensors.clear();
-        devices.forEach(d => authorizedSensors.add(d._id.toString()));
-        
+        docs.forEach(d => { if (d._id != null) authorizedSensors.add(String(d._id)); });
+
         console.log(`✅ Seguridad: ${authorizedSensors.size} sensores cargados en RAM.`);
     } catch (err) {
         console.error("Error al sincronizar la lista de seguridad:", err);

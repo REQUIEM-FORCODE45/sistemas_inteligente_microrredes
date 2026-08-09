@@ -18,7 +18,9 @@ import { fetchDevices } from '@/Dashboard/store/device/deviceSlice';
 import { DEVICE_DEFINITIONS } from '../constants/deviceTypes';
 import { validateConnection } from '../utils/diagramValidation';
 
-const STORAGE_KEY = 'sigemm_diagram_v1';
+const STORAGE_KEY = 'sige_diagram_v1';
+// Clave anterior (renombrada): se migra automaticamente al cargar.
+const LEGACY_STORAGE_KEY = 'sigemm_diagram_v1';
 
 function generateId() {
   return `node_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -187,7 +189,19 @@ export function useDiagram(reactFlowInstance) {
   }, [dispatch, nodes, edges, sensorMappings]);
 
   const handleLoadDiagram = useCallback(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = localStorage.getItem(STORAGE_KEY);
+    // Migracion desde la clave anterior (sigemm_diagram_v1 -> sige_diagram_v1):
+    // si no hay diagrama nuevo pero si el viejo, se carga y se migra.
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy) {
+        raw = legacy;
+        try {
+          localStorage.setItem(STORAGE_KEY, legacy);
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+        } catch { /* almacenamiento no disponible */ }
+      }
+    }
     if (!raw) return;
     try {
       const data = JSON.parse(raw);

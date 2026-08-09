@@ -66,7 +66,7 @@ async function ensureCalibrated(sensorId, type) {
 async function predictSensor(sensorId, type) {
   try {
     const r = await axios.get(`${PREDICTION_API}/predict/sensor`, {
-      params: { sensor_id: sensorId, type, hours: 24 }, timeout: 60000,
+      params: { sensor_id: sensorId, type, hours: 24 }, timeout: 180000,
     });
     return r.data;
   } catch (e) {
@@ -96,25 +96,38 @@ async function runPredictionPipeline(sensorMappings = {}, topology = {}) {
   emit('prediction_ready', { sensors: results.map((r) => r.sensorId) });
 
   // ensamblar entradas del solver (sumas por hora)
+  // SOLAR y WIND en buckets SEPARADOS (antes el viento se mezclaba en solar).
   const pv_kw = Array(HOURS).fill(0);
   const pv_band = Array.from({ length: HOURS }, () => ({ P10: 0, P50: 0, P90: 0 }));
+  const wind_kw = Array(HOURS).fill(0);
+  const wind_band = Array.from({ length: HOURS }, () => ({ P10: 0, P50: 0, P90: 0 }));
   const loadArr = Array.from({ length: HOURS }, () => ({ PL1: 0, PL2: 0, PL3: 0 }));
+  let lastBessSoc = null;
 
   for (const r of results) {
     for (let h = 0; h < Math.min(HOURS, r.values.length); h++) {
       const v = r.values[h] || {};
-      if (r.type === 'solar' || r.type === 'wind') {
+      if (r.type === 'solar') {
         pv_kw[h] += v.P50 || 0;
         pv_band[h].P10 += v.P10 || 0;
         pv_band[h].P50 += v.P50 || 0;
         pv_band[h].P90 += v.P90 || 0;
+      } else if (r.type === 'wind') {
+        wind_kw[h] += v.P50 || 0;
+        wind_band[h].P10 += v.P10 || 0;
+        wind_band[h].P50 += v.P50 || 0;
+        wind_band[h].P90 += v.P90 || 0;
       } else if (r.type === 'load') {
         loadArr[h].PL1 += v.P50 || 0;
+      } else if (r.type === 'bess') {
+        // SOC esperado (sensor de bateria): se usa como initial_soc del solver
+        if (v.P50 != null) lastBessSoc = Number(v.P50);
       }
     }
   }
 
-  const hasGen = results.some((r) => r.type === 'solar' || r.type === 'wind');
+  const hasSolar = results.some((r) => r.type === 'solar');
+  const hasWind = results.some((r) => r.type === 'wind');
   const hasLoad = results.some((r) => r.type === 'load');
 
   // La fuente de carga (mat / estatica) la decide el bloque Carga del diagrama
@@ -128,10 +141,13 @@ async function runPredictionPipeline(sensorMappings = {}, topology = {}) {
 
   return {
     predictions: {
-      solar: hasGen ? [] : null,      // vacio: el solver usa pv_kw/band
+      solar: hasSolar ? [] : null,      // vacio: el solver usa pv_kw/band
       load: loadProvided ? loadArr : null,
-      power: hasGen ? pv_band : null,
-      pv_kw: hasGen ? pv_kw : null,
+      power: hasSolar ? pv_band : null,
+      pv_kw: hasSolar ? pv_kw : null,
+      wind_kw: hasWind ? wind_kw : null,
+      wind_band: hasWind ? wind_band : null,
+      battery_soc: lastBessSoc,
     },
     sensors: results.map((r) => ({ sensor_id: r.sensorId, type: r.type, unit: r.unit })),
     static_load_kw: null,

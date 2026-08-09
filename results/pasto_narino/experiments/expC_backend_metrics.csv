@@ -1,0 +1,4 @@
+metric,n,p50_ms,p95_ms,p99_ms,max_ms
+mqtt_latency_end_to_end_ms,7000,243,348,509,716
+mongo_insert_ms,7000,97.27,136.47,950.49,5626.33
+ws_push_ms,7000,0.11,0.38,0.88,8.01

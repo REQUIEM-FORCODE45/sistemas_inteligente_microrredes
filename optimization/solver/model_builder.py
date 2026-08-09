@@ -11,6 +11,7 @@ Soporte:
 """
 
 import logging
+import time
 from typing import Any
 
 import numpy as np
@@ -55,6 +56,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     predictions_load_total = input_data.get("predictions_load_total", [])
     predictions_pv_kw = input_data.get("predictions_pv_kw", [])
     predictions_pv_band = input_data.get("predictions_pv_band", [])
+    predictions_wind_kw = input_data.get("predictions_wind_kw", [])
+    predictions_wind_band = input_data.get("predictions_wind_band", [])
     sources = input_data.get("sources", [])
     storage_list = input_data.get("storage", [])
     converters = input_data.get("converters", [])
@@ -65,6 +68,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     num_scenarios = len(scenarios)
     s_ids = list(range(num_scenarios))
 
+    t_build0 = time.time()
     try:
         pyo_model, variables = _build_pyomo_model(
             horizon=horizon,
@@ -75,6 +79,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             predictions_load_total=predictions_load_total,
             predictions_pv_kw=predictions_pv_kw,
             predictions_pv_band=predictions_pv_band,
+            predictions_wind_kw=predictions_wind_kw,
+            predictions_wind_band=predictions_wind_band,
             sources=sources,
             storage_list=storage_list,
             loads=loads,
@@ -87,15 +93,20 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             "status": "error",
             "error": f"Error construyendo modelo Pyomo: {e}",
         }
+    t_build = time.time() - t_build0
 
     solver_pref = input_data.get("solver", "gurobi")
+    t_solve0 = time.time()
     result: SolverResult = solve(pyo_model, preferred=solver_pref)
+    t_solve = time.time() - t_solve0
 
     if result.status != "optimal":
         return {
             "job_id": job_id,
             "status": result.status,
             "error": result.error or f"Solver finalizo: {result.termination}",
+            "timing_s": {"t_build": t_build, "t_solve": t_solve,
+                         "t_total": t_build + t_solve},
         }
 
     dispatch_plan = _extract_dispatch_plan(
@@ -135,6 +146,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
         "scenario_results": scenario_results,
         "battery_soc_evolution": battery_soc,
         "total_hours": horizon,
+        "timing_s": {"t_build": round(t_build, 4), "t_solve": round(t_solve, 4),
+                     "t_total": round(t_build + t_solve, 4)},
         "error": None,
     }
 
@@ -148,6 +161,8 @@ def _build_pyomo_model(
     predictions_load_total: list,
     predictions_pv_kw: list = None,
     predictions_pv_band: list = None,
+    predictions_wind_kw: list = None,
+    predictions_wind_band: list = None,
     sources: list = None,
     storage_list: list = None,
     loads: list = None,
@@ -157,13 +172,14 @@ def _build_pyomo_model(
 
     Modelo equivalente al script Gurobi de referencia:
       - Solar: entrada fija determinada por irradiancia (no es variable de decision)
+      - Wind: idem, entrada fija desde prediccion del sensor (pasivo)
       - Diesel: variable P_DG[t,s] con costo cuadratico (c + b*P + a*P^2) * C_fuel
       - Grid: variable P_grid[t,s] bidireccional [grid_min .. grid_max]
               costo: d + e*P_grid  (si P_grid < 0 genera revenue)
-      - Balance: P_diesel + P_grid >= load - P_solar
+      - Balance: P_diesel + P_grid + P_solar + P_wind >= load - (storage)
     """
 
-    model = pyo.ConcreteModel(name="SIGEMM_Optimization")
+    model = pyo.ConcreteModel(name="SIGE_Optimization")
 
     model.T = pyo.RangeSet(0, horizon - 1)
     model.S = pyo.RangeSet(0, len(scenarios) - 1)
@@ -172,14 +188,19 @@ def _build_pyomo_model(
     storage_list = storage_list or []
     loads = loads or []
     grid_raw = grid_raw or {}
+    predictions_solar = list(predictions_solar) if predictions_solar else []
+    predictions_load_total = list(predictions_load_total) if predictions_load_total else []
     predictions_pv_kw = list(predictions_pv_kw) if predictions_pv_kw else []
     predictions_pv_band = list(predictions_pv_band) if predictions_pv_band else []
+    predictions_wind_kw = list(predictions_wind_kw) if predictions_wind_kw else []
+    predictions_wind_band = list(predictions_wind_band) if predictions_wind_band else []
 
-    def _band_at(t: int, key: str) -> float:
+    def _band_at(t: int, key: str, band: list = None) -> float:
         """Valor P10/P50/P90 de la banda horaria t (dict o tupla [p10,p50,p90])."""
-        if not predictions_pv_band or t >= len(predictions_pv_band):
+        band = band if band is not None else predictions_pv_band
+        if not band or t >= len(band):
             return 0.0
-        b = predictions_pv_band[t]
+        b = band[t]
         if isinstance(b, dict):
             return float(b.get(key, b.get("P50", 0.0)))
         try:
@@ -205,6 +226,19 @@ def _build_pyomo_model(
                 "weight": src.get("max_kw", 900) * src.get("efficiency", 0.4 * 0.9),
             })
     total_solar_kw = sum(d["weight"] for d in solar_devices) or 1.0
+
+    # Generacion EOLICA pasiva (prediccion del sensor; pasivo como solar)
+    WIND_TYPES = ("wind", "wind_turbine")
+    wind_devices = []
+    for src in sources:
+        if src.get("type") in WIND_TYPES:
+            wind_devices.append({
+                "id": src.get("id", "wind"),
+                "max_kw": src.get("max_kw", 100),
+                "efficiency": src.get("efficiency", 0.4),
+                "weight": src.get("max_kw", 100) * src.get("efficiency", 0.4),
+            })
+    total_wind_kw = sum(d["weight"] for d in wind_devices) or 1.0
 
     diesel_devices = []
     for src in sources:
@@ -258,6 +292,13 @@ def _build_pyomo_model(
             model.T, model.S,
             domain=pyo.NonNegativeReals,
         )
+        # Complementariedad (Ecs. 4-6 del paper): Z[bi,t,s] = 1 si la bateria
+        # carga, 0 si descarga. Excluye carga y descarga simultaneas (big-M).
+        model.Z = pyo.Var(
+            pyo.RangeSet(0, len(storage_list) - 1),
+            model.T, model.S,
+            domain=pyo.Binary,
+        )
         model.SOC = pyo.Var(
             pyo.RangeSet(0, len(storage_list) - 1),
             model.T, model.S,
@@ -277,18 +318,26 @@ def _build_pyomo_model(
             })
 
     pv_first_kw = 0.0   # probe para tests: valor usado en balance (t=0, s=0)
+    wind_first_kw = 0.0
     for s_idx in s_ids:
         sc = scenarios[s_idx]
         factor_pv = sc["factor_pv"]
+        factor_wind = sc.get("factor_wind", 1.0)
 
         for t in model.T:
             t_idx = int(t)
             irrad = predictions_solar[t_idx] if t_idx < len(predictions_solar) else 0.0
 
-            if predictions_pv_band:
-                # MPC ROBUSTO por cuantiles (Fase 5): el balance se garantiza
-                # con la generacion de PEOR CASO (P10 del forecast calibrado).
-                pv_kw = _band_at(t_idx, "P10") * factor_pv
+            # COHERENCIA (defensa): sin dispositivos solares en la topologia,
+            # pv_kw = 0 aunque lleguen predicciones (banda/kw) de un cliente.
+            if not solar_devices:
+                pv_kw = 0.0
+            elif predictions_pv_band:
+                # ESCENARIOS POR CUANTILES (Comentario 1 del revisor): cada
+                # escenario usa la curva del cuantil anclado (P90/P50/P10).
+                # Fallback a P10 (peor caso) si el escenario no trae 'quantile'.
+                pv_kw = _band_at(t_idx, sc.get("quantile") or "P10",
+                                 band=predictions_pv_band) * factor_pv
             elif predictions_pv_kw:
                 # perfil CALIBRADO (kW) de /predict/power; la fisica ya se aplico
                 pv_kw = (predictions_pv_kw[t_idx] if t_idx < len(predictions_pv_kw)
@@ -298,6 +347,21 @@ def _build_pyomo_model(
                             for sd in solar_devices)
             if t_idx == 0 and s_idx == s_ids[0]:
                 pv_first_kw = float(pv_kw)
+
+            # EOLICA pasiva: cuantil del escenario (si hay banda) o perfil
+            # directo con factor_wind por escenario. Sin turbinas -> 0 (defensa).
+            if not wind_devices:
+                wind_kw = 0.0
+            elif predictions_wind_band:
+                wind_kw = _band_at(t_idx, sc.get("quantile") or "P10",
+                                   band=predictions_wind_band) * factor_wind
+            elif predictions_wind_kw:
+                wind_kw = (predictions_wind_kw[t_idx] if t_idx < len(predictions_wind_kw)
+                           else 0.0) * factor_wind
+            else:
+                wind_kw = 0.0
+            if t_idx == 0 and s_idx == s_ids[0]:
+                wind_first_kw = float(wind_kw)
 
             diesel_total = (
                 sum(model.P_diesel[di, t, s_idx] for di in range(num_diesel))
@@ -315,7 +379,8 @@ def _build_pyomo_model(
                 model.P_charge[bi, t, s_idx] for bi, _ in enumerate(storage_list)
             ) if storage_list else 0.0
 
-            expr = diesel_total + model.P_grid[t, s_idx] + pv_kw + storage_discharge - storage_charge
+            expr = (diesel_total + model.P_grid[t, s_idx] + pv_kw + wind_kw
+                    + storage_discharge - storage_charge)
 
             model.add_component(
                 f"balance_{t}_{s_idx}",
@@ -353,8 +418,35 @@ def _build_pyomo_model(
                             ),
                         )
 
+        # Complementariedad (Ecs. 4-6): exclusión mutua carga/descarga por big-M.
+        for bi, bmeta in enumerate(storage_vars):
+            for s in s_ids:
+                for t in model.T:
+                    model.add_component(
+                        f"comp_charge_{bi}_{t}_{s}",
+                        pyo.Constraint(
+                            expr=model.P_charge[bi, t, s]
+                            <= bmeta["max_charge"] * model.Z[bi, t, s]
+                        ),
+                    )
+                    model.add_component(
+                        f"comp_discharge_{bi}_{t}_{s}",
+                        pyo.Constraint(
+                            expr=model.P_discharge[bi, t, s]
+                            <= bmeta["max_discharge"] * (1 - model.Z[bi, t, s])
+                        ),
+                    )
+
     grid_d = grid_raw.get("cost_fixed", 40)
-    grid_e = grid_raw.get("cost_variable", 60)
+    # Tarifa VARIABLE horaria (perfil ToU): el paper afirma 'C_var por hora'.
+    # Acepta escalar (broadcast a todas las horas, retrocompatible con el
+    # backend/diagrama) o lista/array de 24+ valores.
+    grid_e_raw = grid_raw.get("cost_variable", 60)
+    if isinstance(grid_e_raw, (list, tuple, np.ndarray)):
+        grid_e = {int(t): float(grid_e_raw[t]) if t < len(grid_e_raw)
+                  else float(grid_e_raw[-1]) for t in model.T}
+    else:
+        grid_e = {int(t): float(grid_e_raw) for t in model.T}
 
     # Linealizacion por tramos del costo diesel (MILP; HiGHS-compatible).
     # DIESEL_COST[di,t,s] = aprox. por tramos de (c + b*P + a*P^2) * fuel
@@ -386,7 +478,7 @@ def _build_pyomo_model(
                     for di in range(num_diesel):
                         total += prob * m.DIESEL_COST[di, t, s_idx]
 
-                total += prob * (grid_d + grid_e * m.P_grid[t, s_idx])
+                total += prob * (grid_d + grid_e[int(t)] * m.P_grid[t, s_idx])
 
                 for bi, _ in enumerate(storage_list):
                     total += prob * battery_degradation_cost(
@@ -416,6 +508,10 @@ def _build_pyomo_model(
         "predictions_pv_kw": predictions_pv_kw,
         "predictions_pv_band": predictions_pv_band,
         "pv_balance_first_kw": pv_first_kw,
+        "wind_devices": wind_devices,
+        "predictions_wind_kw": predictions_wind_kw,
+        "predictions_wind_band": predictions_wind_band,
+        "wind_balance_first_kw": wind_first_kw,
         "predictions_load_total": predictions_load_total,
         "load_ids": [l.get("id", "load") for l in loads],
     }
@@ -424,6 +520,7 @@ def _build_pyomo_model(
         variables["storage_vars"] = storage_vars
         variables["P_charge"] = model.P_charge
         variables["P_discharge"] = model.P_discharge
+        variables["Z"] = model.Z
         variables["SOC"] = model.SOC
 
     return model, variables
@@ -518,14 +615,19 @@ def _extract_dispatch_plan(
     predictions_solar = variables.get("predictions_solar", [])
     predictions_pv_kw = variables.get("predictions_pv_kw", [])
     predictions_pv_band = variables.get("predictions_pv_band", [])
+    wind_devices = variables.get("wind_devices", [])
+    predictions_wind_kw = variables.get("predictions_wind_kw", [])
+    predictions_wind_band = variables.get("predictions_wind_band", [])
     predictions_load_total = variables.get("predictions_load_total", [])
     load_ids = variables.get("load_ids", ["load"])
     total_solar_kw = sum(d.get("weight", 0.0) for d in solar_devices) or 1.0
+    total_wind_kw = sum(d.get("weight", 0.0) for d in wind_devices) or 1.0
 
-    def _band_at(t: int, key: str) -> float:
-        if not predictions_pv_band or t >= len(predictions_pv_band):
+    def _band_at(t: int, key: str, band: list = None) -> float:
+        band = band if band is not None else predictions_pv_band
+        if not band or t >= len(band):
             return 0.0
-        b = predictions_pv_band[t]
+        b = band[t]
         if isinstance(b, dict):
             return float(b.get(key, b.get("P50", 0.0)))
         try:
@@ -538,6 +640,7 @@ def _extract_dispatch_plan(
         sc = scenarios[s_idx]
         sc_name = sc["name"]
         factor_pv = sc["factor_pv"]
+        factor_wind = sc.get("factor_wind", 1.0)
         for t in range(horizon):
             irrad = predictions_solar[t] if t < len(predictions_solar) else 0.0
             for sd in solar_devices:
@@ -550,15 +653,35 @@ def _extract_dispatch_plan(
                     pv_kw = pv_total * sd.get("weight", 0.0) / total_solar_kw
                 else:
                     pv_kw = sd["max_kw"] * sd["efficiency"] * irrad * factor_pv
-                if pv_kw > 0.001:
-                    plan.append({
-                        "device_id": sd["id"],
-                        "device_type": "solar",
-                        "hour": t + 1,
-                        "scenario": sc_name,
-                        "power_kw": round(pv_kw, 3),
-                        "cost": 0.0,
-                    })
+                # SIEMPRE emitir la hora (con 0.0 si no hay sol): asi el plan
+                # cubre las 24h y los graficos no quedan con huecos.
+                plan.append({
+                    "device_id": sd["id"],
+                    "device_type": "solar",
+                    "hour": t + 1,
+                    "scenario": sc_name,
+                    "power_kw": round(pv_kw, 3) if pv_kw > 0.001 else 0.0,
+                    "cost": 0.0,
+                })
+            for wd in wind_devices:
+                if predictions_wind_band:
+                    wind_total = _band_at(t, "P50", band=predictions_wind_band) * factor_wind
+                    wind_kw = wind_total * wd.get("weight", 0.0) / total_wind_kw
+                elif predictions_wind_kw:
+                    wind_total = (predictions_wind_kw[t] if t < len(predictions_wind_kw)
+                                  else 0.0) * factor_wind
+                    wind_kw = wind_total * wd.get("weight", 0.0) / total_wind_kw
+                else:
+                    wind_kw = 0.0
+                # SIEMPRE emitir la hora (con 0.0 si no hay viento util).
+                plan.append({
+                    "device_id": wd["id"],
+                    "device_type": "wind",
+                    "hour": t + 1,
+                    "scenario": sc_name,
+                    "power_kw": round(wind_kw, 3) if wind_kw > 0.001 else 0.0,
+                    "cost": 0.0,
+                })
             if t < len(predictions_load_total):
                 ld = predictions_load_total[t]
                 if ld > 0.001:
@@ -587,7 +710,15 @@ def _extract_cost_breakdown(
 ) -> dict:
     num_diesel = variables.get("num_diesel", 0)
     grid_d = grid_raw.get("cost_fixed", 40)
-    grid_e = grid_raw.get("cost_variable", 60)
+    # Tarifa horaria en el breakdown (coherente con la funcion objetivo)
+    grid_e_raw = grid_raw.get("cost_variable", 60)
+    if isinstance(grid_e_raw, (list, tuple, np.ndarray)):
+        def _grid_e(t):
+            return float(grid_e_raw[t]) if t < len(grid_e_raw) \
+                else float(grid_e_raw[-1])
+    else:
+        def _grid_e(t):
+            return float(grid_e_raw)
     cost_per_hour = []
 
     for s_idx in s_ids:
@@ -620,7 +751,7 @@ def _extract_cost_breakdown(
                 grid_p = float(pyo.value(variables["P_grid"][t, s_idx]))
             except (ValueError, KeyError):
                 grid_p = 0.0
-            hour_cost += grid_d + grid_e * grid_p
+            hour_cost += grid_d + _grid_e(t) * grid_p
 
             cost_per_hour.append({
                 "hour": t + 1,

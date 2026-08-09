@@ -363,7 +363,9 @@ export default function DiagramOptimizationPanel({ onClose }) {
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
               Sensores enlazados
             </p>
-            {Object.entries(sensorMappings).map(([nodeId, sensorId]) => {
+            {Object.entries(sensorMappings)
+              .filter(([nodeId]) => diagramNodes.some((n) => n.id === nodeId))
+              .map(([nodeId, sensorId]) => {
               const node = diagramNodes.find((n) => n.id === nodeId);
               const st = sensorStatus[sensorId];
               const phaseMap = {

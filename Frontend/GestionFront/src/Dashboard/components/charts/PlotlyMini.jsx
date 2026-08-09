@@ -26,8 +26,11 @@ export default function PlotlyMini({ data, layout = {}, height = 110 }) {
     if (!el || !data || (Array.isArray(data) && data.length === 0)) return;
     try {
       Plotly.purge(el);
-      Plotly.newPlot(el, data, merged, { displaylogo: false, responsive: true });
-      console.log(`[PlotlyMini] graficado: ${Array.isArray(data) ? data.length : 0} traza(s)`);
+      Plotly.newPlot(el, data, merged, {
+        displaylogo: false,
+        displayModeBar: false,
+        responsive: true,
+      });
     } catch (e) {
       console.error('[PlotlyMini] fallo al graficar:', e);
     }

@@ -86,6 +86,47 @@ def patched(monkeypatch, tmp_path):
     return tmp_path
 
 
+def test_wind_nocturno_no_se_enmascara_como_solar(monkeypatch):
+    """Regresion: la mascara nocturna es SOLO para PV.
+
+    De noche con viento util (> cut_in) y sin sol, el viento debe generar
+    (P50 > 0). Antes la mascara de shortwave_radiation lo forzaba a 0.
+    """
+    from optimization.calibration.wind import CalibratedWindTurbine
+    from optimization.physics.wind import WindTurbine
+    from optimization.prediction.forecaster import ClimateForecast
+
+    tz = "America/Bogota"
+    idx = pd.date_range("2026-03-01", periods=24, freq="h", tz=tz)
+    c = pd.DataFrame(index=idx)
+    c["shortwave_radiation"] = 0.0       # NOCHE completa (sin sol)
+    c["direct_normal_irradiance"] = 0.0
+    c["diffuse_radiation"] = 0.0
+    c["temperature_2m"] = 18.0
+    c["relative_humidity_2m"] = 70.0
+    c["cloud_cover"] = 40.0
+    c["wind_speed_100m"] = 9.0           # viento util (> cut_in 3 m/s)
+    c["wind_speed_10m"] = 6.3
+    c["surface_pressure"] = 757.0
+    c["precipitation"] = 0.0
+
+    class NightProvider:
+        provider_name = "openmeteo_nwp"
+
+        def forecast(self, days=1.0):
+            return ClimateForecast(data=c, horizon_h=24, provider=self.provider_name)
+
+    model = CalibratedWindTurbine(turbine=WindTurbine(capacity_kw=100.0),
+                                  k=0.8, t0=idx[0])
+    monkeypatch.setattr(sp, "load_calibrated", lambda sid: model)
+    monkeypatch.setattr(sp, "get_climate_provider",
+                        lambda cfg, name=None: NightProvider())
+
+    out = sp.predict_sensor("pasto_narino", "sint_wind", "wind", hours=24)
+    assert out["values"][0]["P50"] > 0.0, "viento nocturno debe generar"
+    assert out["values"][12]["P50"] > 0.0
+
+
 def test_fit_and_predict_load(patched, tmp_path):
     r = svc.fit_from_sensor("pasto_narino", "t_load", "load")
     assert r["status"] == "ok" and r["cached"] is False

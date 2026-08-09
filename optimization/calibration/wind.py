@@ -23,7 +23,8 @@ from sklearn.ensemble import GradientBoostingRegressor
 from optimization.physics.wind import WindTurbine
 from optimization.calibration.derating import estimate_derating, apply_derating
 from optimization.calibration.experiments import rmse
-from optimization.calibration.residual import (residual_features, fit_residual_gbr,
+from optimization.calibration.residual import (residual_features_wind,
+                                               fit_residual_gbr,
                                                residual_predict)
 from optimization.calibration.conformal import conformal_radius, conformal_band
 
@@ -61,7 +62,7 @@ class CalibratedWindTurbine:
                       use_residual: bool = True) -> pd.Series:
         out = self._base_kw(climate)
         if use_residual and self.residual_model is not None and self.t0 is not None:
-            feats = residual_features(climate, self.t0)
+            feats = residual_features_wind(climate, self.t0)
             out = out + residual_predict(self.residual_model, feats)
         return out.clip(lower=0.0)
 
@@ -90,13 +91,13 @@ def calibrate_wind(turbine: WindTurbine, climate: pd.DataFrame,
 
     n_fit = int(0.8 * n_tr)
     resid_fit = p_tr.iloc[:n_fit] - p_base_tr.iloc[:n_fit]
-    gbr = fit_residual_gbr(residual_features(cli_tr.iloc[:n_fit], climate.index[0]),
+    gbr = fit_residual_gbr(residual_features_wind(cli_tr.iloc[:n_fit], climate.index[0]),
                            resid_fit)
     cal_resid = resid_fit.iloc[-int(0.2 * n_fit):]
     radius = conformal_radius(cal_resid, alpha=0.2)
 
     pred_va = (p_base_va + residual_predict(
-        gbr, residual_features(cli_va, climate.index[0]))).clip(lower=0.0)
+        gbr, residual_features_wind(cli_va, climate.index[0]))).clip(lower=0.0)
 
     return {
         "k": k,

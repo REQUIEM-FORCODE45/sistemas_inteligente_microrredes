@@ -41,9 +41,9 @@ const DEFAULT_TOPOLOGY = {
 async function fetchPredictions() {
   try {
     const [solarRes, loadRes, powerRes] = await Promise.all([
-      axios.get(`${PREDICTION_API}/predict/solar?hours=24`, { timeout: 5000 }),
-      axios.get(`${PREDICTION_API}/predict/load?hours=24`, { timeout: 5000 }),
-      axios.get(`${PREDICTION_API}/predict/power?hours=24`, { timeout: 5000 }).catch(() => null),
+      axios.get(`${PREDICTION_API}/predict/solar?hours=24`, { timeout: 120000 }),
+      axios.get(`${PREDICTION_API}/predict/load?hours=24`, { timeout: 120000 }),
+      axios.get(`${PREDICTION_API}/predict/power?hours=24`, { timeout: 120000 }).catch(() => null),
     ]);
     const power = powerRes?.data?.values || [];
     return {
@@ -112,6 +112,24 @@ function blendLoads(topologyLoads, profileTotal) {
   };
 }
 
+// ANTI-FANTASMA: conserva solo mappings cuyo nodeId exista en la topologia
+// (sources/storage/loads/converters). Evita que sensores de nodos borrados
+// se procesen o persistan en Redis.
+function sanitizeSensorMappings(sensorMappings, topology) {
+  if (!sensorMappings || typeof sensorMappings !== 'object') return sensorMappings;
+  const topo = topology || {};
+  const lists = [
+    topo.sources || [], topo.storage || [], topo.loads || [], topo.converters || [],
+  ];
+  const validIds = new Set();
+  for (const list of lists) for (const item of list) if (item && item.id) validIds.add(item.id);
+  const out = {};
+  for (const [nodeId, sensorId] of Object.entries(sensorMappings)) {
+    if (validIds.has(nodeId)) out[nodeId] = sensorId;
+  }
+  return out;
+}
+
 async function executeMpcCycle(userTopology = null, userPredictions = null) {
   if (mpcRunning) {
     console.log('  [MPC] Ciclo anterior aun ejecutandose, saltando...');
@@ -120,6 +138,7 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
 
   mpcRunning = true;
   console.log('  [MPC] Iniciando ciclo...');
+  const cycleStartedAt = Date.now();   // Experimento B/C: duracion E2E del ciclo
 
   try {
     if (io) {
@@ -141,10 +160,11 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
 
     // Bucle completo (Opcion A): si el ultimo trigger trajo sensor_mappings,
     // calibrar + predecir por sensor, igual que el boton "Optimizar".
-    if (!predictions && !userTopology && lastSensorMappings && Object.keys(lastSensorMappings).length) {
+    const safeMappings = sanitizeSensorMappings(lastSensorMappings, topology);
+    if (!predictions && !userTopology && safeMappings && Object.keys(safeMappings).length) {
       try {
         const { runPredictionPipeline } = require('./predictionPipeline');
-        const pipe = await runPredictionPipeline(lastSensorMappings, topology);
+        const pipe = await runPredictionPipeline(safeMappings, topology);
         if (pipe) predictions = pipe.predictions;
       } catch (err) {
         console.warn('  [MPC] Pipeline automatico fallo, usa default:', err.message);
@@ -176,7 +196,7 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
     const matBlocks = topologyLoads.filter((l) => l.load_source === 'mat');
     if (matBlocks.length > 0 && profileTotal.length === 0) {
       try {
-        const r = await axios.get(`${PREDICTION_API}/predict/load?hours=24`, { timeout: 5000 });
+        const r = await axios.get(`${PREDICTION_API}/predict/load?hours=24`, { timeout: 120000 });
         profileTotal = computeLoadTotal(r.data?.values);
         console.log('  [MPC] Perfil modular de Consumo.mat obtenido para carga "mat".');
       } catch (err) {
@@ -189,15 +209,33 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
       profileTotal,
     );
 
+    // SOC real de la bateria (si hay sensor bess enlazado): el initial_soc
+    // del diagrama queda como fallback cuando no hay sensor.
+    const storageWithSoc = (topology.storage || []).map((b) => {
+      if (b.initial_soc != null && predictions.battery_soc == null) return b;
+      return { ...b, initial_soc: predictions.battery_soc != null
+        ? Math.min(0.95, Math.max(0.05, predictions.battery_soc / 100))
+        : b.initial_soc };
+    });
+
+    // COHERENCIA: las predicciones de generacion solo aplican si el diagrama
+    // tiene ese tipo de fuente. Sin bloques solares/eolicos -> el solver no
+    // recibe PV/wind (aunque /predict/power lo entregue por defecto).
+    const srcTypes = (topology.sources || []).map((s) => s.type);
+    const hasSolar = srcTypes.some((t) => t === 'solar' || t === 'solar_panel_ac');
+    const hasWind = srcTypes.some((t) => t === 'wind' || t === 'wind_turbine');
+
     const optimizationInput = {
       sources: topology.sources || [],
-      storage: topology.storage || [],
+      storage: storageWithSoc,
       converters: topology.converters || [],
       loads: topology.loads || [],
       grid: topology.grid || {},
-      predictions_solar: predictions.solar,
-      predictions_pv_kw: predictions.pv_kw || null,   // kW calibrados de /predict/power
-      predictions_pv_band: predictions.power || null, // banda P10/P50/P90 (Fase 5)
+      predictions_solar: hasSolar ? predictions.solar : null,
+      predictions_pv_kw: hasSolar ? (predictions.pv_kw || null) : null,     // kW calibrados de /predict/power
+      predictions_pv_band: hasSolar ? (predictions.power || null) : null,   // banda P10/P50/P90 (Fase 5)
+      predictions_wind_kw: hasWind ? (predictions.wind_kw || null) : null,
+      predictions_wind_band: hasWind ? (predictions.wind_band || null) : null,
       predictions_load_total: blendedLoad,
       static_load_kw: staticLoadKw,
       horizon: 24,
@@ -231,6 +269,11 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
     pollProgress(
       jobId,
       (result) => {
+        const perf = require('./perfMetrics');
+        perf.record('mpc_cycle_e2e_ms', Date.now() - cycleStartedAt);
+        if (result && result.timing_s) {
+          perf.record('mpc_solver_total_s', result.timing_s.t_total || 0);
+        }
         if (io) {
           io.emit('optimization_result', result || { jobId, status: 'error', error: 'No se obtuvo resultado' });
           io.emit('optimization_complete', { jobId, status: result?.status || 'unknown' });
@@ -293,7 +336,7 @@ async function setMpcEnabled(enabled) {
 
 async function setLastTopology(topology, sensorMappings) {
   lastTopology = topology || null;
-  lastSensorMappings = sensorMappings || null;
+  lastSensorMappings = sanitizeSensorMappings(sensorMappings, topology) || null;
 
   try {
     const redis = getRedis();
@@ -317,7 +360,8 @@ async function loadLastTopology() {
       const data = JSON.parse(raw);
       if (data && data.topology) {
         lastTopology = data.topology;
-        lastSensorMappings = data.sensor_mappings || null;
+        // sanitiza lo leido: limpia cualquier fantasma historico en Redis
+        lastSensorMappings = sanitizeSensorMappings(data.sensor_mappings || null, lastTopology);
         console.log('  [MPC] Topologia recuperada de Redis (ultimo diagrama).');
         return lastTopology;
       }
@@ -351,4 +395,5 @@ module.exports = {
   executeMpcCycle,
   getMpcStatus,
   resetMpcCycle,
+  sanitizeSensorMappings,
 };

@@ -1,0 +1,116 @@
+# ============================================================
+# Configuración de UNA microrred (instancia del sistema)
+# La plataforma es site-agnostic: cada microrred = 1 YAML.
+# Para agregar una nueva microrred, copiar este archivo y editar.
+# ============================================================
+
+site:
+  id: "pasto_narino"           # identificador único (slug)
+  name: "Pasto, Nariño — campus/referencia"
+  latitude: 1.2136
+  longitude: -77.2811
+  timezone: "America/Bogota"
+  elevation_m: 2600
+
+# ------------------------------------------------------------
+# ACTIVOS de la microrred — la plataforma instancia solo los
+# modelos dinámicos de los activos declarados aquí.
+# ------------------------------------------------------------
+assets:
+  pv:
+    enabled: true
+    capacity_kwp: 50.0          # capacidad pico instalada
+    tilt_deg: 2                 # ~latitud tropical, casi plano
+    azimuth_deg: 180            # sur (hemisferio norte, cerca del ecuador)
+    losses_pct: 14              # pérdidas sistema (cables, inversor, suciedad)
+    temp_coeff_pct_per_c: -0.38 # coef. temperatura típico Si cristalino
+
+  wind:
+    enabled: false              # Pasto ciudad: viento 1.5 m/s -> no viable
+    # capacity_kw: 10
+    # hub_height_m: 30
+    # power_curve: "data/power_curves/generic_10kw.csv"
+
+  bess:
+    enabled: true
+    capacity_kwh: 200
+    max_charge_kw: 50
+    max_discharge_kw: 50
+    efficiency_charge: 0.95
+    efficiency_discharge: 0.95
+    soc_min_pct: 10
+    soc_max_pct: 95
+    soc_initial_pct: 50
+
+  load:
+    enabled: true
+    profile: "residential"      # residential | commercial | industrial | measured
+    annual_kwh: 300000          # escala del perfil sintético (si no hay medición)
+
+# ------------------------------------------------------------
+# Variables climáticas a sensar/predecir (se filtran según activos)
+# ------------------------------------------------------------
+open_meteo:
+  archive_url: "https://archive-api.open-meteo.com/v1/archive"
+  forecast_url: "https://api.open-meteo.com/v1/forecast"
+  hourly_vars:
+    - "shortwave_radiation"
+    - "direct_normal_irradiance"
+    - "diffuse_radiation"
+    - "temperature_2m"
+    - "relative_humidity_2m"
+    - "cloud_cover"
+    - "wind_speed_100m"
+    - "wind_direction_100m"
+    - "wind_speed_10m"
+    - "surface_pressure"
+    - "precipitation"
+  history_start: "2020-01-01"
+  history_end: "2025-12-31"
+
+# ------------------------------------------------------------
+# Forecast (Módulo 1)
+# ------------------------------------------------------------
+forecast:
+  context_length: 512
+  horizon: 72
+  # PREDICCIÓN MULTIVARIADA COMPLETA: todas las variables que la plataforma
+  # sensa/consume (radiación, temperatura, viento, nubosidad, etc.).
+  targets:
+    - "shortwave_radiation"
+    - "direct_normal_irradiance"
+    - "diffuse_radiation"
+    - "temperature_2m"
+    - "relative_humidity_2m"
+    - "cloud_cover"
+    - "wind_speed_100m"
+    - "wind_speed_10m"
+    - "surface_pressure"
+    - "precipitation"
+  # TRUCO kt GENERALIZADO: separar lo determinista de lo impredecible.
+  # El modelo predice la ANOMALÍA (divide o resta de la componente
+  # determinista) y al reconstruir se re-agrega la parte exacta.
+  target_transforms:
+    shortwave_radiation:      {type: divide,  denom: ghi_toa}    # kt: GHI/sol_máximo
+    direct_normal_irradiance: {type: divide,  denom: sin_elev}   # normalizada por elevación
+    diffuse_radiation:        {type: divide,  denom: ghi_toa}
+    temperature_2m:           {type: anomaly}                    # menos ciclo diurno medio
+    relative_humidity_2m:     {type: anomaly}
+    cloud_cover:              {type: anomaly}
+    wind_speed_100m:          {type: anomaly}                    # menos brisa diaria media
+    wind_speed_10m:           {type: anomaly}
+    surface_pressure:         {type: anomaly}
+    precipitation:            {type: none}                       # esporádica: directa
+  quantiles: [0.1, 0.5, 0.9]
+
+patchtst:
+  patch_len: 16
+  stride: 8
+  d_model: 128
+  n_heads: 16
+  e_layers: 3
+  d_ff: 256
+  dropout: 0.2
+  epochs: 100
+  batch_size: 256
+  lr: 1.0e-4

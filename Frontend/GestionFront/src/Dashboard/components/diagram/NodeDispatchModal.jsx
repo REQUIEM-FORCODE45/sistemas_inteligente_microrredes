@@ -4,13 +4,13 @@ import { X, Activity, GripHorizontal, LineChart as LineChartIcon } from 'lucide-
 import { closeDispatchModal } from '@/Dashboard/store/diagram/diagramSlice';
 import NodeDispatchSparkline from './components/NodeDispatchSparkline';
 import GridAPI from '@/api/grid-api';
-import {
-  ResponsiveContainer, AreaChart, Area, Line, XAxis, YAxis, Tooltip,
-} from 'recharts';
+import Plotly from 'plotly.js-dist-min';
+import ErrorBoundary from '@/Dashboard/components/ErrorBoundary';
 import { DEVICE_DEFINITIONS, getDeviceDispatchTypes } from './constants/deviceTypes';
 
 const SENSOR_TYPE_BY_DEVICE = {
   solar_panel: 'solar',
+  solar_panel_ac: 'solar',
   load: 'load',
   battery: 'bess',
   wind_turbine: 'wind',
@@ -20,21 +20,40 @@ function SensorPredictionSection({ nodeId, deviceType }) {
   const sensorMappings = useSelector((state) => state.diagram.sensorMappings);
   const sensorId = sensorMappings?.[nodeId];
   const tipo = SENSOR_TYPE_BY_DEVICE[deviceType];
+  const isWind = deviceType === 'wind_turbine';
   const [pred, setPred] = useState(null);
   const [loading, setLoading] = useState(Boolean(sensorId && tipo));
 
   useEffect(() => {
     if (!sensorId || !tipo) return;
     let alive = true;
-    GridAPI.get('/front/prediction/sensor', {
+    const fetchSensor = GridAPI.get('/front/prediction/sensor', {
       params: { sensor_id: sensorId, type: tipo, hours: 24 },
-    })
-      .then((res) => {
+    });
+    // Para eolica: el viento pronosticado (m/s) del MISMO forecast que usa la
+    // fisica (wind_speed_100m) para que se vea la causalidad potencia~viento.
+    const fetchWind = isWind
+      ? GridAPI.get('/front/prediction/weather', { params: { hours: 24 } })
+        .then((res) => {
+          const values = res.data?.values || [];
+          return values.map((v, i) => ({
+            hour: i + 1,
+            wind_ms: v.wind_speed_100m != null ? Number(v.wind_speed_100m) : null,
+          }));
+        })
+        .catch(() => null)
+      : Promise.resolve(null);
+
+    Promise.all([fetchSensor, fetchWind])
+      .then(([sensorRes, windData]) => {
         if (!alive) return;
-        const values = res.data?.values || [];
+        const values = sensorRes?.data?.values || [];
+        const base = values.map((v, i) => ({ hour: i + 1, ...v }));
+        const data = windData ? base.map((d, i) => ({ ...d, ...(windData[i] || {}) })) : base;
         setPred({
-          unit: res.data?.unit || 'kW',
-          data: values.map((v, i) => ({ hour: i + 1, ...v })),
+          unit: sensorRes?.data?.unit || 'kW',
+          windMs: Boolean(windData),
+          data,
         });
       })
       .catch(() => {
@@ -44,23 +63,34 @@ function SensorPredictionSection({ nodeId, deviceType }) {
         if (alive) setLoading(false);
       });
     return () => { alive = false; };
-  }, [sensorId, tipo]);
+  }, [sensorId, tipo, isWind]);
 
-  if (!sensorId || !tipo) {
+  if (!sensorId) {
     return (
       <div className="mt-3 rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-[10px] text-muted-foreground">
         Sin sensor mapeado. Lígalo desde el panel del diagrama para ver la predicción calibrada de este activo.
       </div>
     );
   }
+  if (!tipo) {
+    return (
+      <div className="mt-3 rounded-lg border border-dashed bg-muted/10 px-3 py-2 text-[10px] text-muted-foreground">
+        Este bloque no tiene modelo de predicción de sensor (diesel/red).
+      </div>
+    );
+  }
 
-  const bandColor = deviceType === 'solar_panel' ? '#f59e0b' : '#14b8a6';
+  const bandColor = (deviceType === 'solar_panel' || deviceType === 'solar_panel_ac')
+    ? '#f59e0b' : '#14b8a6';
+
   return (
     <div className="mt-3 rounded-lg border bg-muted/10 p-2">
       <div className="flex items-center justify-between px-1 pb-1">
         <p className="text-[10px] font-semibold text-foreground flex items-center gap-1">
           <LineChartIcon className="w-3 h-3 text-chart-5" />
-          Predicción del sensor (24h · modelo calibrado)
+          {pred?.windMs
+            ? 'Predicción del sensor (24h · banda kW + viento m/s)'
+            : 'Predicción del sensor (24h · modelo calibrado)'}
         </p>
         <span className="text-[9px] text-muted-foreground font-mono">{sensorId.slice(-10)}</span>
       </div>
@@ -76,33 +106,111 @@ function SensorPredictionSection({ nodeId, deviceType }) {
       )}
       {!loading && pred && (
         <>
-          <ResponsiveContainer width="100%" height={110}>
-            <AreaChart data={pred.data} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-              <defs>
-                <linearGradient id="bandFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={bandColor} stopOpacity={0.25} />
-                  <stop offset="100%" stopColor={bandColor} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="hour" hide />
-              <YAxis hide domain={[0, 'dataMax']} />
-              <Tooltip
-                contentStyle={{ fontSize: 10, borderRadius: 8 }}
-                formatter={(v, name) => [`${Number(v).toFixed(1)} ${pred.unit}`, name]}
-              />
-              <Area type="monotone" dataKey="P90" stroke="none" fill="url(#bandFill)" />
-              <Area type="monotone" dataKey="P10" stroke="none" fill="var(--card)" fillOpacity={1} />
-              <Line type="monotone" dataKey="P50" stroke={bandColor} strokeWidth={2} dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
+          <ErrorBoundary compact>
+            <PredictionChart data={pred.data} bandColor={bandColor} unit={pred.unit} windMs={pred.windMs} />
+          </ErrorBoundary>
           <div className="flex justify-between px-1 pt-1 text-[9px] text-muted-foreground">
-            <span>banda P10-P90</span>
+            <span>{pred.windMs ? '— banda P10-P90 · - - viento (m/s)' : 'banda P10-P90'}</span>
             <span>pico P50: {Math.max(...pred.data.map((d) => d.P50)).toFixed(1)} {pred.unit}</span>
           </div>
         </>
       )}
     </div>
   );
+}
+
+function PredictionChart({ data, bandColor, unit, windMs }) {
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    if (!chartRef.current || !data || data.length === 0) return;
+    const hours = data.map((d) => d.hour);
+
+    const hexToRgba = (hex, a) => {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    };
+
+    const traces = [
+      {
+        x: hours,
+        y: data.map((d) => d.P10),
+        type: 'scatter',
+        mode: 'lines',
+        line: { width: 0 },
+        fill: 'tozeroy',
+        fillcolor: hexToRgba(bandColor, 0.12),
+        hoverinfo: 'skip',
+      },
+      {
+        x: hours,
+        y: data.map((d) => d.P90),
+        type: 'scatter',
+        mode: 'lines',
+        line: { width: 0 },
+        fill: 'tonexty',
+        fillcolor: hexToRgba(bandColor, 0.12),
+        hoverinfo: 'skip',
+      },
+      {
+        x: hours,
+        y: data.map((d) => d.P50),
+        type: 'scatter',
+        mode: 'lines',
+        name: `P50 (${unit})`,
+        line: { color: bandColor, width: 2 },
+        hovertemplate: `%{x}h · %{y:.1f} ${unit}<extra></extra>`,
+      },
+    ];
+    if (windMs) {
+      traces.push({
+        x: hours,
+        y: data.map((d) => d.wind_ms),
+        type: 'scatter',
+        mode: 'lines',
+        name: 'Viento (m/s)',
+        yaxis: 'y2',
+        line: { color: '#0ea5e9', width: 1.5, dash: 'dot' },
+        hovertemplate: `%{x}h · %{y:.1f} m/s<extra></extra>`,
+      });
+    }
+
+    const layout = {
+      showlegend: false,
+      xaxis: { title: 'Hora', dtick: 4, tickfont: { size: 9 }, showgrid: false },
+      yaxis: {
+        title: unit, tickfont: { size: 9 }, showgrid: true, gridcolor: 'rgba(148,163,184,0.15)',
+      },
+      // OJO: no incluir la clave con valor undefined (plotly crash: cleanLayout
+      // 'can't access property anchor'). Solo existe cuando hay viento (y2).
+      ...(windMs
+        ? {
+            yaxis2: {
+              title: 'm/s', tickfont: { size: 9 }, showgrid: false, overlaying: 'y', side: 'right',
+            },
+          }
+        : {}),
+      margin: { l: 36, r: windMs ? 34 : 8, t: 6, b: 30 },
+      paper_bgcolor: 'transparent',
+      plot_bgcolor: 'transparent',
+      font: { color: '#64748b', size: 9 },
+      height: 130,
+    };
+
+    try {
+      Plotly.react(chartRef.current, traces, layout, { responsive: true, displayModeBar: false });
+    } catch (err) {
+      console.warn('[PredictionChart] plotly error:', err);
+    }
+
+    const observer = new ResizeObserver(() => {
+      if (chartRef.current) Plotly.Plots.resize(chartRef.current);
+    });
+    observer.observe(chartRef.current);
+    return () => observer.disconnect();
+  }, [data, bandColor, unit, windMs]);
+
+  return <div ref={chartRef} className="w-full" />;
 }
 
 export default function NodeDispatchModal() {

@@ -27,13 +27,20 @@ export const RealtimeChart = ({ data, dataKeys, sensorId }) => {
     useEffect(() => {
         if (!plotRef.current || !data || data.length === 0) return;
 
+        // Filtra puntos con fecha invalida (evita tooltip Dec 1969/Jan 2010
+        // por autotype de Plotly) y no dibuja con menos de 2 puntos validos.
+        const valid = data.filter((d) => d.timestamp
+            && !Number.isNaN(new Date(d.timestamp).getTime()));
+        if (valid.length < 2) return;
+
         const traces = dataKeys.map((key, i) => ({
-            x: data.map(d => d.timestamp),
-            y: data.map(d => d[key]),
+            x: valid.map(d => new Date(d.timestamp)),
+            y: valid.map(d => d[key]),
             type: 'scatter',
             mode: 'lines',
             name: KEY_LABELS[key] || key,
             line: { color: COLORS[i % COLORS.length], width: 2 },
+            hovertemplate: `%{x|%d/%m %H:%M}<br>%{y:.2f}<extra></extra>`,
         }));
 
         const isMobile = dimensions.width < 640;
@@ -47,10 +54,10 @@ export const RealtimeChart = ({ data, dataKeys, sensorId }) => {
             plot_bgcolor: 'rgba(0,0,0,0)',
             xaxis: {
                 title: isMobile ? '' : 'Tiempo',
+                type: 'date',
+                tickformat: '%d/%m %H:%M',
                 tickfont: { size: 10 },
                 gridcolor: '#e2e8f0',
-                tickmode: 'linear',
-                dtick: Math.ceil(data.length / 4),
             },
             yaxis: {
                 title: isMobile ? '' : 'Valor',

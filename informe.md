@@ -6,7 +6,7 @@
 
 ## Resumen
 
-La creciente penetración de fuentes renovables intermitentes, junto con la complejidad operativa de los sistemas de almacenamiento y la generación convencional, exige nuevas herramientas de gestión capaces de procesar datos en tiempo real, anticipar condiciones futuras y tomar decisiones óptimas de despacho bajo incertidumbre. En este trabajo se presenta **SIGE** (Sistema Inteligente de Gestión Energética), una plataforma integral para la operación de microrredes eléctricas híbridas que integra monitoreo IoT en tiempo real, predicción de variables de entrada mediante modelos de deep learning, optimización estocástica con control predictivo por modelo (MPC), detección estadística de anomalías y un sistema multi-agente basado en grandes modelos de lenguaje (LLMs) para asistencia operativa. La plataforma opera en un ciclo continuo de 15 minutos: adquiere datos de sensores MQTT, genera pronósticos de irradiancia solar y demanda de carga con un horizonte de 24 horas mediante un modelo Temporal Fusion Transformer (TFT), resuelve un problema de despacho económico estocástico formulado en Pyomo con Gurobi, y presenta los resultados en una interfaz interactiva basada en React con visualización sobre diagrama unifilar. Los resultados demuestran la viabilidad de una arquitectura que integra optimización matemática clásica con inteligencia artificial moderna para la toma de decisiones en tiempo real sobre infraestructura energética distribuida.
+La creciente penetración de fuentes renovables intermitentes, junto con la complejidad operativa de los sistemas de almacenamiento y la generación convencional, exige nuevas herramientas de gestión capaces de procesar datos en tiempo real, anticipar condiciones futuras y tomar decisiones óptimas de despacho bajo incertidumbre. En este trabajo se presenta **SIGE** (Sistema Inteligente de Gestión Energética), una plataforma integral para la operación de microrredes eléctricas híbridas que integra monitoreo IoT en tiempo real, predicción de variables de entrada mediante modelos de deep learning, optimización estocástica con control predictivo por modelo (MPC), detección estadística de anomalías y un sistema multi-agente basado en grandes modelos de lenguaje (LLMs) para asistencia operativa. La plataforma opera en un ciclo continuo de 15 minutos: adquiere datos de sensores MQTT, genera pronósticos de irradiancia solar y demanda de carga con un horizonte de 24 horas mediante el modelo multivariado PatchTST acoplado a un pipeline de ajuste de datos que calibra las plantas del sitio, resuelve un problema de despacho económico estocástico formulado en Pyomo con Gurobi, y presenta los resultados en una interfaz interactiva basada en React con visualización sobre diagrama unifilar. Los resultados demuestran la viabilidad de una arquitectura que integra optimización matemática clásica con inteligencia artificial moderna para la toma de decisiones en tiempo real sobre infraestructura energética distribuida.
 
 ---
 
@@ -24,7 +24,7 @@ SIGE se concibe como una plataforma que unifica en un solo sistema las siguiente
 
 1. **Adquisición y monitoreo en tiempo real** de variables eléctricas mediante sensores IoT desplegados sobre la microrred, utilizando el protocolo MQTT para la transmisión de datos y MongoDB para su persistencia.
 
-2. **Predicción de series temporales multi-horizonte** de irradiancia solar y demanda de carga, empleando el modelo Temporal Fusion Transformer (TFT), una arquitectura de deep learning de última generación diseñada para forecasting con horizontes variables y múltiples variables exógenas.
+2. **Predicción de series temporales multi-horizonte** de irradiancia solar y demanda de carga, empleando el modelo multivariado PatchTST (72 h, cuantiles P10/P50/P90) acoplado a un pipeline de ajuste de datos que calibra las plantas fotovoltaicas y de carga contra mediciones reales del sitio.
 
 3. **Optimización estocástica con control predictivo por modelo (MPC)**, resolviendo un problema de despacho económico que considera múltiples escenarios climáticos ponderados por probabilidad, con un horizonte de 24 horas y resolución horaria, re-ejecutado automáticamente cada 15 minutos.
 
@@ -55,7 +55,7 @@ SIGE se organiza en tres capas tecnológicas que se comunican mediante APIs REST
 │  Express 5 · Node.js   │──│   FastAPI (predicción, puerto 8000)  │
 │  JWT · MQTT Client     │  │   Pyomo + Gurobi/HiGHS (solver)     │
 │  LangChain Agents      │  │   Redis (cola de trabajos)           │
-│  BullMQ · MongoDB      │  │   Modelo TFT (forecasting)           │
+│  BullMQ · MongoDB      │  │   PatchTST + ajuste de datos          │
 └────────┬───────────────┘  └──────────────────────────────────────┘
          │
          ▼
@@ -72,7 +72,7 @@ La capa de presentación, implementada en React 19 con Vite, ofrece seis módulo
 
 La capa de servicios, ejecutada sobre Node.js con Express 5, actúa como orquestador central: gestiona la autenticación de usuarios, mantiene la conexión con el broker MQTT para la ingesta de datos de sensores, coordina los ciclos de optimización MPC, ejecuta el pipeline de agentes de IA, y sirve como puente entre el frontend y los servicios de predicción y optimización en Python. La comunicación con los servicios Python se realiza mediante HTTP (para predicciones) y Redis (para trabajos de optimización).
 
-La capa de optimización, implementada en Python, contiene dos servicios independientes: una API FastAPI que expone los pronósticos generados por el modelo TFT, y un motor de resolución basado en Pyomo que construye y resuelve el modelo de despacho económico estocástico utilizando Gurobi como solver principal, con HiGHS como alternativa automática de código abierto.
+La capa de optimización, implementada en Python, contiene dos servicios independientes: una API FastAPI que expone los pronósticos generados por el modelo multivariado PatchTST acoplado al pipeline de ajuste de datos (calibración), y un motor de resolución basado en Pyomo que construye y resuelve el modelo de despacho económico estocástico utilizando Gurobi como solver principal, con HiGHS como alternativa automática de código abierto.
 
 ### 2.2. Flujo de datos
 
@@ -95,7 +95,7 @@ Sensor IoT → MQTT Broker → mqttService (Node.js)
 ```
 Ciclo automático (cada 15 min) o disparo manual
   │
-  ├── GET /predict/solar + /predict/load → FastAPI → Modelo TFT
+  ├── GET /predict/solar + /predict/load → FastAPI → PatchTST + ajuste de datos
   │
   ├── Construcción del problema de optimización
   │     (topología del diagrama + predicciones + escenarios)
@@ -136,16 +136,15 @@ La funcionalidad de ChangeStream de MongoDB permite a la plataforma detectar cad
 
 La predicción de las variables que alimentan el optimizador —irradiancia solar y demanda de carga— se sustenta en un pipeline de adquisición de datos desarrollado y operado por el equipo de investigación. Este pipeline recolecta, valida y estructura datos históricos de irradiancia y de consumo eléctrico a partir de fuentes de campo y estaciones meteorológicas asociadas a la microrred. Los datos curados constituyen el insumo para el entrenamiento y la inferencia del modelo de predicción, garantizando que los pronósticos reflejen las condiciones reales del sitio de despliegue.
 
-### 4.2. Modelo Temporal Fusion Transformer
+### 4.2. Modelo de predicción PatchTST y ajuste de datos
 
-Para la generación de pronósticos multi-horizonte se emplea el modelo **Temporal Fusion Transformer (TFT)**, una arquitectura de deep learning basada en mecanismos de atención desarrollada por Google Research, específicamente diseñada para forecasting de series temporales con las siguientes propiedades:
+Para la generación de pronósticos multi-horizonte se emplea el modelo **PatchTST**, una arquitectura de deep learning basada en transformers diseñada para forecasting de series temporales largas, cuyos resultados superan a otras arquitecturas de atención (entre ellas TFT e Informer) en problemas de predicción climática multivariada. En SIGE el modelo opera de la siguiente forma:
 
-- **Horizonte variable**: permite generar predicciones para cualquier cantidad de pasos futuros, configurado en SIGE para un horizonte de 24 horas con resolución horaria.
-- **Múltiples variables exógenas**: incorpora información contextual como hora del día, día de la semana, y variables meteorológicas auxiliares que mejoran la precisión de las predicciones de irradiancia.
-- **Cuantiles de incertidumbre**: genera predicciones probabilísticas (percentiles), lo que permite alimentar al optimizador no solo con el valor esperado sino también con bandas de confianza que informan la construcción de escenarios estocásticos.
-- **Interpretabilidad**: los mecanismos de atención del TFT permiten identificar qué variables históricas y qué horizontes temporales son más relevantes para cada predicción, facilitando la validación del modelo por parte de los operadores.
-
-El modelo TFT se entrena, valida y evalúa en un repositorio independiente especializado en el ciclo de vida del modelo de machine learning. Este repositorio gestiona la preparación de datos, el ajuste de hiperparámetros, la evaluación de rendimiento (MSE, MAE, RMSE por horizonte) y el versionado del modelo. Una vez validado, el modelo entrenado se despliega en el servicio de predicción de SIGE.
+- **Entrada contextual**: ventana histórica de 512 horas (≈21 días) de 11 variables climáticas observadas del sitio (irradiancia, temperatura, humedad, cobertura nubosa, viento, presión, precipitación), descargadas de Open-Meteo (observación NWP reciente, sin latencia ERA5).
+- **Horizonte y cuantiles**: genera predicciones horarias para hasta 72 horas, con los cuantiles P10/P50/P90 para cada variable. El horizonte operativo del MPC es de 24 horas.
+- **Entrenamiento**: el modelo se entrenó de forma externa con reanálisis ERA5 del sitio (2020–2025) y se desplegó en el servicio de predicción como artefacto autocontenido (`patchtst_best.pt`, `target_specs.json`, `norm_stats.csv`).
+- **Ajuste de datos (calibración)**: los pronósticos climáticos de PatchTST alimentan un pipeline de ajuste de datos que calibra cada planta contra mediciones reales del sensor asociado: estimación de derating (escala K), calibración paramétrica del modelo físico PV (pvlib), corrección de residuos con gradient boosting y construcción de bandas de incertidumbre P10/P50/P90 por conformal prediction. Este pipeline transforma el pronóstico climático en potencia de generación calibrada por sensor, que es la entrada efectiva del optimizador.
+- **Proveedores intercambiables**: mediante el patrón `PredictorInterface`/`ClimateForecaster`, la plataforma soporta tres proveedores (Open-Meteo NWP, TimesFM y PatchTST) seleccionables por entorno. La configuración reportada en este documento emplea **PatchTST + ajuste de datos** como cadena de predicción en producción.
 
 ### 4.3. API de predicción
 
@@ -154,7 +153,7 @@ El servicio de predicción se implementa como una API FastAPI que expone dos end
 - `GET /predict/solar?hours=24`: devuelve el vector de irradiancia normalizada pronosticada para las próximas `n` horas.
 - `GET /predict/load?hours=24`: devuelve el vector de demanda de carga trifásica pronosticada (componentes PL1, PL2, PL3) que el orquestador consolida en una única serie de carga total.
 
-La arquitectura del servicio de predicción sigue el patrón de interfaz abstracta (`PredictorInterface`), lo que permite intercambiar el motor de predicción subyacente sin modificar el resto del sistema. El predictor TFT es el motor activo por defecto, y la interfaz permite incorporar modelos alternativos o ensembles en el futuro sin cambios en la lógica de integración.
+La arquitectura del servicio de predicción sigue el patrón de interfaz abstracta (`PredictorInterface`), lo que permite intercambiar el motor de predicción subyacente sin modificar el resto del sistema. En la configuración reportada el motor activo es **PatchTST + ajuste de datos**, y la interfaz permite incorporar modelos alternativos o ensembles en el futuro sin cambios en la lógica de integración.
 
 ---
 
@@ -179,10 +178,10 @@ Para cada hora del horizonte y cada escenario estocástico, el modelo define las
 La generación solar `P_solar[t,s]` no es una variable de decisión, sino un parámetro calculado externamente como:
 
 ```
-P_solar[t,s] = capacidad_max × eficiencia × irradiancia[t] × factor_escenario[s]
+P_solar[t,s] = P_solar_calibrada[t] × factor_escenario[s]
 ```
 
-Donde `irradiancia[t]` es la predicción horaria del TFT y `factor_escenario[s]` es un multiplicador específico del escenario climático (1.0 para soleado, 0.5 para nublado, 0.2 para lluvia).
+Donde `P_solar_calibrada[t]` es la potencia horaria entregada por la planta calibrada (ajuste de datos sobre el pronóstico climático de PatchTST) y `factor_escenario[s]` es un multiplicador específico del escenario climático (ver Sección 5.2).
 
 #### 5.1.2. Función objetivo
 
@@ -264,11 +263,11 @@ La comunicación entre Node.js y Python para el despacho de trabajos de optimiza
 
 El ciclo de control predictivo por modelo se ejecuta de dos formas complementarias:
 
-1. **Ciclo automático**: un temporizador en el backend dispara el pipeline completo cada 15 minutos (`setInterval` con período de 900 segundos). En cada ciclo se obtienen nuevas predicciones del TFT, se reconstruye el problema de optimización con el estado actual de la microrred (niveles de batería, disponibilidad de generadores), y se genera un nuevo plan de despacho para las siguientes 24 horas.
+1. **Ciclo automático**: un temporizador en el backend dispara el pipeline completo cada 15 minutos (`setInterval` con período de 900 segundos). En cada ciclo se obtienen nuevas predicciones del modelo PatchTST con ajuste de datos, se reconstruye el problema de optimización con el estado actual de la microrred (niveles de batería, disponibilidad de generadores), y se genera un nuevo plan de despacho para las siguientes 24 horas.
 
 2. **Disparo manual**: desde la interfaz de operador, el usuario puede ejecutar una optimización bajo demanda, por ejemplo tras modificar la topología de la microrred en el editor de diagrama unifilar o al cambiar parámetros operativos de los dispositivos.
 
-Este enfoque de horizonte deslizante (receding horizon) es característico del control predictivo por modelo: en cada paso de tiempo se resuelve un problema de horizonte completo, pero solo se implementa la decisión del primer período, repitiendo el proceso en el siguiente ciclo con información actualizada.
+Este enfoque de horizonte deslizante (receding horizon) es característico del control predictivo por modelo: en cada paso de tiempo se resuelve un problema de horizonte completo, pero solo se implementa la decisión del primer período, repitiendo el proceso en el siguiente ciclo con información actualizada. En SIGE el plan resultante se entrega al operador para su implementación, y la verificación formal del lazo cerrado —aplicación de la primera acción y avance con valores realizados— se presenta en la Sección 7 mediante una simulación en lazo cerrado de 14 días ejecutada con la cadena de predicción que corre en producción (PatchTST + ajuste de datos).
 
 ---
 
@@ -397,7 +396,7 @@ El backend mantiene el estado del trabajo en Redis bajo la clave `optimization:p
 
 SIGE representa una contribución al estado del arte en plataformas de gestión de microrredes al integrar, en un solo sistema operativo, capacidades que tradicionalmente se abordan de forma aislada: monitoreo IoT en tiempo real, predicción de series temporales con deep learning, optimización estocástica bajo incertidumbre, detección estadística de anomalías, y asistencia operativa mediante agentes de inteligencia artificial basados en LLMs. La plataforma opera efectivamente como un sistema de análisis en tiempo real que transforma datos crudos de sensores en decisiones óptimas de despacho y en recomendaciones accionables para el operador humano.
 
-La arquitectura en tres capas ofrece una separación clara de responsabilidades: adquisición y persistencia de datos (MongoDB, MQTT), lógica de negocio y orquestación (Node.js, Redis), y cómputo científico (Python, Pyomo, TFT). La comunicación mediante estándares abiertos (HTTP REST, WebSockets, Redis, MQTT) garantiza la interoperabilidad y la extensibilidad. El uso de Pyomo como capa de modelado algebraico permite modificar la formulación del problema de optimización sin reescribir solvers, y la arquitectura de interfaz abstracta para predictores facilita la evolución independiente del modelo de forecasting.
+La arquitectura en tres capas ofrece una separación clara de responsabilidades: adquisición y persistencia de datos (MongoDB, MQTT), lógica de negocio y orquestación (Node.js, Redis), y cómputo científico (Python, Pyomo, PatchTST). La comunicación mediante estándares abiertos (HTTP REST, WebSockets, Redis, MQTT) garantiza la interoperabilidad y la extensibilidad. El uso de Pyomo como capa de modelado algebraico permite modificar la formulación del problema de optimización sin reescribir solvers, y la arquitectura de interfaz abstracta para predictores facilita la evolución independiente del modelo de forecasting.
 
 La combinación de optimización matemática clásica con inteligencia artificial moderna es particularmente potente: el solver garantiza optimalidad y respeto de restricciones físicas, mientras que el sistema de agentes LLM proporciona explicabilidad y contexto operativo que ningún solver puede ofrecer. El ciclo MPC de 15 minutos permite que el sistema se adapte continuamente a cambios en las condiciones de generación y demanda, cerrando el lazo entre predicción, optimización y ejecución.
 
@@ -419,7 +418,7 @@ La plataforma está diseñada para evolucionar en las siguientes direcciones:
 
 ## Referencias
 
-1. Lim, B., Arik, S. O., Loeff, N., & Pfister, T. (2021). Temporal Fusion Transformers for interpretable multi-horizon time series forecasting. *International Journal of Forecasting*, 37(4), 1748-1764.
+1. Nie, Y., Nguyen, N. H., Sinthong, P., & Kalagnanam, J. (2023). A Time Series is Worth 64 Words: Long-term Forecasting with Transformers. *International Conference on Learning Representations (ICLR)*. arXiv:2211.14730.
 
 2. Bynum, M. L., Hackebeil, G. A., Hart, W. E., Laird, C. D., Nicholson, B. L., Siirola, J. D., Watson, J. P., & Woodruff, D. L. (2021). *Pyomo — Optimization Modeling in Python* (3rd ed.). Springer.
 
@@ -530,5 +529,158 @@ Hallazgos de la puesta en marcha:
 
 Verificado E2E: pipeline (sensores reales `pasto_*`) → ciclo MPC → Redis
 `status: optimal` con dispatch_plan (195 ítems).
+
+---
+
+## 7. Validación experimental (respuesta a los comentarios del revisor)
+
+Esta sección responde a los comentarios 2, 9 y 11 de la revisión. La
+especificación completa y el checklist de cobertura viven en
+`solutionComement_2911.md` y `docs/tesis/especificacion_MPC.md`.
+
+### 7.1. Experimento A — Comparativa económica (Comentario 9: R1, R2, R3)
+
+Se ejecutó una **simulación en lazo cerrado de 14 días** (2026-07-18 →
+2026-07-31) con horizonte deslizante horario: en cada hora se emite el
+forecast de la cadena de producción (contexto Open-Meteo `past_days` que
+termina antes de la hora de decisión → **PatchTST** con cuantiles P10/P50/P90
+→ **ajuste de datos** con las plantas PV/load calibradas contra mediciones
+reales), se resuelve el MPC estocástico de 24 h y se implementa **solo la
+primera acción** del escenario base (P50). El estado avanza con los valores
+realizados (demanda y PV de las mediciones del sistema en Mongo; clima ERA5
+del sitio) y la red cierra el balance como slack. El **SOC se propaga** entre
+horas (cada solve recibe el SOC real del lazo cerrado), garantizando que las
+acciones sean físicamente realizables (SOC ∈ [0.2, 0.95]·capacidad, verificado
+en las 1,344 horas simuladas). Las cuatro estrategias comparten los mismos
+días, el mismo estado inicial (SOC fijo 0.65, reproducible) y la misma
+microred.
+
+Escenarios estocásticos (método documentado, Comentario 1): S=3 anclados a
+las curvas de cuantiles — Soleado=P90 (prob 0.2), Nublado=P50 (prob 0.6),
+Lluvia=P10 (prob 0.2). El modelo incluye la **tarifa ToU horaria**
+(variable por hora en la función objetivo, no una tarifa plana) y la
+complementariedad carga/descarga de batería (Ecs. 4–6) vía binarias big-M.
+Tarifas: valle (00–05) 45, media (06–18, 22–23) 80, pico (19–21) 140 COP/kWh,
+fijo 40 COP/h.
+
+| Estrategia | Costo total periodo (COP) | Costo diario medio ± std | Uso renovables (%) | Ciclos batería/día | Importación red (kWh) | Diésel (L) | Violaciones |
+|---|---|---|---|---|---|---|---|
+| S-MPC (estocástico, 3 escenarios) | −1,428,731 | −102,052 ± 1,625 | 61.2 | 0.51 | 3 | 2,353 | 0 |
+| D-MPC (determinista, P50) | −1,428,730 | −102,052 ± 1,625 | 61.2 | 0.51 | 3 | 2,353 | 0 |
+| HEUR (priority list) | −117,912 | −8,422 ± 1,619 | 61.2 | 0.04 | 35 | 12 | 0 |
+| Oráculo (forecast perfecto) | −1,432,591 | −102,328 ± 1,624 | 61.2 | 0.51 | 3 | 2,361 | 0 |
+
+**Conclusiones (valores reales):**
+
+- El costo neto es **negativo** (ingreso) porque la microred es exportadora
+  (PV 184 kWh/día vs carga 90 kWh/día): el excedente se vende al precio
+  variable del período y el diésel arbitra la exportación en las horas de
+  tarifa alta (marginal ~110 COP/kWh vs pico 140).
+- **S-MPC ≈ D-MPC (diferencia 0.00%)**: la primera acción implementada sale
+  del escenario base (P50) y, con S=3 escenarios anclados a cuantiles, ese
+  primer paso coincide con el determinista en esta microred. El beneficio
+  estocástico (si existe) se manifiesta en el costo esperado, no en la
+  primera acción — hallazgo reportado tal cual.
+- **MPC (cualquier variante) mejora a HEUR en 1,112%** (−1.43M vs −0.12M
+  COP): la regla heurística no explota el arbitraje valle→pico de la batería
+  ni la exportación en pico.
+- **Oráculo (forecast perfecto) = −1,432,591 COP**: cota superior; el S-MPC
+  queda a **0.27%** de la operación con información perfecta — evidencia
+  cuantitativa de que, en esta configuración, el valor económico está en la
+  operación (arbitraje y exportación en pico), no en la precisión del
+  pronóstico.
+- **Batería**: 0.51 ciclos/día de arbitraje valle→pico (carga a 45,
+  descarga a 140) con el SOC recorriendo [0.2, 0.95]·capacidad.
+- **Violaciones de balance = 0** en las cuatro estrategias.
+
+Salidas reproducibles: `results/pasto_narino/experiments/expA_*` (trazas
+horarias, métricas, costo acumulado, figura y tabla markdown).
+
+### 7.2. Experimento B — Tiempo de cómputo del MPC (Comentario 11: R4)
+
+Se ejecutaron **120 ciclos** de construcción + resolución del modelo completo
+de producción (24 h × 3 escenarios, MILP con 648+ binarias: linealización por
+tramos del costo diésel + complementariedad big-M de batería) en el hardware
+de despliegue: **CPU x86_64, 4 núcleos, 5.6 GB RAM, Python 3.10.12, Pyomo
+6.10.0, Gurobi 13.0.2 (licencia pip comunitaria, expira 2027-11-29), HiGHS
+1.15.1 como fallback**. Los 120 ciclos terminaron en estado `optimal`.
+
+| Etapa | p50 (s) | p95 (s) | p99 (s) | máx (s) |
+|---|---|---|---|---|
+| `t_build` (construcción Pyomo) | 0.205 | 0.317 | 0.384 | 0.392 |
+| `t_solve` (Gurobi) | 0.265 | 0.373 | 0.406 | 0.416 |
+| `t_total` | **0.494** | **0.607** | **0.695** | **0.706** |
+
+- **Margen sobre el intervalo de control (900 s): 1,482×** (900 / t_p95) —
+  el MPC se resuelve ~1,500 veces más rápido que el ciclo de 15 minutos,
+  dejando espacio para el recálculo horario del lazo cerrado.
+- El modelo desplegado es un **MILP** (no MIQP): el costo cuadrático del
+  diésel se linealiza por tramos para operar con la licencia gratuita de
+  Gurobi (size-limited) y el fallback HiGHS (sin QP). El costo cuadrático
+  real se reporta en `cost_breakdown`.
+- Instrumentación en producción: `build_and_solve` devuelve
+  `timing_s: {t_build, t_solve, t_total}` en cada resultado; el backend
+  registra además la duración end-to-end del ciclo
+  (`mpc_cycle_e2e_ms` en `/api/front/performance`).
+
+### 7.3. Experimento C — Rendimiento bajo carga (Comentario 11: R5, R6)
+
+El backend se instrumentó con un módulo ligero de métricas
+(`Backend/services/perfMetrics.js`) que registra histogramas de latencia en
+RAM (p50/p95/p99/máx) y throughput de ventana, expuestos en
+`GET /api/front/performance`. La carga se ejecutó contra los **topics reales**
+del broker MQTT con los sensores autorizados (`pasto_*`): 3 rondas de 10
+msg/s sostenidos (~7,000 mensajes, 0 errores de publicación), 50 conexiones
+REST concurrentes y 400 eventos WebSocket reales.
+
+| Métrica | n | p50 | p95 | p99 | máx |
+|---|---|---|---|---|---|
+| Latencia MQTT end-to-end (publicación→backend) | 7,000 | 243 ms | 348 ms | 509 ms | 716 ms |
+| Latencia insert MongoDB (Atlas) | 7,000 | 97 ms | 137 ms | 951 ms | 5,626 ms |
+| Push WebSocket backend (emisión) | 7,000 | 0.1 ms | 0.4 ms | 0.9 ms | 8.0 ms |
+| Push WebSocket end-to-end (cliente) | 400 | 342 ms | 503 ms | 705 ms | 952 ms |
+| REST API (50 concurrentes, bajo carga) | 4,362 | 330 ms | 451 ms | 669 ms | 2,720 ms |
+| REST API (50 concurrentes, sin carga) | 7,814 | 179 ms | 309 ms | 425 ms | 1,449 ms |
+| Solver MPC (`t_total`, 120 ciclos) | 120 | 0.49 s | 0.61 s | 0.69 s | 0.71 s |
+
+Recursos durante la carga sostenida (10 min, muestreo 5 s):
+**Node 3.5% CPU media (máx 18.8%) / 113 MB RAM; FastAPI+uvicorn 0.4% CPU /
+1,188 MB RAM (incluye torch + checkpoint PatchTST); Redis 0.9% CPU / 11 MB**.
+MongoDB es Atlas (externo): su CPU/RAM no es muestrable localmente — la
+latencia de inserción se mide desde el driver.
+
+Throughput: **MQTT 10 msg/s sostenidos** (0 errores), **REST 145 req/s bajo
+carga** (0 errores HTTP), Mongo 10 writes/s durante la carga. El push WS del
+backend es despreciable (~0.1 ms); la latencia E2E cliente está dominada por
+el insert en Mongo Atlas y la red.
+
+> **Nota (bug corregido en esta validación):** la sincronización de la
+> whitelist MQTT usaba `d._id.toString()`, que falla cuando el `_id` es un
+> string no-ObjectId (los sensores `pasto_*`), dejándolos bloqueados. Se
+> corrigió en `securityManager.js` usando el driver nativo (`String(d._id)`);
+> tras el fix, los 9 sensores autorizados cargan correctamente y el flujo
+> MQTT→Mongo→Socket.IO quedó verificado en la carga.
+
+### 7.4. Lazo cerrado con el predictor real (Comentario 2: R7)
+
+- La cadena de predicción reportada en este documento — **PatchTST + ajuste
+  de datos** — es exactamente la que alimentó el Experimento A y la que
+  configura la producción (`FORECASTER=patchtst`, ciclo automático
+  `MPC_INTERVAL_MINUTES=15`). No se afirma ningún predictor que no corra.
+- El lazo cerrado (receding horizon con implementación de la primera acción)
+  se **verificó formalmente** en el Experimento A: cada hora se re-simula el
+  horizonte con forecast fresco, el **SOC real se propaga** al siguiente
+  solve y se avanza con valores realizados (1,344 decisiones horarias por
+  estrategia, SOC siempre dentro de límites, 0 violaciones).
+- El modelo TFT mencionado en versiones anteriores de este documento **no se
+  usa**: fue sustituido por PatchTST (validado aparte como capa ML, 72 h,
+  cuantiles), y el texto de este informe se corrigió en consecuencia.
+- **Correcciones de validez incorporadas en la validación**: (1) la tarifa de
+  red es **horaria** en la función objetivo (perfil ToU completo, antes era
+  un escalar plano que anulaba el arbitraje de la batería); (2) el estado de
+  carga se propaga entre horas (antes cada solve reiniciaba en SOC fijo, lo
+  que generaba energía "fantasma" de batería); (3) el Oráculo usa la propia
+  serie realizada como forecast (cota superior genuina); (4) el SOC inicial
+  es fijo (0.65) e idéntico para todas las estrategias (reproducible).
 
 *Documento generado el 30 de mayo de 2026. Plataforma en desarrollo activo.*

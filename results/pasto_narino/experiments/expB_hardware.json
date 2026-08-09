@@ -1,0 +1,16 @@
+{
+  "hardware": {
+    "cpu": "x86_64",
+    "cores": "4 (4 threads disponibles)",
+    "ram_gb": 5.6,
+    "python": "3.10.12",
+    "pyomo": "6.10.0",
+    "gurobipy": "13.0.2",
+    "gurobi_license": "pip comunity (expira 2027-11-29)",
+    "highs": "1.15.1 (fallback)",
+    "model_class": "MILP (diesel linealizado por tramos + complementariedad big-M: 648+ binarias)"
+  },
+  "cycles": 120,
+  "statuses_ok": 120,
+  "statuses_total": 120
+}

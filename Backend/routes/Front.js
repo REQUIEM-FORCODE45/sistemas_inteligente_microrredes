@@ -24,14 +24,19 @@ router.post('/optimization/trigger', validateJwt, async (req, res) => {
     }
     const { topology, predictions, sensor_mappings } = req.body || {};
 
+    // ANTI-FANTASMA: descarta mappings de nodos que no existen en la
+    // topologia enviada (evita procesar/persistir sensores de nodos borrados).
+    const { sanitizeSensorMappings } = require('../services/mpcScheduler');
+    const safeMappings = sanitizeSensorMappings(sensor_mappings || null, topology || null);
+
     // BUCLE (Opcion A): si el diagrama tiene sensores mapeados a nodos,
     // calibrar (si falta) + predecir cada sensor y usar esas predicciones
     // en lugar de las por defecto.
     let userPredictions = predictions || null;
-    if (sensor_mappings && Object.keys(sensor_mappings).length) {
+    if (safeMappings && Object.keys(safeMappings).length) {
       try {
         const { runPredictionPipeline } = require('../services/predictionPipeline');
-        const pipe = await runPredictionPipeline(sensor_mappings, topology || {});
+        const pipe = await runPredictionPipeline(safeMappings, topology || {});
         if (pipe) userPredictions = pipe.predictions;
       } catch (err) {
         console.warn('  [optimization] Pipeline de prediccion fallo, usa default:', err.message);
@@ -43,7 +48,7 @@ router.post('/optimization/trigger', validateJwt, async (req, res) => {
     // Memoriza este diagrama para que el ciclo automatico (si esta activo)
     // use el diagrama actual; persiste en Redis para sobrevivir restarts.
     const { setLastTopology } = require('../services/mpcScheduler');
-    await setLastTopology(topology || null, sensor_mappings || null);
+    await setLastTopology(topology || null, safeMappings);
 
     if (!jobId) {
       return res.json({ success: false, message: 'No se pudo iniciar optimizacion' });
@@ -98,7 +103,7 @@ router.get('/prediction/weather', validateJwt, async (req, res) => {
         provider: req.query.provider || undefined,
         site_id: process.env.OPTIMIZATION_SITE_ID || 'pasto_narino',
       },
-      timeout: 60000,
+      timeout: 180000,
     });
     res.json({ success: true, ...r.data });
   } catch (err) {
@@ -192,6 +197,31 @@ router.post('/optimization/mpc/stop', validateJwt, async (req, res) => {
     const { setMpcEnabled } = require('../services/mpcScheduler');
     const status = await setMpcEnabled(false);
     res.json({ success: true, message: 'Ciclo automatico desactivado', mpc: status });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// --- Metricas de rendimiento (Experimento C: R5/R6) ------------------------
+// Latencias p50/p95/p99/max + throughput de MQTT, Mongo, WebSocket y MPC.
+// El cliente de carga puede resetear el historial con ?reset=1.
+router.get('/performance', validateJwt, async (req, res) => {
+  try {
+    const perf = require('../services/perfMetrics');
+    if (req.query.reset === '1') perf.reset();
+    const { performance } = require('perf_hooks');
+    const mem = process.memoryUsage();
+    res.json({
+      success: true,
+      uptime_s: Math.round(process.uptime()),
+      node: process.version,
+      pid: process.pid,
+      memory_mb: {
+        rss: Math.round(mem.rss / 1048576),
+        heap: Math.round(mem.heapUsed / 1048576),
+      },
+      metrics: perf.snapshot(),
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
