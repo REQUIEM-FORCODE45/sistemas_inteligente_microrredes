@@ -18,7 +18,8 @@ pyomo>=6.7.0
 requests>=2.25.0
 pandas>=2.0.0
 pvlib>=0.10.0            # modelos fisicos PV (POA, temp celda, DC/AC)
-requests-retry>=2.5.0    # retry exponencial en descarga Open-Meteo
+# requests-retry>=2.5.0 ELIMINADO: nombre de paquete inexistente en PyPI (max 0.8.0).
+# El retry de Open-Meteo se implementa a mano en weather/openmeteo.py (_get_with_retry, requests.Session).
 
 # --- Calibracion (Fase 4) y ML de residuos ---
 scikit-learn>=1.3.0      # GradientBoostingRegressor
