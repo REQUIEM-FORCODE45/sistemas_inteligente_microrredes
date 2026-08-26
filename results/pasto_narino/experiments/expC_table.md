@@ -17,7 +17,7 @@ Carga MQTT: 4 sensores autorizados (`pasto_*`), 10 msg/s sostenidos, 3 rondas
 | REST API (50 concurrentes, bajo carga) | 4,362 | 330 ms | 451 ms | 669 ms | 2,720 ms |
 | REST API (50 concurrentes, sin carga) | 7,814 | 179 ms | 309 ms | 425 ms | 1,449 ms |
 | Ciclo MPC end-to-end (enqueue→resultado) | — | — | — | — | — |
-| Solver MPC (t_total, 120 ciclos) | 120 | 0.49 s | 0.61 s | 0.69 s | 0.71 s |
+| Solver MPC (t_total, 120 ciclos) | 120 | 0.45 s | 0.59 s | 0.62 s | 0.66 s |
 
 *Los push WS del backend (emisión) son ~0.1 ms; la latencia E2E cliente mide
 publicación MQTT → push al navegador e incluye el insert en Mongo Atlas

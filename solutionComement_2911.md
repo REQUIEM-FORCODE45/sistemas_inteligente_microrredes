@@ -121,9 +121,9 @@ Cada fase se valida con `pytest` antes de avanzar; al final: suite completa + `y
 | A9 | Conclusión con % de ahorro reales | S-MPC vs D-MPC ≈ 0% · S-MPC vs HEUR = +1,112% · Oráculo = cota (0.27% sobre S-MPC) | ✔ |
 | A10 | Tabla + figura de salida | CSV + gráficas en `results/pasto_narino/experiments/` | ✔ |
 | B1 | ≥100 ciclos build+solve | 120 ciclos, t_build/t_solve/t_total | ✔ |
-| B2 | p50/p95/p99/max reportados | t_total 0.49/0.61/0.69/0.71 s | ✔ |
+| B2 | p50/p95/p99/max reportados | t_total 0.45/0.59/0.62/0.66 s (re-medido con tarifa ToU) | ✔ |
 | B3 | Hardware y licencias declarados | CPU/RAM/Gurobi/Pyomo/Python | ✔ |
-| B4 | Margen vs intervalo 900 s | 900/t_p95 = 1,482× | ✔ |
+| B4 | Margen vs intervalo 900 s | 900/t_p95 = 1,525× | ✔ |
 | B5 | MILP declarado (no MIQP) | motivación: licencia free + fallback HiGHS | ✔ |
 | C1 | Latencia MQTT p50/p95/p99 + msg/s | 243/348/509 ms, 10 msg/s | ✔ |
 | C2 | Latencia insert Mongo + writes/s | 97/137/951 ms, 10 writes/s | ✔ |

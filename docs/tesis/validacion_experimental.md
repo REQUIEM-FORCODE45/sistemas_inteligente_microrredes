@@ -126,11 +126,11 @@ contexto histórico (Open-Meteo past_days, termina antes de la hora de decisión
 
 | Etapa | p50 (s) | p95 (s) | p99 (s) | máx (s) |
 |---|---|---|---|---|
-| `t_build` (construcción Pyomo) | 0.205 | 0.317 | 0.384 | 0.392 |
-| `t_solve` (Gurobi) | 0.265 | 0.373 | 0.406 | 0.416 |
-| `t_total` | **0.494** | **0.607** | **0.695** | **0.706** |
+| `t_build` (construcción Pyomo) | 0.189 | 0.296 | 0.323 | 0.332 |
+| `t_solve` (Gurobi) | 0.245 | 0.364 | 0.407 | 0.422 |
+| `t_total` | **0.453** | **0.590** | **0.621** | **0.656** |
 
-- **Margen sobre el intervalo de control (900 s): 1,482×** (900 / t_p95) —
+- **Margen sobre el intervalo de control (900 s): 1,525×** (900 / t_p95) —
   el MPC se resuelve ~1,500 veces más rápido que el ciclo de 15 minutos.
 - El modelo desplegado es un **MILP** (no MIQP): el costo cuadrático del
   diésel se linealiza por tramos para operar con la licencia gratuita de
@@ -170,7 +170,7 @@ contexto histórico (Open-Meteo past_days, termina antes de la hora de decisión
 | Push WebSocket end-to-end (cliente) | 400 | 342 ms | 503 ms | 705 ms | 952 ms |
 | REST API (50 concurrentes, bajo carga) | 4,362 | 330 ms | 451 ms | 669 ms | 2,720 ms |
 | REST API (50 concurrentes, sin carga) | 7,814 | 179 ms | 309 ms | 425 ms | 1,449 ms |
-| Solver MPC (`t_total`, 120 ciclos) | 120 | 0.49 s | 0.61 s | 0.69 s | 0.71 s |
+| Solver MPC (`t_total`, 120 ciclos) | 120 | 0.45 s | 0.59 s | 0.62 s | 0.66 s |
 
 **Recursos durante carga sostenida (10 min, muestreo 5 s):**
 
