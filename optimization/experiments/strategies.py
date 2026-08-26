@@ -74,8 +74,8 @@ def _build_job(anchor: pd.Timestamp, band: pd.DataFrame, load_fc: pd.Series,
             "max_import_kw": MICROGRID["grid"]["max_import_kw"],
             "min_import_kw": MICROGRID["grid"]["min_import_kw"],
             "cost_fixed": MICROGRID["grid"]["cost_fixed"],
-            # Tarifa VARIABLE horaria (perfil ToU completo): el modelo la
-            # necesita para valorar el arbitraje valle->pico de la bateria.
+            "export_tariff": MICROGRID["grid"].get("export_tariff", 0.0),
+            "ens_penalty_cop_kwh": MICROGRID["grid"].get("ens_penalty_cop_kwh", 5000.0),
             "cost_variable": [
                 float(tou_variable_tariff(idx).iloc[k]) for k in range(horizon)
             ],

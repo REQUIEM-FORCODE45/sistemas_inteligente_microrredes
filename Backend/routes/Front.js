@@ -202,6 +202,36 @@ router.post('/optimization/mpc/stop', validateJwt, async (req, res) => {
   }
 });
 
+router.get('/optimization/experiment/summary', validateJwt, async (req, res) => {
+  try {
+    const exp = require('../services/experimentService');
+    const summary = await exp.getExperimentSummary();
+    res.json({ success: true, summary });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.get('/optimization/experiment/traces/:strategy', validateJwt, async (req, res) => {
+  try {
+    const exp = require('../services/experimentService');
+    const traces = await exp.getExperimentTraces(req.params.strategy);
+    res.json({ success: true, ...traces });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.get('/optimization/experiment/status', validateJwt, async (req, res) => {
+  try {
+    const exp = require('../services/experimentService');
+    const status = await exp.getExperimentStatus();
+    res.json({ success: true, ...status });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.post('/optimization/experiment/run', validateJwt, async (req, res) => {
+  try {
+    const exp = require('../services/experimentService');
+    const days = req.body?.days || 14;
+    const result = await exp.runExperimentA(days);
+    res.json({ success: true, ...result });
+  } catch (err) { res.status(400).json({ success: false, message: err.message }); }
+});
+
 // --- Metricas de rendimiento (Experimento C: R5/R6) ------------------------
 // Latencias p50/p95/p99/max + throughput de MQTT, Mongo, WebSocket y MPC.
 // El cliente de carga puede resetear el historial con ?reset=1.

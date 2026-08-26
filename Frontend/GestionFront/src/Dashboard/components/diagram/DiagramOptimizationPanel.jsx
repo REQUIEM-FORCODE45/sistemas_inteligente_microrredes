@@ -11,6 +11,7 @@ import {
   setOptimizationError,
   setMpcStatus,
 } from '@/Dashboard/store/optimization/optimizationSlice';
+import { ExperimentPanel } from '@/Dashboard/components/optimization/ExperimentPanel';
 import { DEVICE_TYPE, DEVICE_DEFINITIONS, SOLVER_CATEGORY } from './constants/deviceTypes';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
@@ -59,7 +60,7 @@ const TOPOLOGY_MAPPERS = {
       soc_min: 0.2, soc_max: 0.95,
       initial_soc: (params.chargeLevel || 80) / 100,
       charge_efficiency: 0.95, discharge_efficiency: 0.95,
-      degradation_cost_per_kwh: 0.02,
+      degradation_cost_per_kwh: 30.0,
     };
   },
   [DEVICE_TYPE.LOAD]: (_node, params) => {
@@ -421,6 +422,10 @@ export default function DiagramOptimizationPanel({ onClose }) {
             </ul>
           </div>
         )}
+
+        <div className="border-t border-border pt-4">
+          <ExperimentPanel />
+        </div>
       </div>
     </div>
   );

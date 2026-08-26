@@ -1,15 +1,3 @@
-"""Construye el modelo Pyomo de optimizacion estocastica para la microrred.
-
-Traduce la topologia del diagrama unifilar + predicciones en un modelo
-matematico de despacho economico con baterias, red y N generadores.
-
-Soporte:
-  - N generadores definidos dinamicamente
-  - M baterias con restricciones de SOC
-  - K escenarios estocasticos (soleado, nublado, lluvia)
-  - Funcion objetivo = costo total esperado ponderado por probabilidad
-"""
-
 import logging
 import time
 from typing import Any
@@ -17,37 +5,17 @@ from typing import Any
 import numpy as np
 import pyomo.environ as pyo
 
-from optimization.solver.cost_functions import diesel_cost, battery_degradation_cost
+from optimization.solver.cost_functions import battery_degradation_cost
 from optimization.solver.scenarios import build_scenarios
 from optimization.solver.solvers import solve, SolverResult
 
-# Linealizacion por tramos del costo cuadratico del diesel (Fase 6):
-# - La licencia gratuita de Gurobi es size-limited (~200 vars) y el modelo
-#   estocastico (24h x 3 escenarios) la excede -> Gurobi no sirve siempre.
-# - El fallback HiGHS (appsi_highs) NO soporta objetivos cuadraticos (QP).
-# - Solucion: costo diesel por tramos (MILP) -> HiGHS resuelve sin limite.
-# El costo cuadratico REAL se sigue reportando en cost_breakdown.
 PW_DIESEL_N_PTS = 10
 PW_DIESEL_BIGM = 1e6
 
 logger = logging.getLogger(__name__)
 
-try:
-    import pyomo.environ as pyo
-except ImportError:
-    raise ImportError("Pyomo es requerido. pip install pyomo")
-
 
 def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
-    """Construye el modelo Pyomo y ejecuta la optimizacion.
-
-    Args:
-        input_data: diccionario con la topologia del diagrama unifilar
-                    y predicciones, con el formato de schemas.OptimizationInput.
-
-    Returns:
-        dict con el formato schemas.OptimizationResult (serializado)
-    """
     job_id = input_data.get("job_id", "unknown")
     horizon = int(input_data.get("horizon", 24))
     time_step = int(input_data.get("time_step_minutes", 60))
@@ -60,7 +28,6 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     predictions_wind_band = input_data.get("predictions_wind_band", [])
     sources = input_data.get("sources", [])
     storage_list = input_data.get("storage", [])
-    converters = input_data.get("converters", [])
     loads = input_data.get("loads", [])
     grid_raw = input_data.get("grid", {})
 
@@ -129,7 +96,12 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
                 except (ValueError, KeyError, TypeError):
                     pass
             try:
-                scenario_total += float(pyo.value(variables["P_grid"][t, si]))
+                if "P_import" in variables:
+                    imp = float(pyo.value(variables["P_import"][t, si]))
+                    exp = float(pyo.value(variables["P_export"][t, si]))
+                    scenario_total += imp - exp
+                else:
+                    scenario_total += float(pyo.value(variables["P_grid"][t, si]))
             except (ValueError, KeyError):
                 pass
         scenario_results[s["name"]] = {
@@ -168,16 +140,6 @@ def _build_pyomo_model(
     loads: list = None,
     grid_raw: dict = None,
 ) -> tuple[Any, dict]:
-    """Construye el ConcreteModel de Pyomo.
-
-    Modelo equivalente al script Gurobi de referencia:
-      - Solar: entrada fija determinada por irradiancia (no es variable de decision)
-      - Wind: idem, entrada fija desde prediccion del sensor (pasivo)
-      - Diesel: variable P_DG[t,s] con costo cuadratico (c + b*P + a*P^2) * C_fuel
-      - Grid: variable P_grid[t,s] bidireccional [grid_min .. grid_max]
-              costo: d + e*P_grid  (si P_grid < 0 genera revenue)
-      - Balance: P_diesel + P_grid + P_solar + P_wind >= load - (storage)
-    """
 
     model = pyo.ConcreteModel(name="SIGE_Optimization")
 
@@ -196,7 +158,6 @@ def _build_pyomo_model(
     predictions_wind_band = list(predictions_wind_band) if predictions_wind_band else []
 
     def _band_at(t: int, key: str, band: list = None) -> float:
-        """Valor P10/P50/P90 de la banda horaria t (dict o tupla [p10,p50,p90])."""
         band = band if band is not None else predictions_pv_band
         if not band or t >= len(band):
             return 0.0
@@ -209,7 +170,6 @@ def _build_pyomo_model(
         except (IndexError, TypeError):
             return 0.0
 
-    # Tipos de generacion solar pasiva (mismo modelo de irradiancia -> kW)
     SOLAR_TYPES = ("solar", "solar_panel_ac")
 
     solar_src = next((s for s in sources if s.get("type") in SOLAR_TYPES), None)
@@ -227,7 +187,6 @@ def _build_pyomo_model(
             })
     total_solar_kw = sum(d["weight"] for d in solar_devices) or 1.0
 
-    # Generacion EOLICA pasiva (prediccion del sensor; pasivo como solar)
     WIND_TYPES = ("wind", "wind_turbine")
     wind_devices = []
     for src in sources:
@@ -256,29 +215,50 @@ def _build_pyomo_model(
     num_diesel = len(diesel_devices)
     grid_max = grid_raw.get("max_import_kw", 400)
     grid_min = grid_raw.get("min_import_kw", -300)
+    export_tariff = float(grid_raw.get("export_tariff", 0.0))
+    ens_penalty = float(grid_raw.get("ens_penalty_cop_kwh", 5000.0))
+
+    max_import = float(grid_max)
+    max_export = float(-grid_min) if float(grid_min) < 0 else 0.0
 
     model.P_diesel = pyo.Var(
         pyo.RangeSet(0, num_diesel - 1) if num_diesel > 0 else pyo.RangeSet(0, 0),
         model.T, model.S,
-        domain=pyo.Reals,
+        domain=pyo.NonNegativeReals,
     )
+    if num_diesel > 0:
+        model.U_diesel = pyo.Var(
+            pyo.RangeSet(0, num_diesel - 1), model.T, model.S,
+            domain=pyo.Binary,
+        )
 
-    model.P_grid = pyo.Var(
-        model.T, model.S,
-        domain=pyo.Reals,
-    )
+    model.P_import = pyo.Var(model.T, model.S, domain=pyo.NonNegativeReals)
+    model.P_export = pyo.Var(model.T, model.S, domain=pyo.NonNegativeReals)
+    model.ENS = pyo.Var(model.T, model.S, domain=pyo.NonNegativeReals)
+    model.CURT = pyo.Var(model.T, model.S, domain=pyo.NonNegativeReals)
 
-    for di in range(num_diesel):
-        d = diesel_devices[di]
-        for t in model.T:
-            for s in model.S:
-                model.P_diesel[di, t, s].setlb(d["min_kw"])
-                model.P_diesel[di, t, s].setub(d["max_kw"])
+    if num_diesel > 0:
+        for di in range(num_diesel):
+            d = diesel_devices[di]
+            for t in model.T:
+                for s in model.S:
+                    model.P_diesel[di, t, s].setub(d["max_kw"])
+                    model.add_component(f"diesel_min_{di}_{t}_{s}",
+                        pyo.Constraint(expr=model.P_diesel[di, t, s] >= d["min_kw"] * model.U_diesel[di, t, s]))
+                    model.add_component(f"diesel_max_{di}_{t}_{s}",
+                        pyo.Constraint(expr=model.P_diesel[di, t, s] <= d["max_kw"] * model.U_diesel[di, t, s]))
 
     for t in model.T:
         for s in model.S:
-            model.P_grid[t, s].setlb(grid_min)
-            model.P_grid[t, s].setub(grid_max)
+            model.P_import[t, s].setub(max_import if max_import > 0 else 1e6)
+            if max_export > 0:
+                model.P_export[t, s].setub(max_export)
+            else:
+                model.P_export[t, s].setub(0.0)
+                model.P_export[t, s].fix(0.0)
+            max_load = max(predictions_load_total) if predictions_load_total else 1000.0
+            model.ENS[t, s].setub(max_load * 2)
+            model.CURT[t, s].setub(1e6)
 
     storage_vars = []
     if storage_list:
@@ -292,8 +272,6 @@ def _build_pyomo_model(
             model.T, model.S,
             domain=pyo.NonNegativeReals,
         )
-        # Complementariedad (Ecs. 4-6 del paper): Z[bi,t,s] = 1 si la bateria
-        # carga, 0 si descarga. Excluye carga y descarga simultaneas (big-M).
         model.Z = pyo.Var(
             pyo.RangeSet(0, len(storage_list) - 1),
             model.T, model.S,
@@ -317,7 +295,7 @@ def _build_pyomo_model(
                 "discharge_eff": bat.get("discharge_efficiency", 0.95),
             })
 
-    pv_first_kw = 0.0   # probe para tests: valor usado en balance (t=0, s=0)
+    pv_first_kw = 0.0
     wind_first_kw = 0.0
     for s_idx in s_ids:
         sc = scenarios[s_idx]
@@ -328,18 +306,12 @@ def _build_pyomo_model(
             t_idx = int(t)
             irrad = predictions_solar[t_idx] if t_idx < len(predictions_solar) else 0.0
 
-            # COHERENCIA (defensa): sin dispositivos solares en la topologia,
-            # pv_kw = 0 aunque lleguen predicciones (banda/kw) de un cliente.
             if not solar_devices:
                 pv_kw = 0.0
             elif predictions_pv_band:
-                # ESCENARIOS POR CUANTILES (Comentario 1 del revisor): cada
-                # escenario usa la curva del cuantil anclado (P90/P50/P10).
-                # Fallback a P10 (peor caso) si el escenario no trae 'quantile'.
                 pv_kw = _band_at(t_idx, sc.get("quantile") or "P10",
                                  band=predictions_pv_band) * factor_pv
             elif predictions_pv_kw:
-                # perfil CALIBRADO (kW) de /predict/power; la fisica ya se aplico
                 pv_kw = (predictions_pv_kw[t_idx] if t_idx < len(predictions_pv_kw)
                          else 0.0) * factor_pv
             else:
@@ -348,8 +320,6 @@ def _build_pyomo_model(
             if t_idx == 0 and s_idx == s_ids[0]:
                 pv_first_kw = float(pv_kw)
 
-            # EOLICA pasiva: cuantil del escenario (si hay banda) o perfil
-            # directo con factor_wind por escenario. Sin turbinas -> 0 (defensa).
             if not wind_devices:
                 wind_kw = 0.0
             elif predictions_wind_band:
@@ -379,12 +349,14 @@ def _build_pyomo_model(
                 model.P_charge[bi, t, s_idx] for bi, _ in enumerate(storage_list)
             ) if storage_list else 0.0
 
-            expr = (diesel_total + model.P_grid[t, s_idx] + pv_kw + wind_kw
-                    + storage_discharge - storage_charge)
+            grid_net = model.P_import[t, s_idx] - model.P_export[t, s_idx]
+            expr = (diesel_total + grid_net + pv_kw + wind_kw
+                    + storage_discharge + model.ENS[t, s_idx]
+                    - storage_charge - model.CURT[t, s_idx])
 
             model.add_component(
                 f"balance_{t}_{s_idx}",
-                pyo.Constraint(expr=expr >= load_total),
+                pyo.Constraint(expr=expr == load_total),
             )
 
     if storage_list:
@@ -418,7 +390,6 @@ def _build_pyomo_model(
                             ),
                         )
 
-        # Complementariedad (Ecs. 4-6): exclusión mutua carga/descarga por big-M.
         for bi, bmeta in enumerate(storage_vars):
             for s in s_ids:
                 for t in model.T:
@@ -437,10 +408,24 @@ def _build_pyomo_model(
                         ),
                     )
 
+    if len(s_ids) > 1:
+        model.nonant = pyo.ConstraintList()
+        s0 = s_ids[0]
+        for t in (0,):
+            if num_diesel > 0:
+                for di in range(num_diesel):
+                    for s in s_ids[1:]:
+                        model.nonant.add(model.P_diesel[di, t, s0] == model.P_diesel[di, t, s])
+                        model.nonant.add(model.U_diesel[di, t, s0] == model.U_diesel[di, t, s])
+            for s in s_ids[1:]:
+                model.nonant.add(model.P_import[t, s0] == model.P_import[t, s])
+                model.nonant.add(model.P_export[t, s0] == model.P_export[t, s])
+                for bi in range(len(storage_list)):
+                    model.nonant.add(model.P_charge[bi, t, s0] == model.P_charge[bi, t, s])
+                    model.nonant.add(model.P_discharge[bi, t, s0] == model.P_discharge[bi, t, s])
+                    model.nonant.add(model.Z[bi, t, s0] == model.Z[bi, t, s])
+
     grid_d = grid_raw.get("cost_fixed", 40)
-    # Tarifa VARIABLE horaria (perfil ToU): el paper afirma 'C_var por hora'.
-    # Acepta escalar (broadcast a todas las horas, retrocompatible con el
-    # backend/diagrama) o lista/array de 24+ valores.
     grid_e_raw = grid_raw.get("cost_variable", 60)
     if isinstance(grid_e_raw, (list, tuple, np.ndarray)):
         grid_e = {int(t): float(grid_e_raw[t]) if t < len(grid_e_raw)
@@ -448,17 +433,13 @@ def _build_pyomo_model(
     else:
         grid_e = {int(t): float(grid_e_raw) for t in model.T}
 
-    # Linealizacion por tramos del costo diesel (MILP; HiGHS-compatible).
-    # DIESEL_COST[di,t,s] = aprox. por tramos de (c + b*P + a*P^2) * fuel
     if num_diesel > 0:
         model.DIESEL_COST = pyo.Var(model.P_diesel.index_set(),
                                     domain=pyo.NonNegativeReals, initialize=0.0)
         for di in range(num_diesel):
             d = diesel_devices[di]
-            pts = [float(p) for p in np.linspace(d["min_kw"], d["max_kw"],
-                                                 PW_DIESEL_N_PTS)]
-            vals = [(d["cost_c"] + d["cost_b"] * p + d["cost_a"] * p ** 2)
-                    * d["fuel_cost"] for p in pts]
+            pts = [float(p) for p in np.linspace(0.0, d["max_kw"], PW_DIESEL_N_PTS)]
+            vals = [(d["cost_b"] * p + d["cost_a"] * p ** 2) * d["fuel_cost"] for p in pts]
             for t in model.T:
                 for s_idx in s_ids:
                     pw = pyo.Piecewise(
@@ -477,9 +458,9 @@ def _build_pyomo_model(
                 if num_diesel > 0:
                     for di in range(num_diesel):
                         total += prob * m.DIESEL_COST[di, t, s_idx]
-
-                total += prob * (grid_d + grid_e[int(t)] * m.P_grid[t, s_idx])
-
+                        total += prob * diesel_devices[di]["cost_c"] * diesel_devices[di]["fuel_cost"] * m.U_diesel[di, t, s_idx]
+                total += prob * (grid_d + grid_e[int(t)] * m.P_import[t, s_idx] - export_tariff * m.P_export[t, s_idx])
+                total += prob * ens_penalty * m.ENS[t, s_idx]
                 for bi, _ in enumerate(storage_list):
                     total += prob * battery_degradation_cost(
                         pyo, storage_list[bi] if bi < len(storage_list) else {},
@@ -498,9 +479,17 @@ def _build_pyomo_model(
     variables = {
         "gen_vars": gen_vars,
         "P_diesel": model.P_diesel if num_diesel > 0 else None,
+        "U_diesel": model.U_diesel if num_diesel > 0 else None,
         "DIESEL_COST": model.DIESEL_COST if num_diesel > 0 else None,
-        "P_grid": model.P_grid,
+        "P_import": model.P_import,
+        "P_export": model.P_export,
+        "ENS": model.ENS,
+        "CURT": model.CURT,
+        "P_grid": None,
         "num_diesel": num_diesel,
+        "diesel_devices": diesel_devices,
+        "export_tariff": export_tariff,
+        "ens_penalty": ens_penalty,
         "solar_max_kw": solar_max_kw,
         "solar_eff": solar_eff,
         "solar_devices": solar_devices,
@@ -535,7 +524,6 @@ def _extract_dispatch_plan(
     sources: list,
     storage_list: list,
 ) -> list[dict]:
-    """Extrae el plan de despacho por hora y escenario."""
     plan = []
     num_diesel = variables.get("num_diesel", 0)
 
@@ -558,9 +546,13 @@ def _extract_dispatch_plan(
                 })
 
             try:
-                grid_val = float(pyo.value(variables["P_grid"][t, s_idx]))
+                imp = float(pyo.value(variables["P_import"][t, s_idx]))
+                exp = float(pyo.value(variables["P_export"][t, s_idx]))
+                grid_val = imp - exp
             except (ValueError, KeyError):
                 grid_val = 0.0
+                imp = 0.0
+                exp = 0.0
 
             if grid_val > 0.001:
                 plan.append({
@@ -580,6 +572,34 @@ def _extract_dispatch_plan(
                     "power_kw": round(grid_val, 3),
                     "cost": 0.0,
                 })
+            if "ENS" in variables:
+                try:
+                    ens = float(pyo.value(variables["ENS"][t, s_idx]))
+                    if ens > 0.001:
+                        plan.append({
+                            "device_id": "grid",
+                            "device_type": "ens",
+                            "hour": t + 1,
+                            "scenario": sc_name,
+                            "power_kw": round(ens, 3),
+                            "cost": 0.0,
+                        })
+                except (ValueError, KeyError):
+                    pass
+            if "CURT" in variables:
+                try:
+                    curt = float(pyo.value(variables["CURT"][t, s_idx]))
+                    if curt > 0.001:
+                        plan.append({
+                            "device_id": "curtailment",
+                            "device_type": "curtailment",
+                            "hour": t + 1,
+                            "scenario": sc_name,
+                            "power_kw": round(curt, 3),
+                            "cost": 0.0,
+                        })
+                except (ValueError, KeyError):
+                    pass
 
             for bi, bmeta in enumerate(storage_list):
                 try:
@@ -609,8 +629,6 @@ def _extract_dispatch_plan(
                         "cost": 0.0,
                     })
 
-    solar_max_kw = variables.get("solar_max_kw", 0)
-    solar_eff = variables.get("solar_eff", 0.36)
     solar_devices = variables.get("solar_devices", [])
     predictions_solar = variables.get("predictions_solar", [])
     predictions_pv_kw = variables.get("predictions_pv_kw", [])
@@ -653,8 +671,6 @@ def _extract_dispatch_plan(
                     pv_kw = pv_total * sd.get("weight", 0.0) / total_solar_kw
                 else:
                     pv_kw = sd["max_kw"] * sd["efficiency"] * irrad * factor_pv
-                # SIEMPRE emitir la hora (con 0.0 si no hay sol): asi el plan
-                # cubre las 24h y los graficos no quedan con huecos.
                 plan.append({
                     "device_id": sd["id"],
                     "device_type": "solar",
@@ -673,7 +689,6 @@ def _extract_dispatch_plan(
                     wind_kw = wind_total * wd.get("weight", 0.0) / total_wind_kw
                 else:
                     wind_kw = 0.0
-                # SIEMPRE emitir la hora (con 0.0 si no hay viento util).
                 plan.append({
                     "device_id": wd["id"],
                     "device_type": "wind",
@@ -710,8 +725,8 @@ def _extract_cost_breakdown(
 ) -> dict:
     num_diesel = variables.get("num_diesel", 0)
     grid_d = grid_raw.get("cost_fixed", 40)
-    # Tarifa horaria en el breakdown (coherente con la funcion objetivo)
     grid_e_raw = grid_raw.get("cost_variable", 60)
+    export_tariff = float(grid_raw.get("export_tariff", 0.0))
     if isinstance(grid_e_raw, (list, tuple, np.ndarray)):
         def _grid_e(t):
             return float(grid_e_raw[t]) if t < len(grid_e_raw) \
@@ -726,11 +741,14 @@ def _extract_cost_breakdown(
         for t in range(horizon):
             hour_cost = 0.0
             for di in range(num_diesel):
-                gv = variables["gen_vars"][di]
                 try:
                     p = float(pyo.value(variables["P_diesel"][di, t, s_idx]))
                 except (ValueError, KeyError, TypeError):
                     p = 0.0
+                try:
+                    u = float(pyo.value(variables["U_diesel"][di, t, s_idx])) if variables.get("U_diesel") is not None else (1.0 if p > 0.001 else 0.0)
+                except (ValueError, KeyError, TypeError):
+                    u = 0.0
                 a = 0.001
                 b = 0.5
                 c = 0.5
@@ -745,13 +763,22 @@ def _extract_cost_breakdown(
                     b = dd.get("cost_b", 0.5)
                     c = dd.get("cost_c", 0.5)
                     fuel = dd.get("fuel_cost", 100)
-                hour_cost += (c + b * p + a * p**2) * fuel
+                if p > 0.001 or u > 0.5:
+                    hour_cost += (c + b * p + a * p**2) * fuel
+                else:
+                    hour_cost += 0.0
 
             try:
-                grid_p = float(pyo.value(variables["P_grid"][t, s_idx]))
+                imp = float(pyo.value(variables["P_import"][t, s_idx]))
+                exp = float(pyo.value(variables["P_export"][t, s_idx]))
             except (ValueError, KeyError):
-                grid_p = 0.0
-            hour_cost += grid_d + _grid_e(t) * grid_p
+                imp = exp = 0.0
+            hour_cost += grid_d + _grid_e(t) * imp - export_tariff * exp
+            try:
+                ens = float(pyo.value(variables["ENS"][t, s_idx]))
+                hour_cost += float(grid_raw.get("ens_penalty_cop_kwh", 5000.0)) * ens
+            except (ValueError, KeyError):
+                pass
 
             cost_per_hour.append({
                 "hour": t + 1,

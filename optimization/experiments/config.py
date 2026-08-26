@@ -40,7 +40,7 @@ MICROGRID = {
         "initial_soc": 0.65,
         "charge_efficiency": 0.95,
         "discharge_efficiency": 0.95,
-        "degradation_cost_per_kwh": 0.02,
+        "degradation_cost_per_kwh": 30.0,
     },
     "diesel": {
         "id": "diesel_1",
@@ -55,6 +55,8 @@ MICROGRID = {
         "max_import_kw": 400.0,
         "min_import_kw": -300.0,
         "cost_fixed": 40.0,
+        "export_tariff": 0.0,
+        "ens_penalty_cop_kwh": 5000.0,
     },
 }
 

@@ -11,6 +11,13 @@ const initialState = {
     interval_minutes: 15,
     cycle_active: false,
   },
+  experimentA: {
+    summary: null,
+    traces: null,
+    running: false,
+    lastRun: null,
+    error: null,
+  },
 };
 
 const optimizationSlice = createSlice({
@@ -38,6 +45,22 @@ const optimizationSlice = createSlice({
       state.status = 'idle';
       state.error = null;
     },
+    setExperimentSummary(state, action) {
+      state.experimentA.summary = action.payload;
+      state.experimentA.error = null;
+    },
+    setExperimentTraces(state, action) {
+      state.experimentA.traces = action.payload;
+    },
+    setExperimentRunning(state, action) {
+      state.experimentA.running = action.payload;
+    },
+    setExperimentError(state, action) {
+      state.experimentA.error = action.payload;
+    },
+    clearExperiment(state) {
+      state.experimentA = { summary: null, traces: null, running: false, lastRun: null, error: null };
+    },
   },
 });
 
@@ -47,6 +70,11 @@ export const {
   setOptimizationError,
   setMpcStatus,
   clearOptimization,
+  setExperimentSummary,
+  setExperimentTraces,
+  setExperimentRunning,
+  setExperimentError,
+  clearExperiment,
 } = optimizationSlice.actions;
 
 export default optimizationSlice.reducer;

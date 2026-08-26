@@ -110,17 +110,30 @@ def main() -> int:
     logger.info("Periodo de prueba: %s -> %s (%d dias)",
                 days[0], end, len(days))
 
-    load_real = load_realized_demand(days[0], end)
-    pv_real = load_realized_pv(days[0], end)
+    try:
+        load_real = load_realized_demand(days[0], end)
+        pv_real = load_realized_pv(days[0], end)
+    except RuntimeError as _e:
+        from optimization.calibration.service import read_sensor_series
+        df = read_sensor_series("pasto_load", ["power_kw"], max_days=60)
+        if df.empty:
+            raise
+        latest = df.index.max().floor("h")
+        new_end = latest
+        new_start = (latest - pd.Timedelta(days=args.days - 1)).floor("D")
+        days = pd.date_range(new_start, periods=args.days, freq="D", tz=TZ)
+        end = days[-1] + pd.Timedelta(hours=23)
+        logger.warning("Ventana original sin datos (%s); usando ventana disponible %s -> %s", _e, days[0], end)
+        load_real = load_realized_demand(days[0], end)
+        pv_real = load_realized_pv(days[0], end)
     initial_soc = args.initial_soc
     logger.info("Demanda real: %.1f kWh/dia | PV real: %.1f kWh/dia | SOC ini %.2f (fijo)",
                 load_real.sum() / len(days), pv_real.sum() / len(days), initial_soc)
 
-    if args.quick:
-        provider = ClosedLoopForecastProvider()
-    else:
-        provider = ClosedLoopForecastProvider()
+    provider = ClosedLoopForecastProvider()
     oracle_provider = OracleForecastProvider()
+    if args.quick:
+        args.days = 1
 
     all_days: dict[str, dict] = {}
     traces: dict[str, pd.DataFrame] = {}
