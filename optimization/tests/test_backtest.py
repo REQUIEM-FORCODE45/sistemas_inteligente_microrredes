@@ -180,7 +180,7 @@ def test_soc_se_mantiene_dentro_de_limites():
         assert trace["soc_kwh"].max() <= hi, f"{s}: SOC por encima del techo"
 
 
-def test_oracle_es_cota_inferior_de_costo():
+def test_mpc_pi_es_cota_inferior_de_costo():
     """Regresion (flag del revisor): con forecast perfecto el MPC-PI debe
     rendir al menos tan bien como D-MPC en el costo realizado."""
     day = pd.Timestamp("2026-07-18", tz=TZ)
@@ -191,6 +191,10 @@ def test_oracle_es_cota_inferior_de_costo():
     cost_o = evaluate_day(t_o)["cost_total"]
     assert cost_o <= cost_d + 1e-6, \
         f"MPC-PI ({cost_o:.0f}) NO domina a D-MPC ({cost_d:.0f})"
+
+def test_oracle_es_cota_inferior_de_costo():
+    """Alias compat Oráculo -> MPC-PI."""
+    return test_mpc_pi_es_cota_inferior_de_costo()
 
 
 def test_metricas_etiquetas_periodo_vs_diario():
