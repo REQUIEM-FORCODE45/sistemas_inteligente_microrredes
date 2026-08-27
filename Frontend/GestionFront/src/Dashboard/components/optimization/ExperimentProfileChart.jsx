@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import Plotly from 'plotly.js-dist-min';
 
-export const ExperimentProfileChart = ({ traces }) => {
+export const ExperimentProfileChart = ({ traces, height = 320 }) => {
   const [strat, setStrat] = useState('smpc');
   const ref = useRef(null);
   const data = useMemo(() => traces?.[strat] || [], [traces, strat]);
@@ -40,7 +40,7 @@ export const ExperimentProfileChart = ({ traces }) => {
       margin: { l: 50, r: 20, t: 20, b: 40 },
       paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
       font: { color: '#64748b', size: 11 },
-      height: 320,
+      height,
     }, { responsive: true, displaylogo: false });
   }, [hourly]);
 
@@ -51,7 +51,7 @@ export const ExperimentProfileChart = ({ traces }) => {
         <option value="smpc">S-MPC</option>
         <option value="dmpc">D-MPC</option>
         <option value="heur">HEUR</option>
-        <option value="oracle">Oráculo</option>
+        <option value="oracle">MPC-PI</option>
       </select>
       <div ref={ref} className="w-full" />
     </div>

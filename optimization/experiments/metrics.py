@@ -23,7 +23,7 @@ STRATEGY_LABELS = {
     "smpc": "S-MPC (estocástico, 3 escenarios)",
     "dmpc": "D-MPC (determinista, P50)",
     "heur": "HEUR (priority list)",
-    "oracle": "Oráculo (forecast perfecto)",
+    "oracle": "MPC-PI (información perfecta)",
 }
 
 

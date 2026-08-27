@@ -234,7 +234,7 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
     savings_vs_h = _savings_pct(smpc_cost, heur_cost)
     gap_oracle = _savings_pct(smpc_cost, oracle_cost)
     lines = [
-        "# Experimento A — Comparativa económica (S-MPC vs D-MPC vs HEUR vs Oráculo)",
+        "# Experimento A — Comparativa económica (S-MPC vs D-MPC vs HEUR vs MPC-PI)",
         "",
         f"**Periodo**: {days[0].date()} → {days[-1].date()} ({len(days)} días) · "
         f"**Estado inicial**: SOC={initial_soc:.2f} (igual para todas) · "
@@ -260,14 +260,14 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
         f"- **S-MPC vs HEUR**: {smpc_cost:,.0f} vs {heur_cost:,.0f} COP (periodo) "
         f"→ **mejora de {savings_vs_h:.0f}%** (orden de magnitud): la regla "
         f"heuristica no explota el arbitraje de la bateria ni la exportacion en pico.",
-        f"- **Oráculo** (forecast perfecto): {oracle_cost:,.0f} COP — cota superior; "
+        f"- **MPC-PI** (información perfecta): {oracle_cost:,.0f} COP — cota superior; "
         f"el S-MPC queda a {abs(gap_oracle):.2f}% de la operacion con informacion "
         f"perfecta (el valor de la precision del pronostico es bajo cuando el "
         f"arbitraje es el lever dominante).",
         f"- **Violaciones de balance**: S-MPC={s['smpc']['violations_total']}, "
         f"D-MPC={s['dmpc']['violations_total']}, "
         f"HEUR={s['heur']['violations_total']}, "
-        f"Oráculo={s['oracle']['violations_total']} (todas deben ser 0).",
+        f"MPC-PI={s['oracle']['violations_total']} (todas deben ser 0).",
         f"- **Uso de renovables**: S-MPC {s['smpc']['renewable_share_pct']:.1f}% "
         f"vs D-MPC {s['dmpc']['renewable_share_pct']:.1f}% vs "
         f"HEUR {s['heur']['renewable_share_pct']:.1f}%.",
@@ -285,7 +285,7 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
         "paso es identico al determinista en esta microred exportadora. El "
         "beneficio estocastico (si existe) se manifiesta en el costo esperado, "
         "no en la primera accion implementada.",
-        "- El Oráculo confirma la cota: la brecha de informacion perfecta es "
+        "- El MPC-PI confirma la cota: la brecha de informacion perfecta es "
         "de 0.27%, evidencia cuantitativa de que el valor economico esta en la "
         "operacion (arbitraje y exportacion en pico), no en la precision del "
         "pronostico para esta configuracion.",
@@ -302,7 +302,7 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
         "físicamente realizables (SOC ∈ [soc_min, soc_max]).",
         "- La demanda y el PV realizados provienen de las mediciones del "
         "sistema (Mongo); el clima realizado es ERA5 del sitio.",
-        "- El **Oráculo** usa como forecast la propia serie realizada (P10=P50="
+        "- El **MPC-PI** usa como forecast la propia serie realizada (P10=P50="
         "P90=PV realizado): es la cota superior teórica y debe dominar a las "
         "estrategias basadas en pronóstico.",
         "- La batería es el único almacenamiento; la red es el slack. El "

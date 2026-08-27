@@ -51,9 +51,11 @@ async function getExperimentSummary() {
 }
 
 async function getExperimentTraces(strategy) {
+  const alias = { 'mpc-pi': 'oracle', 'mpc_pi': 'oracle' };
+  const norm = alias[strategy] || strategy;
   const allowed = ['smpc', 'dmpc', 'heur', 'oracle'];
-  if (!allowed.includes(strategy)) throw new Error('Estrategia no válida');
-  const filePath = path.join(EXP_DIR, `expA_traces_${strategy}.csv`);
+  if (!allowed.includes(norm)) throw new Error('Estrategia no válida');
+  const filePath = path.join(EXP_DIR, `expA_traces_${norm}.csv`);
   if (!fs.existsSync(filePath)) return { strategy, rows: [] };
   const rows = parseCsv(filePath);
   const compact = rows.map(r => ({
@@ -70,7 +72,7 @@ async function getExperimentTraces(strategy) {
     violation: parseInt(r.violation || 0, 10),
     cost_total: (parseFloat(r.cost_diesel||0)+parseFloat(r.cost_grid||0)+parseFloat(r.cost_battery||0)),
   }));
-  return { strategy, rows: compact };
+  return { strategy: norm, rows: compact };
 }
 
 async function runExperimentA(days = 14) {

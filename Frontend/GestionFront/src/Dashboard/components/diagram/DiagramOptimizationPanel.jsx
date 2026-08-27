@@ -11,7 +11,6 @@ import {
   setOptimizationError,
   setMpcStatus,
 } from '@/Dashboard/store/optimization/optimizationSlice';
-import { ExperimentPanel } from '@/Dashboard/components/optimization/ExperimentPanel';
 import { DEVICE_TYPE, DEVICE_DEFINITIONS, SOLVER_CATEGORY } from './constants/deviceTypes';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
@@ -415,17 +414,14 @@ export default function DiagramOptimizationPanel({ onClose }) {
 
         {result?.status === 'optimal' && (
           <div className="text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1.5">
-            <p>Resultados listos. Mira las graficas en:</p>
+            <p>Resultados listos. Mira las gráficas en:</p>
             <ul className="list-disc pl-4 space-y-0.5">
-              <li><strong>Dashboard</strong> → Plan de despacho, Costo, Baterias</li>
-              <li><strong>Clic en un nodo</strong> → Despacho 24h de ese equipo</li>
+              <li><strong>Pestaña Resultados MPC</strong> → análisis completo a pantalla completa</li>
+              <li><strong>Dashboard</strong> → despacho 24h + bandas</li>
+              <li><strong>Clic en nodo</strong> → despacho por equipo</li>
             </ul>
           </div>
         )}
-
-        <div className="border-t border-border pt-4">
-          <ExperimentPanel />
-        </div>
       </div>
     </div>
   );

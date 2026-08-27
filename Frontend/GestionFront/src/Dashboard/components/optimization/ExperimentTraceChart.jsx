@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import Plotly from 'plotly.js-dist-min';
 
-export const ExperimentTraceChart = ({ traces }) => {
+export const ExperimentTraceChart = ({ traces, height = 320 }) => {
   const [strat, setStrat] = useState('smpc');
   const [dayIdx, setDayIdx] = useState(0);
   const ref = useRef(null);
@@ -39,7 +39,7 @@ export const ExperimentTraceChart = ({ traces }) => {
       barmode: 'group',
       paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
       font: { color: '#64748b', size: 11 },
-      height: 320,
+      height,
     }, { responsive: true, displaylogo: false });
   }, [dayData]);
 
@@ -51,7 +51,7 @@ export const ExperimentTraceChart = ({ traces }) => {
           <option value="smpc">S-MPC</option>
           <option value="dmpc">D-MPC</option>
           <option value="heur">HEUR</option>
-          <option value="oracle">Oráculo</option>
+          <option value="oracle">MPC-PI</option>
         </select>
         <select value={dayIdx} onChange={e=>setDayIdx(parseInt(e.target.value,10))} className="text-xs border rounded px-2 py-1 bg-card">
           {days.map((d,i)=><option key={d} value={i}>{d}</option>)}

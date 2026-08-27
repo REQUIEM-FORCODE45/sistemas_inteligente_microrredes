@@ -1,12 +1,12 @@
 import { useRef, useEffect } from 'react';
 import Plotly from 'plotly.js-dist-min';
 
-export const ExperimentCostChart = ({ cumulative }) => {
+export const ExperimentCostChart = ({ cumulative, height = 320 }) => {
   const ref = useRef(null);
   useEffect(() => {
     if (!ref.current || !cumulative || cumulative.length === 0) return;
     const keys = Object.keys(cumulative[0] || {}).filter(k => k !== '' && k !== 'undefined');
-    const colors = { smpc: '#2563eb', dmpc: '#16a34a', heur: '#dc2626', oracle: '#9333ea' };
+    const colors = { smpc: '#2563eb', dmpc: '#16a34a', heur: '#dc2626', oracle: '#9333ea', 'mpc-pi': '#9333ea' };
     const x = cumulative.map(r => r[''] || r['index'] || '');
     const traces = keys.map(k => ({
       x,
@@ -25,7 +25,7 @@ export const ExperimentCostChart = ({ cumulative }) => {
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
       font: { color: '#64748b', size: 11 },
-      height: 320,
+      height,
       legend: { orientation: 'h', y: -0.2, x: 0.5, xanchor: 'center' },
     }, { responsive: true, displaylogo: false });
   }, [cumulative]);
