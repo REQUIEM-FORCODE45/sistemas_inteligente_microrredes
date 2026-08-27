@@ -408,6 +408,30 @@ def _build_pyomo_model(
                         ),
                     )
 
+    SOC_TERM_PEN = 30.0
+    if storage_list:
+        model.TERM_DEV_POS = pyo.Var(
+            pyo.RangeSet(0, len(storage_list) - 1), model.S,
+            domain=pyo.NonNegativeReals,
+        )
+        model.TERM_DEV_NEG = pyo.Var(
+            pyo.RangeSet(0, len(storage_list) - 1), model.S,
+            domain=pyo.NonNegativeReals,
+        )
+        for bi, bmeta in enumerate(storage_vars):
+            cap = bmeta["capacity_kwh"]
+            target = bmeta["initial_soc"] * cap
+            for s in s_ids:
+                tH = horizon - 1
+                model.add_component(
+                    f"soc_term_pos_{bi}_{s}",
+                    pyo.Constraint(expr=model.SOC[bi, tH, s] - target <= model.TERM_DEV_POS[bi, s]),
+                )
+                model.add_component(
+                    f"soc_term_neg_{bi}_{s}",
+                    pyo.Constraint(expr=target - model.SOC[bi, tH, s] <= model.TERM_DEV_NEG[bi, s]),
+                )
+
     if len(s_ids) > 1:
         model.nonant = pyo.ConstraintList()
         s0 = s_ids[0]
@@ -467,6 +491,9 @@ def _build_pyomo_model(
                         m.P_charge[bi, t, s_idx],
                         m.P_discharge[bi, t, s_idx],
                     )
+            if storage_list:
+                for bi in range(len(storage_list)):
+                    total += prob * SOC_TERM_PEN * (m.TERM_DEV_POS[bi, s_idx] + m.TERM_DEV_NEG[bi, s_idx])
         return total
 
     model.obj = pyo.Objective(rule=obj_rule, sense=pyo.minimize)

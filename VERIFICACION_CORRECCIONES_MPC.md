@@ -171,4 +171,135 @@ Verificación final (criterios de aceptación):
 
 ---
 
+## 7. SEGUNDA RONDA DE CORRECCIONES — hallazgos post-fix (2026-08-27)
+
+> **Motivación**: tras verificar los resultados regenerados (14 días, 27 14:49), el
+> arbitraje diésel→red está eliminado (costos positivos 54,804/55,499/50,866/35,902
+> COP; diésel 0 h; export ~2,200 kWh) PERO el análisis del perfil horario reveló
+> **4 problemas nuevos de modelado/experimento** que invalidan la discusión del paper.
+
+### 7.1 Hallazgos verificados (con evidencia en `expA_traces_smpc.csv`)
+
+| # | Hallazgo | Evidencia | Por qué es problema |
+|---|---|---|---|
+| F1 | **La batería NUNCA carga** (`charge_kw = 0.0` en las 24 h × 14 días) | perfil horario S-MPC: ch=0 h00–h23 | La discusión afirma "la batería hace el arbitraje valle→pico (carga a 45, descarga a 140)" — **falso**: no carga nunca |
+| F2 | **El SoC solo drena: 130 → 80.6 kWh** y nunca vuelve a subir | SoC min 80.69 / máx 130.0 (=0.65·200) | La discusión afirma "el SOC recorre el rango operativo completo [0.2, 0.95]·capacidad" — **falso**: solo [0.40, 0.65] |
+| F3 | **Descarga en valle (45 COP/kWh) exportando a tarifa 0** | h00: dch 7.4 kW, grid −4.7 (exporta 4.7 a 0 COP) | Operación irracional: paga degradación (30 COP/kWh) para exportar a 0 — síntoma de F1/F2 |
+| F4 | **PV del mediodía exportado entero (grid −24 kW a 0 COP)** en vez de cargar la batería para la noche (donde importa a 80–140 COP) | h10–h14: grid −20/−24 con ch=0 | Con `export_tariff=0` se regala energía mientras luego se compra cara |
+| F5 | **HEUR gana al MPC (−8%)** con 0.04 ciclos/día | S-MPC 54,804 vs HEUR 50,866 | Legítimo PERO el MPC pierde por su batería irracional, no por inferioridad del método → la conclusión actual es un **artefacto**, no un hallazgo |
+| F6 | **Carga del sitio ~3–7 kW plana** (no los ~34 kW nominales) | load_real ~2.9–7.4 kW | El experimento no ejercita ni la producción ni el diésel (0 L en todo) |
+
+**Causa raíz única de F1–F5**: el modelo **no tiene valor terminal del SoC** ni
+representación correcta del costo de oportunidad de la energía almacenada →
+la batería inicial (130 kWh) es "gratis" y el horizonte finito (24 h) no la
+valora al final → el MPC la drena sin recargarla (F2), nunca paga degradación
+para recargar (F1), y exporta PV a 0 porque almacenarlo no tiene valor (F4).
+
+### 7.2 Correcciones de código (archivo `optimization/solver/model_builder.py`)
+
+**R1 — Valor terminal del SoC (F1, F2, F4) — CRÍTICO**
+
+En MILP puro no puede usarse cuadrático suave (HiGHS sin QP), así que se usa
+**penalización lineal por tramos del desvío al target** (patrón ya usado para la
+Willans del diésel):
+
+```python
+# Tras definir SOC y antes del objetivo (dentro de `if storage_list:`):
+SOC_TARGET_FRAC = 0.65          # o bmeta["initial_soc"]: conservar lo que entra
+SOC_TERM_PEN = 100.0            # COP por kWh de desvío al final del horizonte
+for bi, bmeta in enumerate(storage_vars):
+    for s in s_ids:
+        tH = horizon - 1
+        model.add_component(
+            f"soc_terminal_pos_{bi}_{s}",
+            pyo.Constraint(expr=model.SOC[bi, tH, s] - SOC_TARGET_FRAC * cap <= model.TERM_DEV_POS[bi, s]))
+        model.add_component(
+            f"soc_terminal_neg_{bi}_{s}",
+            pyo.Constraint(expr=SOC_TARGET_FRAC * cap - model.SOC[bi, tH, s] <= model.TERM_DEV_NEG[bi, s]))
+```
+con `model.TERM_DEV_POS/NEG = pyo.Var(..., domain=NonNegativeReals)` y
+`+ SOC_TERM_PEN * (TERM_DEV_POS + TERM_DEV_NEG)` en la función objetivo
+(ponderado por `prob` como el resto).
+
+**Efecto esperado**: la batería deja de drenarse; el MPC recarga con PV de
+mediodía (cuesta degradación 30 + dev terminal 0 si vuelve a 65%) y solo
+descarga cuando el arbitraje o la demanda lo justifican → ch>0 diurno,
+SoC recorriendo [0.2, 0.95], sin exportaciones absurdas en valle.
+
+**R2 — Sanidad del arbitraje (F3): impedir carga/descarga simultánea ya existe
+(Z big-M ✓); añadir prohibición de exportar mientras la batería descarga en valle**
+— opcional; con R1 el síntoma desaparece por sí solo (la exportación a 0 solo
+ocurría porque almacenar no tenía valor). Se valida después de R1: si aún hay
+horas con dch>0 y grid<0 simultáneos en valle, añadir `P_export[t,s] <=
+PV_esperado[t,s]` (exportar solo excedente renovable).
+
+**R3 — Calibrar degradación + valor terminal juntos**: λ=30 COP/kWh está en rango
+(≤ ~42 para que el arbitraje valle→pico sobreviva), pero verificar en los 14 días:
+con R1 activo la batería debe ciclar ~0.5–1.0 ciclos/día (arbitraje real) sin
+sobre-ciclar. Si no cicla: bajar degradación a 10–20. Si cicla sin límite: subir a 50–100.
+(Sensibilidad documentada en el paper, igual que en la tesis con λ=200.)
+
+**R4 — Ejercitar el diésel (F6): el experimento debe estresar la generación**
+
+Opciones (elegir una, documentarla):
+- **(a) Escalar la carga de prueba a la nominal** (~34 kW media, picos ~58 kW como la
+  tesis): multiplicar `load_real` por un factor en `data_loader.test_period_days`/exp
+  (perfil calibrado ya existe) — la red a 400 kW seguirá cubriendo todo → el diésel
+  solo entra si se limita la red (opción b).
+- **(b) Limitar `max_import_kw` del experimento** (~20–30 kW) → cuando la carga supera
+  red, el diésel entra y E1 (binaria on/off) queda DEMOSTRADA en los traces (horas con
+  U=1 intermitentes, no 336 h).
+- **(c) Ventana con déficit real** (invierno nublado) — menos controlable.
+Recomendada: **(a)+(b) en `experiments/config.py`** (bloque `grid.max_import_kw =
+30`) y anunciarlo en el paper como "red limitada (fallback) — caso aislable".
+
+**R5 — Reescribir discusión y tablas (F1–F5) — `expA_table.md` + `informe.md`**
+- Eliminar: "la batería hace el arbitraje valle→pico", "el SOC recorre [0.2, 0.95]",
+  "microred exportadora... se vende al precio variable", "0.27%", "1,112%".
+- Nueva narrativa honesta: (1) con valor terminal + degradación calibrada, el MPC
+  gestiona la batería (cargar de día, descargar en pico); (2) la comparación vs HEUR
+  depende de la ventana; (3) E1 demostrado con diésel intermitente en red limitada;
+  (4) MPC-PI sigue siendo cota superior (la brecha 52.65% actual es un artefacto del
+  F5 — se recalcula con los fixes).
+- Tabla: coherencia estricta periodos/fechas/números (P2 de la ronda 1).
+
+**R6 — Re-correr y validar (cierre)**
+```bash
+cd optimization
+python -m optimization.experiments.experiment_a --days 14
+python -m optimization.experiments.experiment_b_solver_time   # MILP creció (R1 añade 2 vars/escenario)
+```
+Checklist post-run (`expA_traces_smpc.csv`):
+- [ ] `charge_kw` > 0 en horas diurnas (PV→batería)
+- [ ] SoC recorre al menos [0.40, 0.95]·cap y termina ≈ 65%
+- [ ] Sin horas con `discharge>0` y `grid<0` simultáneos en valle
+- [ ] Diésel: horas on/off intermitentes (si se aplicó R4b) o 0 L solo si la red ilimitada lo justifica físicamente
+- [ ] Costos positivos y violaciones = 0
+- [ ] Figuras regeneradas y coherentes (sin diésel 255 kW en pico)
+
+### 7.3 Archivos afectados (resumen 2ª ronda)
+
+| Archivo | Cambio |
+|---|---|
+| `optimization/solver/model_builder.py` | R1 (valor terminal SoC por tramos), R2 (si persiste), R3 tuning |
+| `optimization/experiments/config.py` | R4 (red limitada 30 kW, λ degradación final), R6 |
+| `optimization/experiments/data_loader.py` | R4a (escala de carga nominal) si se elige |
+| `optimization/experiments/experiment_a.py` | R5 (textos), flags para R4 |
+| `results/.../expA_table.md` + `informe.md` | R5 reescritura honesta |
+| `Backend` / `Frontend` | sin cambios (UI ya consume los CSV — se actualiza sola) |
+
+### 7.4 Riesgos 2ª ronda
+- **R1 hace el MILP un poco más grande** (2 vars + 2 cons por batería/escenario):
+  irrelevante vs 648 binarias actuales; Exp B lo confirma (< 1.5 s esperado).
+- **R4b cambia la naturaleza del experimento** (red limitada): es un escenario
+  legítimo ("operación con red débil") pero debe declararse — el jurado verá
+  max_import=30 y preguntará; responder: es exactamente el caso de la tesis
+  (microrred con respaldo diésel), y la UI permite cambiar la topología.
+- **λ degradación**: el número exacto es calibrável; documentar la sensibilidad
+  (la tesis usó λ=200 con la misma física y funcionó — aquí la escala de costos
+  del sitio es ~10× menor, por eso 30 es el orden correcto).
+
+---
+*Fin de la 2ª ronda. Este §7 se marca ✅ solo cuando el checklist R6 pase completo.*
+
 *Este documento es trazabilidad de auditoría. Los cambios de código ya están en `main` (commits B4ABBF9→7DEE660); los pendientes P1–P6 son de regeneración de artefactos, no de código.*
