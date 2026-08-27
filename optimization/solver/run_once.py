@@ -67,7 +67,6 @@ def main():
         # marca failed para que pollProgress de Node cierre el ciclo rapido
         # (antes quedaba 'running' y el poll hacia timeout de 5 min)
         r.set(f"{PROGRESS_PREFIX}{job_id}", "failed")
-        r.set(f"{PROGRESS_PREFIX}{job_id}", "failed")
 
     r.expire(f"{RESULT_PREFIX}{job_id}", 86400)
     r.expire(f"{PROGRESS_PREFIX}{job_id}", 86400)

@@ -83,6 +83,10 @@ Backend runs on `http://localhost:3000` (Express). Redis via `docker compose up 
 | GET | `/api/front/optimization/status/:jobId` | Returns status + result from Redis |
 | GET | `/api/front/optimization/results/latest` | Most recent optimization result |
 | GET | `/api/front/optimization/mpc-status` | MPC scheduler status |
+| GET | `/api/front/optimization/experiment/summary` | ExpA resumen (metrics, cumulative, table) |
+| GET | `/api/front/optimization/experiment/traces/:strategy` | ExpA trazas por estrategia (rows compactas) |
+| GET | `/api/front/optimization/experiment/status` | ExpA running/last_run desde Redis |
+| POST | `/api/front/optimization/experiment/run` | Lanza ExpA (`{days}`) → bg exec python -m ... |
 | GET | `/api/front/performance?reset=1` | Perf metrics (Exp C): latencies p50/p95/p99/max + throughput |
 
 ### Validation experiments (respuesta al revisor de la tesis)
@@ -109,7 +113,19 @@ Backend runs on `http://localhost:3000` (Express). Redis via `docker compose up 
 
 ### Slice (optimization)
 
-`src/Dashboard/store/optimization/optimizationSlice.js` — state: `{status, jobId, results, latestResult, error, mpc}`
+`src/Dashboard/store/optimization/optimizationSlice.js` — state: `{status, jobId, results, latestResult, error, mpc, experimentA:{summary,traces,running,lastRun,error}}`
+
+### ExperimentPanel (nuevo, Parte II)
+
+`ExperimentPanel.jsx` + 4 charts (`ExperimentMetricsTable/CostChart/ProfileChart/TraceChart`) en panel lateral `DiagramOptimizationPanel`. Consume `GET /front/optimization/experiment/*` y muestra tabla + costo acumulado + perfil horario + trazas por día (Plotly). Slice añade reducers `setExperimentSummary/Traces/Running/Error`.
+
+### Correcciones MPC (2026-08-26, PLAN_CORRECCION_MPC.md)
+
+* E1 diésel binaria `U_diesel` + `P_diesel∈[0,max]·U`, costo `c·fuel·U + (bP+aP²)·fuel` linealizado [0,max], antes `lb=50` permanente.
+* E2 `P_grid` signado → `P_import/P_export` con `export_tariff=0` (no ingreso por inyección); antes arbitraje diésel→red a 140 COP/kWh.
+* E3 balance `>=` → `==` con `ENS` (5000 COP/kWh) y `CURT` vertido; antes sobre-generación gratis.
+* E4 nonant `t=0` para `P_diesel/U/P_import/P_export/P_charge/P_discharge/Z` (no `ENS/CURT`).
+* E7 `degradation 0.02→30 COP/kWh` (antes batería gratis), `E5 --quick`, `E6 r.set duplicado`, `E9 diesel liters 0 si P=0`.
 
 ## Frontend architecture
 

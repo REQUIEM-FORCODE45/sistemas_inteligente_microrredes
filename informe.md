@@ -568,7 +568,7 @@ fijo 40 COP/h.
 | S-MPC (estocástico, 3 escenarios) | −1,428,731 | −102,052 ± 1,625 | 61.2 | 0.51 | 3 | 2,353 | 0 |
 | D-MPC (determinista, P50) | −1,428,730 | −102,052 ± 1,625 | 61.2 | 0.51 | 3 | 2,353 | 0 |
 | HEUR (priority list) | −117,912 | −8,422 ± 1,619 | 61.2 | 0.04 | 35 | 12 | 0 |
-| Oráculo (forecast perfecto) | −1,432,591 | −102,328 ± 1,624 | 61.2 | 0.51 | 3 | 2,361 | 0 |
+| MPC-PI (información perfecta) | −1,432,591 | −102,328 ± 1,624 | 61.2 | 0.51 | 3 | 2,361 | 0 |
 
 **Conclusiones (valores reales):**
 
@@ -584,7 +584,7 @@ fijo 40 COP/h.
 - **MPC (cualquier variante) mejora a HEUR en 1,112%** (−1.43M vs −0.12M
   COP): la regla heurística no explota el arbitraje valle→pico de la batería
   ni la exportación en pico.
-- **Oráculo (forecast perfecto) = −1,432,591 COP**: cota superior; el S-MPC
+- **MPC-PI (información perfecta) = −1,432,591 COP**: cota superior; el S-MPC
   queda a **0.27%** de la operación con información perfecta — evidencia
   cuantitativa de que, en esta configuración, el valor económico está en la
   operación (arbitraje y exportación en pico), no en la precisión del
@@ -595,6 +595,8 @@ fijo 40 COP/h.
 
 Salidas reproducibles: `results/pasto_narino/experiments/expA_*` (trazas
 horarias, métricas, costo acumulado, figura y tabla markdown).
+
+> **Corrección MPC 2026-08-26 (PLAN_CORRECCION_MPC.md, rama `fix/mpc-correcciones`)**: los valores de la tabla anterior (−1.43 M COP, 1,112% de mejora) estaban **contaminados por 3 errores de formulación** — diésel sin binaria on/off (mín 50 kW permanente), exportación remunerada a tarifa de importación (arbitraje diésel→red a 140 COP/kWh) y balance `≥` con sobre-generación gratis. Tras corregir — binaria `U_diesel` con `P∈[0,max]·U`, descomposición `P_import/P_export` con `export_tariff=0`, balance `==` con `ENS` penalizado a 5,000 COP/kWh y `CURT`, `nonant` en `t=0`, degradación `30 COP/kWh` — los costos vuelven a ser **positivos y realistas**. Ventana de validación reciente (2026-08-05→07, 3 días, mismo Pipeline PatchTST+MGP, SOC 0.65): S-MPC 11,933 COP (3,978/día), D-MPC 12,039, HEUR 11,047, MPC-PI 7,633; diésel 0 L (apagado cuando sobra energía), exportación en pico 19-21 = 0 kWh, violaciones 0. La mejora 1,112% desaparece; la brecha real depende de la ventana y del costo de degradación (con 30 COP/kWh la heurística es competitiva en microrred exportadora de baja carga). Ver trazas corregidas en `expA_traces_*.csv` y panel experimental de la UI (`/front/optimization/experiment/*`).
 
 ### 7.2. Experimento B — Tiempo de cómputo del MPC (Comentario 11: R4)
 

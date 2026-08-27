@@ -31,19 +31,21 @@ HOURS = 24
 
 def _grid_slack(load_real: float, pv_real: float, diesel: float,
                 discharge: float, charge: float,
-                grid_min: float, grid_max: float) -> tuple[float, int]:
-    """Cierra el balance con la red como slack. Devuelve (P_grid_real, viol)."""
+                grid_min: float, grid_max: float) -> tuple[float, int, float, float]:
+    """Cierra el balance con la red como slack. Devuelve (P_grid_real, viol, ens, curtailed)."""
     net = load_real - (pv_real + diesel + discharge - charge)
     if net > grid_max:
-        return grid_max, 1
+        ens = net - grid_max
+        return grid_max, 1, ens, 0.0
     if net < grid_min:
-        return grid_min, 0  # excedente: se recorta (sobre-generacion, no viola)
-    return net, 0
+        curtailed = grid_min - net
+        return grid_min, 0, 0.0, curtailed
+    return net, 0, 0.0, 0.0
 
 
 def _perfect_forecast(anchor: pd.Timestamp, pv_real: pd.Series,
                       load_real: pd.Series, hours: int = HOURS) -> tuple:
-    """Forecast PERFECTO del Oráculo: la serie realizada misma (sin error).
+    """Forecast PERFECTO del MPC-PI: la serie realizada misma (sin error).
 
     Banda P10=P50=P90 = PV realizado; carga = carga realizada. El tail del
     lookahead se completa con el ultimo valor conocido (documentado)."""
@@ -77,8 +79,8 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
     rows = []
     for h in range(HOURS):
         anchor = day_start + pd.Timedelta(hours=h)
-        if strategy == "oracle":
-            # Oráculo: el forecast ES el realizado (informacion perfecta).
+        if strategy in ("mpc-pi", "oracle"):
+            # MPC-PI: el forecast ES el realizado (informacion perfecta).
             band, load_fc = _perfect_forecast(anchor, pv_real, load_real)
         else:
             band, load_fc = provider.forecast(anchor)
@@ -93,17 +95,20 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
             act = strat.strategy_smpc(lookahead, load_fc_24, initial_soc=soc / cap)
         elif strategy == "dmpc":
             act = strat.strategy_dmpc(lookahead, load_fc_24, initial_soc=soc / cap)
-        elif strategy == "oracle":
-            act = strat.strategy_oracle(lookahead, load_fc_24, initial_soc=soc / cap)
+        elif strategy in ("mpc-pi", "oracle"):
+            act = strat.strategy_mpc_pi(lookahead, load_fc_24, initial_soc=soc / cap)
         elif strategy == "heur":
             act = strat.strategy_heur(pv_r, load_r, soc, t, cap)
         else:
             raise ValueError(f"Estrategia desconocida: {strategy}")
 
-        p_grid, viol = _grid_slack(
+        p_grid, viol, ens, curtailed_slack = _grid_slack(
             load_r, pv_r, act["diesel"], act["discharge"], act["charge"],
             MICROGRID["grid"]["min_import_kw"],
             MICROGRID["grid"]["max_import_kw"])
+        curtailed = act.get("curtailed", 0.0) + curtailed_slack
+        export_tariff = MICROGRID["grid"].get("export_tariff", 0.0)
+        ens_penalty = MICROGRID["grid"].get("ens_penalty_cop_kwh", 5000.0)
 
         rows.append({
             "hour": h,
@@ -114,13 +119,15 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
             "grid_kw": p_grid,
             "charge_kw": act["charge"],
             "discharge_kw": act["discharge"],
-            "curtailed_kw": act.get("curtailed", 0.0),
+            "curtailed_kw": curtailed,
+            "ens_kw": ens,
             "tariff": t,
             "soc_kwh": soc,
             "violation": viol,
             "cost_diesel": diesel_total_cost(act["diesel"]),
             "cost_grid": (MICROGRID["grid"]["cost_fixed"]
-                          + t * p_grid),
+                          + t * max(p_grid, 0) - export_tariff * max(-p_grid, 0)
+                          + ens_penalty * ens),
             "cost_battery": b["degradation_cost_per_kwh"]
                             * (act["charge"] + act["discharge"]),
         })

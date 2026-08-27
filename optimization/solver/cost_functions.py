@@ -32,9 +32,9 @@ def grid_import_cost(pyomo, grid_params: dict, power_import_var: Any) -> Any:
 
 def grid_export_revenue(pyomo, grid_params: dict, power_export_var: Any) -> Any:
     """Ingreso por exportar energia a la red (valor negativo = ganancia).
-    Formula: -tarifa_exportacion * P_export
+    Formula: -tarifa_exportacion * P_export (0 si no se paga inyeccion).
     """
-    tariff = grid_params.get("export_tariff", 0.08)
+    tariff = grid_params.get("export_tariff", 0.0)
     return -tariff * power_export_var
 
 
@@ -42,7 +42,7 @@ def battery_degradation_cost(pyomo, device: dict, charge_var: Any, discharge_var
     """Costo de degradacion por ciclos de carga/descarga.
     Formula: degradation_rate * (P_charge + P_discharge)
     """
-    rate = device.get("degradation_cost_per_kwh", 0.02)
+    rate = device.get("degradation_cost_per_kwh", 30.0)
     return rate * (charge_var + discharge_var)
 
 

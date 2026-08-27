@@ -23,7 +23,8 @@ STRATEGY_LABELS = {
     "smpc": "S-MPC (estocástico, 3 escenarios)",
     "dmpc": "D-MPC (determinista, P50)",
     "heur": "HEUR (priority list)",
-    "oracle": "Oráculo (forecast perfecto)",
+    "mpc-pi": "MPC-PI (información perfecta)",
+    "oracle": "MPC-PI (información perfecta)",
 }
 
 
@@ -44,6 +45,7 @@ def evaluate_day(trace: pd.DataFrame) -> dict:
                             + trace["cost_grid"].sum()
                             + trace["cost_battery"].sum()),
         "diesel_liters": float(sum(
+            0.0 if d <= 0.001 else
             (MICROGRID["diesel"]["cost_c"]
              + MICROGRID["diesel"]["cost_b"] * d
              + MICROGRID["diesel"]["cost_a"] * d ** 2)

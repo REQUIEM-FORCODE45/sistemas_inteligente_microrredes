@@ -4,7 +4,7 @@
 - S-MPC  : estocastico, 3 escenarios anclados a cuantiles (P90/P50/P10,
            probs 0.2/0.6/0.2) — es la configuracion de produccion.
 - D-MPC  : determinista, S=1 con la curva P50.
-- ORACLE : D-MPC con forecast perfecto (clima realizado) — cota superior.
+- MPC-PI : D-MPC con forecast perfecto (clima realizado) — cota superior.
 - HEUR   : priority list (PV -> bateria en pico -> diesel si es mas barato
            que la red -> red). Decide sobre los valores REALIZADOS de la hora
            (informacion presente), como haria un controlador clasico.
@@ -74,8 +74,8 @@ def _build_job(anchor: pd.Timestamp, band: pd.DataFrame, load_fc: pd.Series,
             "max_import_kw": MICROGRID["grid"]["max_import_kw"],
             "min_import_kw": MICROGRID["grid"]["min_import_kw"],
             "cost_fixed": MICROGRID["grid"]["cost_fixed"],
-            # Tarifa VARIABLE horaria (perfil ToU completo): el modelo la
-            # necesita para valorar el arbitraje valle->pico de la bateria.
+            "export_tariff": MICROGRID["grid"].get("export_tariff", 0.0),
+            "ens_penalty_cop_kwh": MICROGRID["grid"].get("ens_penalty_cop_kwh", 5000.0),
             "cost_variable": [
                 float(tou_variable_tariff(idx).iloc[k]) for k in range(horizon)
             ],
@@ -132,11 +132,15 @@ def strategy_dmpc(band: pd.DataFrame, load_fc: pd.Series,
                             initial_soc=initial_soc)
 
 
-def strategy_oracle(band: pd.DataFrame, load_fc: pd.Series,
+def strategy_mpc_pi(band: pd.DataFrame, load_fc: pd.Series,
                     horizon: int = 24, initial_soc: float | None = None) -> dict:
-    """Oráculo: D-MPC con el forecast perfecto (serie realizada)."""
+    """MPC-PI: D-MPC con el forecast perfecto (serie realizada)."""
     return mpc_first_action(band, load_fc, horizon, D_SCEN, "Base",
                             initial_soc=initial_soc)
+
+def strategy_oracle(band: pd.DataFrame, load_fc: pd.Series,
+                    horizon: int = 24, initial_soc: float | None = None) -> dict:
+    return strategy_mpc_pi(band, load_fc, horizon, initial_soc)
 
 
 def strategy_heur(pv_real: float, load_real: float, soc_kwh: float,

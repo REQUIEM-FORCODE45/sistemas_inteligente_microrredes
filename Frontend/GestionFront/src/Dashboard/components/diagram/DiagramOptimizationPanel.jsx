@@ -59,7 +59,7 @@ const TOPOLOGY_MAPPERS = {
       soc_min: 0.2, soc_max: 0.95,
       initial_soc: (params.chargeLevel || 80) / 100,
       charge_efficiency: 0.95, discharge_efficiency: 0.95,
-      degradation_cost_per_kwh: 0.02,
+      degradation_cost_per_kwh: 30.0,
     };
   },
   [DEVICE_TYPE.LOAD]: (_node, params) => {
@@ -414,10 +414,11 @@ export default function DiagramOptimizationPanel({ onClose }) {
 
         {result?.status === 'optimal' && (
           <div className="text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1.5">
-            <p>Resultados listos. Mira las graficas en:</p>
+            <p>Resultados listos. Mira las gráficas en:</p>
             <ul className="list-disc pl-4 space-y-0.5">
-              <li><strong>Dashboard</strong> → Plan de despacho, Costo, Baterias</li>
-              <li><strong>Clic en un nodo</strong> → Despacho 24h de ese equipo</li>
+              <li><strong>Pestaña Resultados MPC</strong> → análisis completo a pantalla completa</li>
+              <li><strong>Dashboard</strong> → despacho 24h + bandas</li>
+              <li><strong>Clic en nodo</strong> → despacho por equipo</li>
             </ul>
           </div>
         )}

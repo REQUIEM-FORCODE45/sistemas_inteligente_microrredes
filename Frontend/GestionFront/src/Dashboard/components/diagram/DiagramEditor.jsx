@@ -20,6 +20,7 @@ import SensorMappingPanel from './SensorMappingPanel';
 import DeviceConfigPanel from './components/DeviceConfigPanel';
 import DiagramOptimizationPanel from './DiagramOptimizationPanel';
 import NodeDispatchModal from './NodeDispatchModal';
+import { ExperimentPanel } from '../optimization/ExperimentPanel';
 
 export default function DiagramEditor() {
   const dispatch = useDispatch();
@@ -27,6 +28,7 @@ export default function DiagramEditor() {
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [showSensorPanel, setShowSensorPanel] = useState(true);
   const [showOptimizationPanel, setShowOptimizationPanel] = useState(false);
+  const [activeMainTab, setActiveMainTab] = useState('diagram');
 
   const isDirty = useSelector((state) => state.diagram.isDirty);
   const selectedElement = useSelector((state) => state.diagram.selectedElement);
@@ -88,6 +90,13 @@ export default function DiagramEditor() {
 
   return (
     <div className="h-full w-full flex flex-col">
+      <div className="h-10 flex-shrink-0 flex items-center justify-between border-b bg-card px-2">
+        <div className="flex gap-1">
+          <button onClick={() => setActiveMainTab('diagram')} className={`px-3 py-1.5 text-xs font-medium rounded ${activeMainTab==='diagram' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Diagrama</button>
+          <button onClick={() => setActiveMainTab('results')} className={`px-3 py-1.5 text-xs font-medium rounded ${activeMainTab==='results' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Resultados MPC</button>
+        </div>
+        <span className="text-[10px] text-muted-foreground hidden sm:block">Diagrama ↔ Resultados a pantalla completa</span>
+      </div>
       <div className="h-10 flex-shrink-0">
         <DiagramToolbar
           onZoomIn={onZoomIn}
@@ -104,6 +113,11 @@ export default function DiagramEditor() {
         />
       </div>
 
+      {activeMainTab === 'results' ? (
+        <div className="flex-1 overflow-auto p-6 bg-muted/20">
+          <ExperimentPanel variant="full" />
+        </div>
+      ) : (
       <div className="flex-1 flex min-h-0">
         <div className="w-[220px] flex-shrink-0">
           <DevicePalette onDragStart={onDragStart} />
@@ -220,6 +234,7 @@ export default function DiagramEditor() {
 
         <NodeDispatchModal />
       </div>
+      )}
     </div>
   );
 }
