@@ -8,24 +8,29 @@ export const useExperimentData = () => {
   const exp = useSelector(s => s.optimization.experimentA);
   const fetchSummary = useCallback(async () => {
     try {
-      const res = await GridAPI.get('/front/optimization/experiment/summary');
+      const res = await GridAPI.get('/front/optimization/experiment/summary', { timeout: 60000 });
       if (res.data?.success) dispatch(setExperimentSummary(res.data.summary));
-    } catch (e) { dispatch(setExperimentError(e.message)); }
+    } catch (e) { dispatch(setExperimentError(e.code==='ECONNABORTED' ? 'Tiempo agotado (60s) - reintenta' : e.message)); }
   }, [dispatch]);
-  const fetchTraces = useCallback(async () => {
-    const strategies = ['smpc','dmpc','heur','mpc-pi'];
+  const fetchTraces = useCallback(async (only) => {
+    const strategies = only ? [only] : ['smpc','dmpc','heur','mpc-pi'];
     const all = {};
     for (const s of strategies) {
       try {
-        const res = await GridAPI.get(`/front/optimization/experiment/traces/${s}`);
+        const res = await GridAPI.get(`/front/optimization/experiment/traces/${s}`, { timeout: 60000 });
         if (res.data?.success) all[s] = res.data.rows;
       } catch {}
     }
-    dispatch(setExperimentTraces(all));
-  }, [dispatch]);
+    if (only) {
+      dispatch(setExperimentTraces({ ...exp?.traces, ...all }));
+    } else {
+      dispatch(setExperimentTraces(all));
+    }
+    return all;
+  }, [dispatch, exp?.traces]);
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await GridAPI.get('/front/optimization/experiment/status');
+      const res = await GridAPI.get('/front/optimization/experiment/status', { timeout: 10000 });
       if (res.data?.success) dispatch(setExperimentRunning(!!res.data.running));
     } catch {}
   }, [dispatch]);

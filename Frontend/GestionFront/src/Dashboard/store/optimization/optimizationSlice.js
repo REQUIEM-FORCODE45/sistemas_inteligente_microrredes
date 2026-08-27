@@ -50,7 +50,7 @@ const optimizationSlice = createSlice({
       state.experimentA.error = null;
     },
     setExperimentTraces(state, action) {
-      state.experimentA.traces = action.payload;
+      state.experimentA.traces = { ...(state.experimentA.traces || {}), ...action.payload };
     },
     setExperimentRunning(state, action) {
       state.experimentA.running = action.payload;

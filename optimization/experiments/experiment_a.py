@@ -113,6 +113,10 @@ def main() -> int:
     try:
         load_real = load_realized_demand(days[0], end)
         pv_real = load_realized_pv(days[0], end)
+        if (load_real.index.min() > days[0] + pd.Timedelta(hours=1) or
+            load_real.index.max() < end - pd.Timedelta(hours=1) or
+            len(load_real) < len(days) * 24 * 0.9):
+            raise RuntimeError(f"Cobertura incompleta: datos {load_real.index.min()}->{load_real.index.max()} vs solicitado {days[0]}->{end}")
     except RuntimeError as _e:
         from optimization.calibration.service import read_sensor_series
         df = read_sensor_series("pasto_load", ["power_kw"], max_days=60)
@@ -247,7 +251,7 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
         "pico (19–21) 140 · fijo 40 COP/h. Diésel: consumo (0.5 + 0.001·P²·…), "
         "C_comb = 100 COP/L.",
         "",
-        "## Tabla de métricas (14 días)",
+        f"## Tabla de métricas ({len(days)} días)",
         "",
         table.to_markdown(index=False),
         "",
@@ -285,12 +289,11 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
         "paso es identico al determinista en esta microred exportadora. El "
         "beneficio estocastico (si existe) se manifiesta en el costo esperado, "
         "no en la primera accion implementada.",
-        "- El MPC-PI confirma la cota: la brecha de informacion perfecta es "
-        "de 0.27%, evidencia cuantitativa de que el valor economico esta en la "
-        "operacion (arbitraje y exportacion en pico), no en la precision del "
-        "pronostico para esta configuracion.",
-        "- HEUR demuestra la brecha con la optimizacion: 1,112% de mejora del "
-        "MPC (cualquier variante) sobre la regla simple.",
+        f"- El MPC-PI confirma la cota: la brecha de informacion perfecta es "
+        f"de {abs(gap_mpc_pi):.1f}% (S-MPC {smpc_cost:,.0f} vs MPC-PI {mpc_pi_cost:,.0f}); "
+        f"con export_tariff=0 la ventaja de pronóstico perfecto domina.",
+        f"- HEUR vs MPC: {savings_vs_h:+.0f}% (HEUR {heur_cost:,.0f} vs S-MPC {smpc_cost:,.0f}). "
+        f"Con carga baja y degradación 30 COP/kWh la heurística compite y puede superar al MPC — resultado legítimo en esta ventana.",
         "",
         "## Notas de honestidad (R7)",
         "",

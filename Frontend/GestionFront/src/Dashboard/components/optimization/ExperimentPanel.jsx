@@ -12,7 +12,13 @@ export const ExperimentPanel = ({ variant = 'side' }) => {
   const [loading, setLoading] = useState(false);
   const isFull = variant === 'full';
 
-  useEffect(() => { fetchSummary(); fetchTraces(); fetchStatus(); }, [fetchSummary, fetchTraces, fetchStatus]);
+  useEffect(() => { fetchSummary(); fetchTraces('smpc'); fetchStatus(); }, [fetchSummary, fetchTraces, fetchStatus]);
+  useEffect(() => {
+    if (tab==='perfil' || tab==='trazas') {
+      const hasAll = exp.traces && exp.traces['dmpc'] && exp.traces['mpc-pi'];
+      if (!hasAll) fetchTraces();
+    }
+  }, [tab]);
 
   const handleRun = async () => {
     setLoading(true);

@@ -90,12 +90,11 @@ export default function DiagramEditor() {
 
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="h-10 flex-shrink-0 flex items-center justify-between border-b bg-card px-2">
+      <div className="h-10 flex-shrink-0 flex items-center border-b bg-card px-2">
         <div className="flex gap-1">
           <button onClick={() => setActiveMainTab('diagram')} className={`px-3 py-1.5 text-xs font-medium rounded ${activeMainTab==='diagram' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Diagrama</button>
           <button onClick={() => setActiveMainTab('results')} className={`px-3 py-1.5 text-xs font-medium rounded ${activeMainTab==='results' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Resultados MPC</button>
         </div>
-        <span className="text-[10px] text-muted-foreground hidden sm:block">Diagrama ↔ Resultados a pantalla completa</span>
       </div>
       <div className="h-10 flex-shrink-0">
         <DiagramToolbar

@@ -21,11 +21,23 @@ function parseCsv(filePath) {
   });
 }
 
+async function withTimeout(promise, ms, fallback) {
+  let t;
+  const timeout = new Promise((_, rej) => { t = setTimeout(() => rej(new Error('redis timeout')), ms); });
+  try {
+    const res = await Promise.race([promise, timeout]);
+    clearTimeout(t);
+    return res;
+  } catch (e) {
+    clearTimeout(t);
+    return fallback;
+  }
+}
 async function getExperimentStatus() {
   try {
     const redis = getRedis();
-    const running = await redis.get(RUNNING_KEY);
-    const updated = await redis.get(UPDATED_KEY);
+    const running = await withTimeout(redis.get(RUNNING_KEY), 1500, null);
+    const updated = await withTimeout(redis.get(UPDATED_KEY), 1500, null);
     return { running: running === '1', last_run: updated || null };
   } catch (e) {
     return { running: false, last_run: null };
@@ -46,7 +58,7 @@ async function getExperimentSummary() {
     table = fs.readFileSync(tablePath, 'utf8');
   }
   let lastRun = null;
-  try { const redis = getRedis(); lastRun = await redis.get(UPDATED_KEY); } catch (e) {}
+  try { const redis = getRedis(); lastRun = await withTimeout(redis.get(UPDATED_KEY), 1500, null); } catch (e) {}
   return { metrics, cumulative, table, last_run: lastRun };
 }
 

@@ -91,11 +91,13 @@ Backend runs on `http://localhost:3000` (Express). Redis via `docker compose up 
 
 ### Validation experiments (respuesta al revisor de la tesis)
 
+Verificación de correcciones: `VERIFICACION_CORRECCIONES_MPC.md` + hist. correcciones `PLAN_CORRECCION_MPC.md`.
+
 `optimization/experiments/` — los 3 experimentos pedidos por el revisor (ver `solutionComement_2911.md`):
 
 | Script | Qué hace | Salidas |
 |--------|----------|---------|
-| `experiment_a.py` | Backtest lazo cerrado 14 días: S-MPC vs D-MPC vs HEUR vs Oráculo (PatchTST + ajuste de datos, escenarios cuantil, receding horizon horario, tarifas ToU) | `results/pasto_narino/experiments/expA_*` |
+| `experiment_a.py` | Backtest lazo cerrado 14 días: S-MPC vs D-MPC vs HEUR vs MPC-PI (PatchTST + ajuste de datos, escenarios cuantil, receding horizon horario, tarifas ToU) | `results/pasto_narino/experiments/expA_*` |
 | `experiment_b_solver_time.py` | ≥100 ciclos build+solve del MILP completo → p50/p95/p99/max + hardware | `expB_solver_times.csv`, `expB_hardware.json` |
 | `load/load_mqtt.py` | Carga MQTT N msg/s a topics reales con `sent_ts` (latencia E2E en backend) | `/api/front/performance` |
 | `load/load_rest.js` | 50 conexiones REST concurrentes (token: `load/mint_token.js`) | stdout JSON |
@@ -108,7 +110,7 @@ Backend runs on `http://localhost:3000` (Express). Redis via `docker compose up 
 - **Complementariedad Ecs. 4-6**: binaria `Z[bi,t,s]` big-M en `model_builder.py` (carga/descarga excluyentes).
 - **Escenarios cuantil**: `scenarios.py` defaults `Soleado=P90(0.2)/Nublado=P50(0.6)/Lluvia=P10(0.2)`; el balance usa la curva del cuantil del escenario si hay banda (fallback P10).
 - **PatchTST con anchor**: `PatchTSTClimateForecaster.forecast(days, anchor=)` emite el pronóstico "como si fuera" una fecha pasada (contexto cacheado por instancia) — usado por el backtest.
-- **Backtest con SOC propagado**: `backtest.run_day` pasa el SOC real del lazo a cada solve horario (`strategies._build_job(initial_soc=)`); el Oráculo usa la serie realizada como forecast perfecto; `--initial-soc` fijo (default 0.65) para reproducibilidad.
+- **Backtest con SOC propagado**: `backtest.run_day` pasa el SOC real del lazo a cada solve horario (`strategies._build_job(initial_soc=)`); el MPC-PI usa la serie realizada como forecast perfecto; `--initial-soc` fijo (default 0.65) para reproducibilidad.
 - Tarifas ToU y microred del experimento: `experiments/config.py` (valle 45 / media 80 / pico 140 COP/kWh).
 
 ### Slice (optimization)
