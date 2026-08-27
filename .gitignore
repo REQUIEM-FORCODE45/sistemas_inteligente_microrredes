@@ -1,7 +1,6 @@
 # --- DEPENDENCIAS ---
 node_modules/
-package-lock.json   # (Opcional: Si usas 'yarn' o prefieres no versionar el lock, aunque se recomienda sí subirlo)
-yarn.lock           # (Igual que arriba)
+package-lock.json
 
 # --- BACKEND / GENERAL ---
 logs/
@@ -26,6 +25,11 @@ out/
 # Testing
 coverage/
 .nyc_output/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
 
 # --- VARIABLES DE ENTORNO (¡CRÍTICO!) ---
 .env
@@ -52,5 +56,13 @@ Thumbs.db
 .settings/
 .classpath
 .project
+# --- PYTHON CACHE ---
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
 # --- DEV LAUNCHER ---
 .dev-logs/
