@@ -51,7 +51,7 @@
    - **S-MPC**: estocástico con S escenarios ponderados por prob[s].
    - **D-MPC**: determinista, S=1 (solo P50).
    - **HEUR**: regla heurística definida (p. ej., priority list: PV primero → batería si SoC > umbral y red cara → diésel → red).
-3. **Opcional**: variante "oráculo" (forecast perfecto) como cota superior.
+3. **Opcional**: variante "MPC-PI" (forecast perfecto) como cota superior.
 
 **Métricas por estrategia (definiciones exactas, agregadas sobre todo el periodo):**
 - `Costo_total = Σ_d Σ_t [ (c_d + b_d·P_d + a_d·P_d²)·C_comb + C_fijo + C_var·P_grid + deg·(P_ch + P_dis) ]` (evaluada con los valores **realizados**)

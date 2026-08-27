@@ -45,7 +45,7 @@ def _grid_slack(load_real: float, pv_real: float, diesel: float,
 
 def _perfect_forecast(anchor: pd.Timestamp, pv_real: pd.Series,
                       load_real: pd.Series, hours: int = HOURS) -> tuple:
-    """Forecast PERFECTO del Oráculo: la serie realizada misma (sin error).
+    """Forecast PERFECTO del MPC-PI: la serie realizada misma (sin error).
 
     Banda P10=P50=P90 = PV realizado; carga = carga realizada. El tail del
     lookahead se completa con el ultimo valor conocido (documentado)."""
@@ -79,8 +79,8 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
     rows = []
     for h in range(HOURS):
         anchor = day_start + pd.Timedelta(hours=h)
-        if strategy == "oracle":
-            # Oráculo: el forecast ES el realizado (informacion perfecta).
+        if strategy in ("mpc-pi", "oracle"):
+            # MPC-PI: el forecast ES el realizado (informacion perfecta).
             band, load_fc = _perfect_forecast(anchor, pv_real, load_real)
         else:
             band, load_fc = provider.forecast(anchor)
@@ -95,8 +95,8 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
             act = strat.strategy_smpc(lookahead, load_fc_24, initial_soc=soc / cap)
         elif strategy == "dmpc":
             act = strat.strategy_dmpc(lookahead, load_fc_24, initial_soc=soc / cap)
-        elif strategy == "oracle":
-            act = strat.strategy_oracle(lookahead, load_fc_24, initial_soc=soc / cap)
+        elif strategy in ("mpc-pi", "oracle"):
+            act = strat.strategy_mpc_pi(lookahead, load_fc_24, initial_soc=soc / cap)
         elif strategy == "heur":
             act = strat.strategy_heur(pv_r, load_r, soc, t, cap)
         else:

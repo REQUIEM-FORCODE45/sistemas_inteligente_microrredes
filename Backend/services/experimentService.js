@@ -51,12 +51,16 @@ async function getExperimentSummary() {
 }
 
 async function getExperimentTraces(strategy) {
-  const alias = { 'mpc-pi': 'oracle', 'mpc_pi': 'oracle' };
+  const alias = { 'oracle': 'mpc-pi', 'mpc_pi': 'mpc-pi' };
   const norm = alias[strategy] || strategy;
-  const allowed = ['smpc', 'dmpc', 'heur', 'oracle'];
+  const allowed = ['smpc', 'dmpc', 'heur', 'mpc-pi'];
   if (!allowed.includes(norm)) throw new Error('Estrategia no válida');
-  const filePath = path.join(EXP_DIR, `expA_traces_${norm}.csv`);
-  if (!fs.existsSync(filePath)) return { strategy, rows: [] };
+  let filePath = path.join(EXP_DIR, `expA_traces_${norm}.csv`);
+  if (!fs.existsSync(filePath) && norm === 'mpc-pi') {
+    const fb = path.join(EXP_DIR, `expA_traces_oracle.csv`);
+    if (fs.existsSync(fb)) filePath = fb;
+  }
+  if (!fs.existsSync(filePath)) return { strategy: norm, rows: [] };
   const rows = parseCsv(filePath);
   const compact = rows.map(r => ({
     timestamp: r.timestamp,

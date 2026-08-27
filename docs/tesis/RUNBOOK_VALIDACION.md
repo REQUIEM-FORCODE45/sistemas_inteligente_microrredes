@@ -79,7 +79,7 @@ NO leer del sensor porque su última medición cambia con el tráfico MQTT),
 `--days` (default 14), `--quick`, `--report-only`.
 
 **Salidas** (`results/pasto_narino/experiments/`):
-`expA_traces_{smpc,dmpc,heur,oracle}.csv` (trazas horarias: acciones, balance,
+`expA_traces_{smpc,dmpc,heur,mpc-pi}.csv` (trazas horarias: acciones, balance,
 SOC, costos) · `expA_metrics.csv` (tabla de métricas) ·
 `expA_cumulative_cost.csv` · `expA_figures.png` (2 paneles) ·
 `expA_table.md` (tabla + conclusiones + discusión, listo para el paper).

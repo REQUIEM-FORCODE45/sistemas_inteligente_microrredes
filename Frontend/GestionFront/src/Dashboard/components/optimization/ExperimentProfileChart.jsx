@@ -51,7 +51,7 @@ export const ExperimentProfileChart = ({ traces, height = 320 }) => {
         <option value="smpc">S-MPC</option>
         <option value="dmpc">D-MPC</option>
         <option value="heur">HEUR</option>
-        <option value="oracle">MPC-PI</option>
+        <option value="mpc-pi">MPC-PI</option>
       </select>
       <div ref={ref} className="w-full" />
     </div>

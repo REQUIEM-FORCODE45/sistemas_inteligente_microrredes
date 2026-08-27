@@ -13,7 +13,7 @@ export const useExperimentData = () => {
     } catch (e) { dispatch(setExperimentError(e.message)); }
   }, [dispatch]);
   const fetchTraces = useCallback(async () => {
-    const strategies = ['smpc','dmpc','heur','oracle'];
+    const strategies = ['smpc','dmpc','heur','mpc-pi'];
     const all = {};
     for (const s of strategies) {
       try {

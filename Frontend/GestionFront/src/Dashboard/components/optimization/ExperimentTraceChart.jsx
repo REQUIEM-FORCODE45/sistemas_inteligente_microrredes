@@ -51,7 +51,7 @@ export const ExperimentTraceChart = ({ traces, height = 320 }) => {
           <option value="smpc">S-MPC</option>
           <option value="dmpc">D-MPC</option>
           <option value="heur">HEUR</option>
-          <option value="oracle">MPC-PI</option>
+          <option value="mpc-pi">MPC-PI</option>
         </select>
         <select value={dayIdx} onChange={e=>setDayIdx(parseInt(e.target.value,10))} className="text-xs border rounded px-2 py-1 bg-card">
           {days.map((d,i)=><option key={d} value={i}>{d}</option>)}

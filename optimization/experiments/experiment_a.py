@@ -2,7 +2,7 @@
 """Experimento A — Comparativa economica (R1, R2, R3).
 
 Ejecuta el lazo cerrado de 14 dias con 4 estrategias (S-MPC, D-MPC, HEUR,
-Oráculo) sobre los mismos dias y el mismo estado inicial, y escribe:
+MPC-PI) sobre los mismos dias y el mismo estado inicial, y escribe:
   - results/pasto_narino/experiments/expA_traces_<estrategia>.csv
   - results/pasto_narino/experiments/expA_metrics.csv
   - results/pasto_narino/experiments/expA_cumulative_cost.csv
@@ -40,7 +40,7 @@ logger = logging.getLogger("optimization.experiments.expA")
 
 OUT_DIR = Path(__file__).resolve().parents[2] / "results" / "pasto_narino" / "experiments"
 
-STRATEGIES = ["smpc", "dmpc", "heur", "oracle"]
+STRATEGIES = ["smpc", "dmpc", "heur", "mpc-pi"]
 
 
 def _load_traces() -> dict[str, pd.DataFrame]:
@@ -131,7 +131,7 @@ def main() -> int:
                 load_real.sum() / len(days), pv_real.sum() / len(days), initial_soc)
 
     provider = ClosedLoopForecastProvider()
-    oracle_provider = OracleForecastProvider()
+    mpc_pi_provider = OracleForecastProvider()
     if args.quick:
         args.days = 1
 
@@ -142,7 +142,7 @@ def main() -> int:
 
     for strat in STRATEGIES:
         logger.info("Estrategia %s ...", strat)
-        prov = oracle_provider if strat == "oracle" else provider
+        prov = mpc_pi_provider if strat == "mpc-pi" else provider
         per_day = {}
         cum = np.zeros(len(days))
         chunks = []
@@ -184,7 +184,7 @@ def _write_figures(traces, cumulative, days, out_dir: Path):
     fig, axes = plt.subplots(1, 2, figsize=(13, 4.5))
 
     colors = {"smpc": "#2563eb", "dmpc": "#16a34a", "heur": "#dc2626",
-              "oracle": "#9333ea"}
+              "mpc-pi": "#9333ea", "oracle": "#9333ea"}
     for s in STRATEGIES:
         axes[0].plot(days.date, cumulative[s], marker="o", ms=4,
                      color=colors[s], label=STRATEGY_LABELS[s])
@@ -219,7 +219,7 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
     base_cost = s["dmpc"]["cost_total_period"]
     heur_cost = s["heur"]["cost_total_period"]
     smpc_cost = s["smpc"]["cost_total_period"]
-    oracle_cost = s["oracle"]["cost_total_period"]
+    mpc_pi_cost = s.get("mpc-pi", s.get("oracle"))["cost_total_period"]
 
     def _savings_pct(new_cost: float, base: float) -> float:
         """Mejora relativa. Con costos NEGATIVOS (ingreso por exportacion)
@@ -232,7 +232,7 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
 
     savings_vs_d = _savings_pct(smpc_cost, base_cost)
     savings_vs_h = _savings_pct(smpc_cost, heur_cost)
-    gap_oracle = _savings_pct(smpc_cost, oracle_cost)
+    gap_mpc_pi = _savings_pct(smpc_cost, mpc_pi_cost)
     lines = [
         "# Experimento A — Comparativa económica (S-MPC vs D-MPC vs HEUR vs MPC-PI)",
         "",
@@ -260,14 +260,14 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
         f"- **S-MPC vs HEUR**: {smpc_cost:,.0f} vs {heur_cost:,.0f} COP (periodo) "
         f"→ **mejora de {savings_vs_h:.0f}%** (orden de magnitud): la regla "
         f"heuristica no explota el arbitraje de la bateria ni la exportacion en pico.",
-        f"- **MPC-PI** (información perfecta): {oracle_cost:,.0f} COP — cota superior; "
-        f"el S-MPC queda a {abs(gap_oracle):.2f}% de la operacion con informacion "
+        f"- **MPC-PI** (información perfecta): {mpc_pi_cost:,.0f} COP — cota superior; "
+        f"el S-MPC queda a {abs(gap_mpc_pi):.2f}% de la operacion con informacion "
         f"perfecta (el valor de la precision del pronostico es bajo cuando el "
         f"arbitraje es el lever dominante).",
         f"- **Violaciones de balance**: S-MPC={s['smpc']['violations_total']}, "
         f"D-MPC={s['dmpc']['violations_total']}, "
         f"HEUR={s['heur']['violations_total']}, "
-        f"MPC-PI={s['oracle']['violations_total']} (todas deben ser 0).",
+        f"MPC-PI={s.get('mpc-pi', s.get('oracle'))['violations_total']} (todas deben ser 0).",
         f"- **Uso de renovables**: S-MPC {s['smpc']['renewable_share_pct']:.1f}% "
         f"vs D-MPC {s['dmpc']['renewable_share_pct']:.1f}% vs "
         f"HEUR {s['heur']['renewable_share_pct']:.1f}%.",

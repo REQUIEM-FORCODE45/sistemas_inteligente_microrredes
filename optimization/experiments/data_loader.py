@@ -85,7 +85,7 @@ def _era5(start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
 
 
 def load_realized_climate(start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
-    """Clima realizado [ERA5] para el periodo de prueba (para el oraculo)."""
+    """Clima realizado [ERA5] para el periodo de prueba (para el MPC-PI)."""
     return _era5(start, end)
 
 

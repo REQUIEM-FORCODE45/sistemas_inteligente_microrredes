@@ -82,7 +82,7 @@ contexto histórico (Open-Meteo past_days, termina antes de la hora de decisión
 | S-MPC (estocástico, 3 escenarios) | −1,428,731 | −102,052 ± 1,625 | 61.2 | 0.51 | 3 | 2,353 | 0 |
 | D-MPC (determinista, P50) | −1,428,730 | −102,052 ± 1,625 | 61.2 | 0.51 | 3 | 2,353 | 0 |
 | HEUR (priority list) | −117,912 | −8,422 ± 1,619 | 61.2 | 0.04 | 35 | 12 | 0 |
-| Oráculo (forecast perfecto) | −1,432,591 | −102,328 ± 1,624 | 61.2 | 0.51 | 3 | 2,361 | 0 |
+| MPC-PI (información perfecta) | −1,432,591 | −102,328 ± 1,624 | 61.2 | 0.51 | 3 | 2,361 | 0 |
 
 ### Conclusiones (valores reales)
 - El costo neto es **negativo** (ingreso) porque la microred es exportadora
@@ -95,7 +95,7 @@ contexto histórico (Open-Meteo past_days, termina antes de la hora de decisión
   manifiesta en el costo esperado, no en la primera acción.
 - **MPC mejora a HEUR en 1,112%**: la regla heurística no explota el
   arbitraje valle→pico ni la exportación en pico (importa 35 kWh/día).
-- **Oráculo (forecast perfecto) = −1,432,591 COP**: cota superior genuina; el
+- **MPC-PI (información perfecta) = −1,432,591 COP**: cota superior genuina; el
   S-MPC queda a **0.27%** de la operación con información perfecta — el valor
   económico está en la operación (arbitraje + exportación en pico), no en la
   precisión del pronóstico, para esta configuración.
@@ -105,7 +105,7 @@ contexto histórico (Open-Meteo past_days, termina antes de la hora de decisión
 
 ### Archivos reproducibles
 `results/pasto_narino/experiments/expA_*`:
-- `expA_traces_{smpc,dmpc,heur,oracle}.csv` — trazas horarias (acciones,
+- `expA_traces_{smpc,dmpc,heur,mpc-pi}.csv` — trazas horarias (acciones,
   balance, costos parciales, SOC).
 - `expA_metrics.csv`, `expA_cumulative_cost.csv`, `expA_figures.png`,
   `expA_table.md`.
@@ -224,7 +224,7 @@ insert en Mongo Atlas y la red.
 2. **SOC propagado en el lazo cerrado**: cada solve horario recibe el SOC
    real del lazo (antes reiniciaba en SOC fijo → energía "fantasma" de
    batería, SOC negativo, resultados inválidos).
-3. **Oráculo genuino**: usa la propia serie realizada como forecast
+3. **MPC-PI genuino**: usa la propia serie realizada como forecast
    (P10=P50=P90=PV realizado) — es la cota superior teórica y domina a las
    estrategias basadas en pronóstico (0.27% sobre el S-MPC).
 4. **SOC inicial fijo (0.65)**: idéntico para todas las estrategias y

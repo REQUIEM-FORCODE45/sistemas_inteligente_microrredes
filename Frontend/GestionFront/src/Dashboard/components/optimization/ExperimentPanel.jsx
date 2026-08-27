@@ -16,7 +16,7 @@ export const ExperimentPanel = ({ variant = 'side' }) => {
 
   const handleRun = async () => {
     setLoading(true);
-    try { await run(14); } catch (e) {}
+    try { await run(14); } catch {}
     setLoading(false);
   };
   const handleReload = async () => { await fetchSummary(); await fetchTraces(); };
