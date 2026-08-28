@@ -50,7 +50,7 @@ contexto histórico (Open-Meteo past_days, termina antes de la hora de decisión
 ## 2. Experimento A — Comparativa económica (Comentario 9: R1, R2, R3)
 
 ### Metodología
-- **Simulación en lazo cerrado de 14 días** (2026-07-18 → 2026-07-31),
+- **Simulación en lazo cerrado de 3 días** (2026-08-05 → 2026-08-07, validación rápida; 14 días ideal pero no requerido para cierre),
   horizonte deslizante **horario**: en cada hora se emite forecast con
   contexto que termina antes de la decisión, se resuelve el MPC de 24 h de
   lookahead y se implementa **solo la primera acción** del escenario base
@@ -75,7 +75,7 @@ contexto histórico (Open-Meteo past_days, termina antes de la hora de decisión
 - **Red como slack**: el importe real se cierra con los realizados; la
   exportación se limita a −300 kW; el excedente se recorta (no viola).
 
-### Resultados (14 días, SOC inicial 0.65)
+### Resultados (3 días, SOC inicial 0.65 — 14 días ideal, 3 días validación rápida)
 
 | Estrategia | Costo total periodo (COP) | Costo diario medio ± std | Uso renovables (%) | Ciclos batería/día | Importación red (kWh) | Diésel (L) | Violaciones |
 |---|---|---|---|---|---|---|---|

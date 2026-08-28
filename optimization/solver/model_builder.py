@@ -358,6 +358,10 @@ def _build_pyomo_model(
                 f"balance_{t}_{s_idx}",
                 pyo.Constraint(expr=expr == load_total),
             )
+            model.add_component(
+                f"exp_solo_pv_{t}_{s_idx}",
+                pyo.Constraint(expr=model.P_export[t, s_idx] <= pv_kw + 1e-3),
+            )
 
     if storage_list:
         for bi, bmeta in enumerate(storage_vars):
@@ -408,7 +412,8 @@ def _build_pyomo_model(
                         ),
                     )
 
-    SOC_TERM_PEN = 30.0
+    SOC_TERM_PEN = 300.0
+    SOC_TARGET_FRAC = 0.65
     if storage_list:
         model.TERM_DEV_POS = pyo.Var(
             pyo.RangeSet(0, len(storage_list) - 1), model.S,
@@ -420,7 +425,7 @@ def _build_pyomo_model(
         )
         for bi, bmeta in enumerate(storage_vars):
             cap = bmeta["capacity_kwh"]
-            target = bmeta["initial_soc"] * cap
+            target = SOC_TARGET_FRAC * cap
             for s in s_ids:
                 tH = horizon - 1
                 model.add_component(

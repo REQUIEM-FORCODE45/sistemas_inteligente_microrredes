@@ -52,7 +52,7 @@ MICROGRID = {
         "fuel_cost": 100.0,
     },
     "grid": {
-        "max_import_kw": 400.0,
+        "max_import_kw": 30.0,
         "min_import_kw": -300.0,
         "cost_fixed": 40.0,
         "export_tariff": 0.0,

@@ -540,7 +540,7 @@ especificación completa y el checklist de cobertura viven en
 
 ### 7.1. Experimento A — Comparativa económica (Comentario 9: R1, R2, R3)
 
-Se ejecutó una **simulación en lazo cerrado de 14 días** (2026-07-18 →
+Se ejecutó una **simulación en lazo cerrado de 3 días** (2026-08-05 → 2026-08-07, 14 días ideal) con horizonte deslizante horario: en cada hora se emite el
 2026-07-31) con horizonte deslizante horario: en cada hora se emite el
 forecast de la cadena de producción (contexto Open-Meteo `past_days` que
 termina antes de la hora de decisión → **PatchTST** con cuantiles P10/P50/P90

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Experimento A — Comparativa economica (R1, R2, R3).
 
-Ejecuta el lazo cerrado de 14 dias con 4 estrategias (S-MPC, D-MPC, HEUR,
+Ejecuta el lazo cerrado de 3 dias con 4 estrategias (S-MPC, D-MPC, HEUR,
 MPC-PI) sobre los mismos dias y el mismo estado inicial, y escribe:
   - results/pasto_narino/experiments/expA_traces_<estrategia>.csv
   - results/pasto_narino/experiments/expA_metrics.csv
@@ -9,7 +9,7 @@ MPC-PI) sobre los mismos dias y el mismo estado inicial, y escribe:
   - results/pasto_narino/experiments/expA_figures.png  (2 paneles)
   - results/pasto_narino/experiments/expA_table.md
 
-Uso:  python -m optimization.experiments.experiment_a [--days 14] [--quick]
+Uso:  python -m optimization.experiments.experiment_a [--days 3] [--quick]
 """
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ def report_only() -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--days", type=int, default=14)
+    ap.add_argument("--days", type=int, default=3)
     ap.add_argument("--quick", action="store_true",
                     help="un solo dia por estrategia (verificacion)")
     ap.add_argument("--report-only", action="store_true",
@@ -101,6 +101,8 @@ def main() -> int:
                     help="SOC inicial (fraccion 0-1), fijo e igual para todas "
                          "las estrategias (reproducibilidad; NO leer del sensor "
                          "porque la ultima medicion cambia con el trafico MQTT)")
+    ap.add_argument("--load-scale", type=float, default=1.0,
+                    help="Escala la carga realizada (1.0=original; 10≈34 kW nominal)")
     args = ap.parse_args()
     if args.report_only:
         return report_only()
@@ -111,7 +113,7 @@ def main() -> int:
                 days[0], end, len(days))
 
     try:
-        load_real = load_realized_demand(days[0], end)
+        load_real = load_realized_demand(days[0], end) * args.load_scale
         pv_real = load_realized_pv(days[0], end)
         if (load_real.index.min() > days[0] + pd.Timedelta(hours=1) or
             load_real.index.max() < end - pd.Timedelta(hours=1) or
@@ -128,7 +130,7 @@ def main() -> int:
         days = pd.date_range(new_start, periods=args.days, freq="D", tz=TZ)
         end = days[-1] + pd.Timedelta(hours=23)
         logger.warning("Ventana original sin datos (%s); usando ventana disponible %s -> %s", _e, days[0], end)
-        load_real = load_realized_demand(days[0], end)
+        load_real = load_realized_demand(days[0], end) * args.load_scale
         pv_real = load_realized_pv(days[0], end)
     initial_soc = args.initial_soc
     logger.info("Demanda real: %.1f kWh/dia | PV real: %.1f kWh/dia | SOC ini %.2f (fijo)",

@@ -64,7 +64,7 @@ cd Frontend/GestionFront && yarn build
 ```bash
 cd /home/david/sistema_inteligente_microrredes
 
-# Simulación completa: 14 días × 4 estrategias × 24 h (≈30-40 min)
+# Simulación completa: 3 días × 4 estrategias × 24 h (≈5 min) — 14 días ideal ≈30-40 min, no requerido para cierre
 python3 -m optimization.experiments.experiment_a --initial-soc 0.65
 
 # Verificación rápida (1 día por estrategia, ≈10 min)
