@@ -19,12 +19,15 @@ from functools import lru_cache
 import numpy as np
 import pandas as pd
 
+import scipy.io as sio
+
 from optimization.config.loader import load_site
 from optimization.calibration.service import (read_sensor_series,
-                                              hourly_resample, parse_env_file)
+                                               hourly_resample, parse_env_file)
 from optimization.calibration.calibrated_plant import CalibratedPvPlant
+from optimization.prediction.matlab_predictor import DEFAULT_CONSUMO
 from optimization.weather.openmeteo import OpenMeteoClient
-from optimization.experiments.config import SITE_ID, TZ
+from optimization.experiments.config import LOAD_MAT_PEAK_KW, SITE_ID, TZ
 
 logger = logging.getLogger("optimization.experiments.data_loader")
 
@@ -37,19 +40,21 @@ def _site_cfg() -> dict:
     return load_site(SITE_ID)["site"]
 
 
+@lru_cache(maxsize=1)
+def load_consumo_mat_profile() -> np.ndarray:
+    """Perfil horario (24) del Consumo.mat escalado al pico del bloque 'mat'."""
+    m = sio.loadmat(DEFAULT_CONSUMO)
+    pl = (np.asarray(m["PL1"]).ravel() + np.asarray(m["PL2"]).ravel()
+          + np.asarray(m["PL3"]).ravel())
+    peak = float(pl.max()) or 1.0
+    return pl * (LOAD_MAT_PEAK_KW / peak)
+
 def load_realized_demand(start: pd.Timestamp, end: pd.Timestamp) -> pd.Series:
-    """Demanda horaria realizada [kW] desde Mongo (sensor pasto_load)."""
-    df = read_sensor_series("pasto_load", ["power_kw"], max_days=60)
-    if df.empty:
-        raise RuntimeError("Sin datos de demanda en Mongo (pasto_load)")
-    df = df[["power_kw"]].loc[start:end]
-    if df.empty:
-        raise RuntimeError(f"Demanda Mongo vacia en [{start}, {end}]")
-    s = hourly_resample(df)["power_kw"]
-    # reindexa a horas exactas (completa huecos por interpolacion lineal)
-    idx = pd.date_range(s.index.floor("h").min(), s.index.floor("h").max(),
-                        freq="h", tz=TZ)
-    return s.reindex(idx).interpolate(limit=3).ffill()
+    """Demanda horaria realizada [kW]: perfil Consumo.mat escalado (blendLoads)."""
+    prof = load_consumo_mat_profile()
+    idx = pd.date_range(start.floor("h"), end.floor("h"), freq="h", tz=TZ)
+    n = len(idx)
+    return pd.Series(np.tile(prof, int(np.ceil(n / 24)))[:n], index=idx)
 
 
 def load_realized_pv(start: pd.Timestamp, end: pd.Timestamp,
@@ -162,9 +167,8 @@ class ClosedLoopForecastProvider:
         band = self.plant.predict_band(climate)
         night = climate["shortwave_radiation"] < 5.0
         band.loc[night, ["P10", "P50", "P90"]] = 0.0
-        profile = self.load_model.get("profile_kw", {})
         load = pd.Series(
-            [float(profile.get(int(h), 0.0)) for h in climate.index.hour],
+            [float(load_consumo_mat_profile()[int(h) % 24]) for h in climate.index.hour],
             index=climate.index)
         self._cache[anchor] = (band, load)
         return band, load
@@ -185,9 +189,8 @@ class OracleForecastProvider:
         band = self.plant.predict_band(climate)
         night = climate["shortwave_radiation"] < 5.0
         band.loc[night, ["P10", "P50", "P90"]] = 0.0
-        profile = self.load_model.get("profile_kw", {})
         load = pd.Series(
-            [float(profile.get(int(h), 0.0)) for h in climate.index.hour],
+            [float(load_consumo_mat_profile()[int(h) % 24]) for h in climate.index.hour],
             index=climate.index)
         return band, load
 

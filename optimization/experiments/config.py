@@ -40,7 +40,7 @@ MICROGRID = {
         "initial_soc": 0.65,
         "charge_efficiency": 0.95,
         "discharge_efficiency": 0.95,
-        "degradation_cost_per_kwh": 30.0,
+        "degradation_cost_per_kwh": 50.0,
     },
     "diesel": {
         "id": "diesel_1",
@@ -68,6 +68,8 @@ _TOU_VARIABLE = [
     80, 140, 140, 140, 80, 80,       # 18 media, 19-21 pico, 22-23 media
 ]
 assert len(_TOU_VARIABLE) == 24
+
+LOAD_MAT_PEAK_KW = 80.0
 
 # Umbrales de la regla heuristica (documentados):
 HEUR = {
