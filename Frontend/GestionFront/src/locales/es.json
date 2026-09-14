@@ -1,0 +1,95 @@
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Bucle completo: clima → modelos ajustados → predicción → optimización.",
+    "totalCost": "Costo Total",
+    "peakPower": "Potencia Pico Total",
+    "optStatus": "Estado Optimización",
+    "scenarios": "Escenarios",
+    "optimized": "optimizado",
+    "pending": "pendiente",
+    "predicted": "predicha",
+    "optimal": "Óptimo",
+    "active": "Activa",
+    "idle": "Idle",
+    "mpcActive": "MPC activo",
+    "mpcStopped": "MPC detenido",
+    "stochastic": "estocástico",
+    "sensors": "Sensores",
+    "buildDiagram": "Arma tu diagrama unifilar para ver aquí sus sensores en vivo. Esta sección refleja el diagrama: al agregar o quitar nodos, cambia automáticamente.",
+    "analytics": "Analítica de Datos",
+    "analyticsDesc": "Arma tu red en el Diagrama Unifilar y ejecuta la optimización para ver el despacho aquí.",
+    "noSensorsLinked": "Sin sensor ligado",
+    "staleData": "Sin datos recientes",
+    "lastLabel": "último",
+    "weather": {
+      "title": "Pronóstico del clima (48 h)",
+      "source": "Fuente",
+      "loading": "Cargando pronóstico del clima...",
+      "retry": "Reintentar",
+      "hours": "h",
+      "from": "desde",
+      "variables": "5 variables",
+      "irradiance": "Irradiancia",
+      "temperature": "Temperatura",
+      "wind": "Viento 100 m",
+      "humidity": "Humedad",
+      "precipitation": "Precipitación",
+      "note": "Con TimesFM 2.5 instalado, el selector usa el modelo zero-shot (contexto 512 h). Este pronóstico alimenta los modelos calibrados del bucle."
+    },
+    "generation": {
+      "solar": "Generación solar calibrada (24 h)",
+      "wind": "Generación eólica calibrada (24 h)",
+      "subtitle": "P10/P50/P90 · modelo ajustado del sensor",
+      "peakP50": "Pico P50",
+      "energy24h": "Energía 24h",
+      "loadingBand": "Cargando banda calibrada..."
+    },
+    "calibration": {
+      "title": "Ajuste de modelos (calibración)",
+      "subtitle": "Artefactos por sensor · cascada N1/N2 · solo sensores del diagrama",
+      "loading": "Cargando...",
+      "empty": "Aún no hay modelos calibrados. Liga un sensor en el diagrama y ejecuta la optimización.",
+      "residueBand": "banda residuo"
+    }
+  },
+  "charts": {
+    "dispatchSchedule": "Plan de Despacho 24h",
+    "dispatchScheduleEmpty": "Ejecuta una optimizacion para ver el plan de despacho de las proximas 24 horas.",
+    "dispatchByDevice": "Plan Despacho por Generador",
+    "dispatchByDeviceEmpty": "Ejecuta una optimizacion para ver el despacho individual de cada generador.",
+    "hour": "Hora",
+    "power": "Potencia (kW)"
+  },
+  "deviceTypes": {
+    "solar": "Solar",
+    "diesel": "Diésel",
+    "wind": "Eólica",
+    "grid_import": "Red (import)",
+    "grid_export": "Red (export)",
+    "battery_charge": "Batería (carga)",
+    "battery_discharge": "Batería (descarga)",
+    "load": "Carga",
+    "curtailment": "Vertido",
+    "ens": "ENS",
+    "grid": "Red Eléctrica"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "realtime": "Monitoreo Real-time",
+    "diagram": "Diagrama Unifilar",
+    "devices": "Dispositivos IoT",
+    "serverDriven": "Server-Driven UI",
+    "users": "Gestión de Operadores",
+    "logout": "Cerrar Sesión",
+    "collapse": "Contraer Panel",
+    "search": "Buscar sensores...",
+    "role_admin": "Administrador",
+    "role_operator": "Operador",
+    "role_user": "Usuario"
+  },
+  "common": {
+    "retry": "Reintentar",
+    "loading": "Cargando..."
+  }
+}

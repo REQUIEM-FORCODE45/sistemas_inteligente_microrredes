@@ -40,7 +40,7 @@ MICROGRID = {
         "initial_soc": 0.65,
         "charge_efficiency": 0.95,
         "discharge_efficiency": 0.95,
-        "degradation_cost_per_kwh": 50.0,
+        "degradation_cost_per_kwh": 80.0,
     },
     "diesel": {
         "id": "diesel_1",

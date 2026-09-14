@@ -1,8 +1,10 @@
 import { useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import Plotly from 'plotly.js-dist-min';
 import { getDispatchChartInfo } from '@/Dashboard/components/diagram/constants/deviceTypes';
 
 export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) => {
+  const { t } = useTranslation();
   const chartRef = useRef(null);
 
   useEffect(() => {
@@ -40,11 +42,9 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
 
     const layout = {
       barmode: 'stack',
-      // sin title interno (el <h3> React ya titula): evita doble titulo y la
-      // colision leyenda/titulo con margin.t pequeno.
-      xaxis: { title: 'Hora', dtick: 1, automargin: true },
-      yaxis: { title: 'Potencia (kW)', automargin: true },
-      margin: { l: 60, r: 20, t: 30, b: 75 },   // b: espacio para la leyenda abajo
+      xaxis: { title: t('charts.hour'), dtick: 1, automargin: true },
+      yaxis: { title: t('charts.power'), automargin: true },
+      margin: { l: 60, r: 20, t: 30, b: 75 },
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
       font: { color: '#64748b', size: 11 },
@@ -59,39 +59,48 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
       height: 380,
     };
 
-    Plotly.purge(chartRef.current);
-    Plotly.newPlot(chartRef.current, traces, layout, {
-      responsive: true,
-      displaylogo: false,
-    });
+    if (chartRef.current._hasPlotted) {
+      Plotly.react(chartRef.current, traces, layout, {
+        responsive: false,
+        displaylogo: false,
+      });
+    } else {
+      Plotly.newPlot(chartRef.current, traces, layout, {
+        responsive: false,
+        displaylogo: false,
+      });
+      chartRef.current._hasPlotted = true;
+    }
 
     const el = chartRef.current;
-    const observer = new ResizeObserver(() => {
-      if (el) Plotly.Plots.resize(el);
-    });
-    observer.observe(el);
-
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => { if (el) Plotly.Plots.resize(el); });
+    };
+    window.addEventListener('resize', onResize);
     return () => {
-      observer.disconnect();
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
       if (el) Plotly.purge(el);
     };
-  }, [dispatchPlan, scenarios, totalHours]);
+  }, [dispatchPlan, scenarios, totalHours, t]);
 
   if (!dispatchPlan || dispatchPlan.length === 0) {
     return (
       <div className="bg-card border rounded-xl p-6 shadow-sm">
-        <h3 className="font-semibold text-lg mb-2">Plan de Despacho</h3>
+        <h3 className="font-semibold text-lg mb-2">{t('charts.dispatchSchedule')}</h3>
         <p className="text-muted-foreground text-sm">
-          Ejecuta una optimizacion para ver el plan de despacho de las proximas 24 horas.
+          {t('charts.dispatchScheduleEmpty')}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-card border rounded-xl p-6 shadow-sm">
-      <h3 className="font-semibold text-lg mb-4">Plan de Despacho 24h</h3>
-      <div ref={chartRef} className="w-full" />
+    <div className="bg-card border rounded-xl p-6 shadow-sm" style={{ overflowAnchor: 'none', contain: 'layout' }}>
+      <h3 className="font-semibold text-lg mb-4">{t('charts.dispatchSchedule')}</h3>
+      <div ref={chartRef} className="w-full" style={{ minHeight: 380 }} />
     </div>
   );
 };

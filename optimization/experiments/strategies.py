@@ -174,13 +174,16 @@ def strategy_heur(pv_real: float, load_real: float, soc_kwh: float,
             actions["discharge"] = discharge
             deficit -= discharge
     if deficit > 0:
-        diesel_ok = (diesel_marginal_cost(MICROGRID["diesel"]["max_kw"])
-                     < tariff and deficit >= MICROGRID["diesel"]["min_kw"])
-        if diesel_ok:
-            actions["diesel"] = min(MICROGRID["diesel"]["max_kw"],
-                                    max(MICROGRID["diesel"]["min_kw"], deficit))
+        grid_max = MICROGRID["grid"]["max_import_kw"]
+        d = MICROGRID["diesel"]
+        usar_diesel = (deficit > grid_max) or (
+            diesel_marginal_cost(d["max_kw"]) < tariff and deficit >= d["min_kw"])
+        if usar_diesel and deficit >= d["min_kw"]:
+            actions["diesel"] = min(d["max_kw"], max(d["min_kw"], deficit))
+            if deficit > actions["diesel"]:
+                actions["grid"] = min(grid_max, deficit - actions["diesel"])
         else:
-            actions["grid"] = deficit
+            actions["grid"] = min(deficit, grid_max)
     if surplus > 0:
         if (tariff <= HEUR["valley_tariff"]
                 and soc_kwh < HEUR["soc_charge_ceiling"] * capacity_kwh):

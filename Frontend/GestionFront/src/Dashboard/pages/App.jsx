@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 
 
 import {
@@ -83,7 +84,7 @@ const SidebarItem = ({ icon, label, active = false, isCollapsed = false }) => {
 
 export const App = () => {
 
-
+  const { t, i18n } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -94,17 +95,17 @@ export const App = () => {
   const permissions = usePermissions();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Layout, requiredRole: 'user' },
-    { id: 'realtime', label: 'Monitoreo Real-time', icon: Activity, requiredRole: 'user' },
-    { id: 'diagram', label: 'Diagrama Unifilar', icon: GitBranch, requiredRole: 'user' },
-    { id: 'devices', label: 'Dispositivos IoT', icon: Database, requiredRole: 'user' },
-    { id: 'server-driven', label: 'Server-Driven UI', icon: Sparkles, requiredRole: 'user' },
-    ...(permissions.canManageUsers ? [{ id: 'users', label: 'Gestión de Operadores', icon: Users, requiredRole: 'admin' }] : []),
+    { id: 'dashboard', label: t('nav.dashboard'), icon: Layout, requiredRole: 'user' },
+    { id: 'realtime', label: t('nav.realtime'), icon: Activity, requiredRole: 'user' },
+    { id: 'diagram', label: t('nav.diagram'), icon: GitBranch, requiredRole: 'user' },
+    { id: 'devices', label: t('nav.devices'), icon: Database, requiredRole: 'user' },
+    { id: 'server-driven', label: t('nav.serverDriven'), icon: Sparkles, requiredRole: 'user' },
+    ...(permissions.canManageUsers ? [{ id: 'users', label: t('nav.users'), icon: Users, requiredRole: 'admin' }] : []),
   ];
 
   const getRoleLabel = (role) => {
-    const labels = { admin: 'Administrador', operator: 'Operador', user: 'Usuario' };
-    return labels[role] || 'Usuario';
+    const labels = { admin: t('nav.role_admin'), operator: t('nav.role_operator'), user: t('nav.role_user') };
+    return labels[role] || t('nav.role_user');
   };
 
   return (
@@ -149,10 +150,10 @@ export const App = () => {
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="w-full flex justify-center hover:bg-accent"
           >
-            {isCollapsed ? <ChevronRight size={20} /> : <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider"><ChevronLeft size={16} /> <span>Contraer Panel</span></div>}
+            {isCollapsed ? <ChevronRight size={20} /> : <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider"><ChevronLeft size={16} /> <span>{t('nav.collapse')}</span></div>}
           </Button>
           <div className="mt-2" onClick={handleLogout}>
-            <SidebarItem icon={LogOut} label="Cerrar Sesión" isCollapsed={isCollapsed} />
+            <SidebarItem icon={LogOut} label={t('nav.logout')} isCollapsed={isCollapsed} />
           </div>
         </div>
       </aside>
@@ -196,13 +197,17 @@ export const App = () => {
             <div className="hidden sm:flex items-center bg-accent rounded-full px-3 py-1.5 w-64 border transition-all focus-within:ring-2 ring-primary/20">
               <Search size={16} className="text-muted-foreground mr-2" />
               <input
-                placeholder="Buscar sensores..."
+                placeholder={t('nav.search')}
                 className="bg-transparent border-none text-sm focus:outline-none w-full"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-1">
+              <button onClick={() => i18n.changeLanguage('es')} className={`px-2 py-1 text-xs font-bold rounded ${i18n.language?.startsWith('es') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>ES</button>
+              <button onClick={() => i18n.changeLanguage('en')} className={`px-2 py-1 text-xs font-bold rounded ${i18n.language?.startsWith('en') ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}>EN</button>
+            </div>
             <div className="relative">
               <Button variant="ghost" size="icon" className="relative">
                 <Bell size={20} />
@@ -231,16 +236,16 @@ export const App = () => {
             <DiagramEditor />
           </div>
         ) : (
-        <div className="flex-1 min-h-0 p-6 overflow-y-auto">
-          <div className="flex flex-col gap-6 max-w-7xl mx-auto">
+        <div className="flex-1 min-h-0 p-6 overflow-y-auto" style={{ overflowAnchor: 'auto' }}>
+          <div className="flex flex-col gap-6 max-w-7xl mx-auto" style={{ overflowAnchor: 'none' }}>
             {/* Conditional Content Rendering */}
             {activeTab === 'users' ? (
               <UserManagment />
-            ) : activeTab === 'devices' ? (  // 👈 agregar este caso
+            ) : activeTab === 'devices' ? (
               <div className="flex flex-col gap-6">
                 <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Dispositivos IoT</h1>
-                  <p className="text-muted-foreground">Gestiona los sensores y dispositivos de la red.</p>
+                  <h1 className="text-2xl font-bold tracking-tight">{t('nav.devices')}</h1>
+                  <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
                 </div>
                 <AddDeviceForm />
                 <DeviceList />

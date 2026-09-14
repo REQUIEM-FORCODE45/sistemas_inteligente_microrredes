@@ -36,16 +36,18 @@ export default function PlotlyMini({ data, layout = {}, height = 110 }) {
     }
   }, [data, merged]);
 
-  // responsive + limpieza final al desmontar
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const observer = new ResizeObserver(() => {
-      if (el) Plotly.Plots.resize(el);
-    });
-    observer.observe(el);
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => { if (el) Plotly.Plots.resize(el); });
+    };
+    window.addEventListener('resize', onResize);
     return () => {
-      observer.disconnect();
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
       if (el) Plotly.purge(el);
     };
   }, []);

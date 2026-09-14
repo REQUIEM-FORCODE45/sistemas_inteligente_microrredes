@@ -1,0 +1,95 @@
+{
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Full loop: weather → tuned models → forecast → optimization.",
+    "totalCost": "Total Cost",
+    "peakPower": "Total Peak Power",
+    "optStatus": "Optimization Status",
+    "scenarios": "Scenarios",
+    "optimized": "optimized",
+    "pending": "pending",
+    "predicted": "forecast",
+    "optimal": "Optimal",
+    "active": "Active",
+    "idle": "Idle",
+    "mpcActive": "MPC active",
+    "mpcStopped": "MPC stopped",
+    "stochastic": "stochastic",
+    "sensors": "Sensors",
+    "buildDiagram": "Build your single-line diagram to see live sensors here. This section mirrors the diagram: adding or removing nodes updates it automatically.",
+    "analytics": "Data Analytics",
+    "analyticsDesc": "Build your grid in the Single-Line Diagram and run optimization to see dispatch here.",
+    "noSensorsLinked": "No sensor linked",
+    "staleData": "Stale data",
+    "lastLabel": "last",
+    "weather": {
+      "title": "Weather Forecast (48 h)",
+      "source": "Source",
+      "loading": "Loading weather forecast...",
+      "retry": "Retry",
+      "hours": "h",
+      "from": "from",
+      "variables": "5 variables",
+      "irradiance": "Irradiance",
+      "temperature": "Temperature",
+      "wind": "Wind 100 m",
+      "humidity": "Humidity",
+      "precipitation": "Precipitation",
+      "note": "With TimesFM 2.5 installed, the selector uses the zero-shot model (512 h context). This forecast feeds the loop's calibrated models."
+    },
+    "generation": {
+      "solar": "Calibrated Solar Generation (24 h)",
+      "wind": "Calibrated Wind Generation (24 h)",
+      "subtitle": "P10/P50/P90 · sensor-tuned model",
+      "peakP50": "Peak P50",
+      "energy24h": "Energy 24h",
+      "loadingBand": "Loading calibrated band..."
+    },
+    "calibration": {
+      "title": "Model Tuning (calibration)",
+      "subtitle": "Artifacts per sensor · N1/N2 cascade · diagram sensors only",
+      "loading": "Loading...",
+      "empty": "No calibrated models yet. Link a sensor in the diagram and run optimization.",
+      "residueBand": "residue band"
+    }
+  },
+  "charts": {
+    "dispatchSchedule": "Dispatch Plan 24h",
+    "dispatchScheduleEmpty": "Run optimization to see the 24-hour dispatch plan.",
+    "dispatchByDevice": "Dispatch Plan by Generator",
+    "dispatchByDeviceEmpty": "Run optimization to see individual generator dispatch.",
+    "hour": "Hour",
+    "power": "Power (kW)"
+  },
+  "deviceTypes": {
+    "solar": "Solar",
+    "diesel": "Diesel",
+    "wind": "Wind",
+    "grid_import": "Grid (import)",
+    "grid_export": "Grid (export)",
+    "battery_charge": "Battery (charge)",
+    "battery_discharge": "Battery (discharge)",
+    "load": "Load",
+    "curtailment": "Curtailment",
+    "ens": "ENS",
+    "grid": "Grid"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "realtime": "Real-time Monitoring",
+    "diagram": "Single-Line Diagram",
+    "devices": "IoT Devices",
+    "serverDriven": "Server-Driven UI",
+    "users": "Operator Management",
+    "logout": "Log Out",
+    "collapse": "Collapse Panel",
+    "search": "Search sensors...",
+    "role_admin": "Administrator",
+    "role_operator": "Operator",
+    "role_user": "User"
+  },
+  "common": {
+    "retry": "Retry",
+    "loading": "Loading..."
+  }
+}

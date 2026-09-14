@@ -1,5 +1,5 @@
 Estrategia,Costo total periodo (COP),Costo diario medio (COP) ± std,Uso renovables (%),Ciclos batería /día,Importación red (kWh),Diésel (L),Violaciones
-"S-MPC (estocástico, 3 escenarios)","170,976","56,992 ± 249",15.8,0.12,154,445,0
-"D-MPC (determinista, P50)","169,710","56,570 ± 662",15.8,0.12,156,439,0
-HEUR (priority list),"4,255,624","1,418,541 ± 70,049",21.3,0.21,553,0,36
-MPC-PI (información perfecta),"174,409","58,136 ± 333",13.3,0.08,153,464,0
+"S-MPC (estocástico, 3 escenarios)","172,198","57,399 ± 309",13.3,0.00,154,473,0
+"D-MPC (determinista, P50)","170,962","56,987 ± 356",13.3,0.00,155,467,0
+HEUR (priority list),"1,306,423","435,474 ± 128,416",21.3,0.21,343,232,15
+MPC-PI (información perfecta),"169,429","56,476 ± 333",13.3,0.00,153,464,0

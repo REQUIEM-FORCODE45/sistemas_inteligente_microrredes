@@ -1,20 +1,23 @@
 import { useRef, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import Plotly from 'plotly.js-dist-min';
 import { DEVICE_DEFINITIONS, getDispatchChartInfo } from '@/Dashboard/components/diagram/constants/deviceTypes';
 
-const GENERATION_TYPES = new Set(['solar', 'diesel', 'grid_import', 'battery_discharge']);
-const CONSUMPTION_TYPES = new Set(['grid_export', 'battery_charge', 'load']);
-
-// nombre legible por device_type cuando el id del plan no coincide con un nodo
-const TYPE_LABELS = {
-  solar: 'Solar', diesel: 'Diésel', wind: 'Eólica',
-  grid_import: 'Red (import)', grid_export: 'Red (export)',
-  battery_charge: 'Batería (carga)', battery_discharge: 'Batería (descarga)',
-  load: 'Carga',
+const EXTRA_COLORS = {
+  curtailment: '#f97316',
+  ENS: '#dc2626',
+  ens: '#dc2626',
 };
 
 export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalHours = 24 }) => {
+  const { t } = useTranslation();
   const chartRef = useRef(null);
+  const TYPE_LABELS = {
+    solar: t('deviceTypes.solar'), diesel: t('deviceTypes.diesel'), wind: t('deviceTypes.wind'),
+    grid_import: t('deviceTypes.grid_import'), grid_export: t('deviceTypes.grid_export'),
+    battery_charge: t('deviceTypes.battery_charge'), battery_discharge: t('deviceTypes.battery_discharge'),
+    load: t('deviceTypes.load'), curtailment: t('deviceTypes.curtailment'), ENS: t('deviceTypes.ens'), ens: t('deviceTypes.ens'),
+  };
 
   // Colores/labels POR device_id del plan: se resuelven desde el device_type
   // primario de sus entradas (no desde el id del nodo del diagrama, que puede
@@ -31,7 +34,7 @@ export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalH
         const primaryType = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
         meta[did] = {
           label: TYPE_LABELS[primaryType] || did,
-          color: colors[primaryType] || '#f59e0b',
+          color: colors[primaryType] || EXTRA_COLORS[primaryType] || '#f59e0b',
         };
       }
     }
@@ -49,11 +52,11 @@ export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalH
     }
 
     if (!meta.grid) {
-      meta.grid = { label: 'Red Eléctrica', color: colors.grid_import || '#10b981' };
+      meta.grid = { label: t('deviceTypes.grid'), color: colors.grid_import || '#10b981' };
     }
 
     return meta;
-  }, [dispatchPlan, diagramNodes]);
+  }, [dispatchPlan, diagramNodes, t]);
 
   useEffect(() => {
     if (!chartRef.current || !dispatchPlan || dispatchPlan.length === 0) return;
@@ -74,19 +77,12 @@ export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalH
 
       const y = hours.map((h) => {
         const entries = scenarioPlan.filter((d) => d.hour === h && d.device_id === did);
-        if (entries.length === 0) return null;
-
-        let net = 0;
+        if (entries.length === 0) return 0;
+        let sum = 0;
         for (const e of entries) {
-          if (GENERATION_TYPES.has(e.device_type)) {
-            net += Math.abs(e.power_kw);
-          } else if (CONSUMPTION_TYPES.has(e.device_type)) {
-            net -= Math.abs(e.power_kw);
-          } else {
-            net += Math.abs(e.power_kw);
-          }
+          sum += e.device_type === 'load' ? Math.abs(e.power_kw) : e.power_kw;
         }
-        return Math.round(net * 1000) / 1000;
+        return Math.round(sum * 1000) / 1000;
       });
 
       return {
@@ -97,15 +93,14 @@ export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalH
         name: meta.label,
         line: { color: meta.color, width: 2 },
         marker: { size: 5 },
-        connectgaps: false,
+        connectgaps: true,
       };
     });
 
     const layout = {
-      // sin title interno: el <h3> React titula (evita colision con la leyenda)
-      xaxis: { title: 'Hora', dtick: 1, automargin: true },
+      xaxis: { title: t('charts.hour'), dtick: 1, automargin: true },
       yaxis: {
-        title: 'Potencia (kW)',
+        title: t('charts.power'),
         zeroline: true,
         zerolinecolor: '#64748b',
         zerolinewidth: 1,
@@ -125,34 +120,47 @@ export const DispatchByDevice = ({ dispatchPlan, diagramNodes, scenarios, totalH
       height: 420,
     };
 
-    Plotly.react(chartRef.current, traces, layout, {
-      responsive: true,
-      displaylogo: false,
-    });
+    if (chartRef.current._hasPlotted) {
+      Plotly.react(chartRef.current, traces, layout, {
+        responsive: false,
+        displaylogo: false,
+      });
+    } else {
+      Plotly.newPlot(chartRef.current, traces, layout, {
+        responsive: false,
+        displaylogo: false,
+      });
+      chartRef.current._hasPlotted = true;
+    }
 
-    const observer = new ResizeObserver(() => {
-      if (chartRef.current) Plotly.Plots.resize(chartRef.current);
-    });
-    observer.observe(chartRef.current);
-
-    return () => observer.disconnect();
-  }, [dispatchPlan, deviceMeta, scenarios, totalHours]);
+    const el = chartRef.current;
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => { if (el) Plotly.Plots.resize(el); });
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [dispatchPlan, deviceMeta, scenarios, totalHours, t]);
 
   if (!dispatchPlan || dispatchPlan.length === 0) {
     return (
       <div className="bg-card border rounded-xl p-6 shadow-sm">
-        <h3 className="font-semibold text-lg mb-2">Plan Despacho por Generador</h3>
+        <h3 className="font-semibold text-lg mb-2">{t('charts.dispatchByDevice')}</h3>
         <p className="text-muted-foreground text-sm">
-          Ejecuta una optimizacion para ver el despacho individual de cada generador.
+          {t('charts.dispatchByDeviceEmpty')}
         </p>
       </div>
     );
   }
 
   return (
-    <div className="bg-card border rounded-xl p-6 shadow-sm">
-      <h3 className="font-semibold text-lg mb-4">Plan Despacho por Generador</h3>
-      <div ref={chartRef} className="w-full" />
+    <div className="bg-card border rounded-xl p-6 shadow-sm" style={{ overflowAnchor: 'none', contain: 'layout' }}>
+      <h3 className="font-semibold text-lg mb-4">{t('charts.dispatchByDevice')}</h3>
+      <div ref={chartRef} className="w-full" style={{ minHeight: 420 }} />
     </div>
   );
 };

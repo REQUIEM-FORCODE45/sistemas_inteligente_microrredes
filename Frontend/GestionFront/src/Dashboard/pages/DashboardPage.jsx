@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 import GridAPI from '@/api/grid-api';
 import { setOptimizationResult, setMpcStatus } from '../store/optimization/optimizationSlice';
 import { DispatchSchedule } from '../components/optimization/DispatchSchedule';
@@ -53,6 +54,7 @@ function StatCard({ title, val, unit, trend, color, positive = true, icon }) {
 }
 
 function WeatherCard() {
+  const { t } = useTranslation();
   const [provider, setProvider] = useState('openmeteo');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -170,8 +172,8 @@ function WeatherCard() {
         <div className="flex items-center gap-2">
           <div className="p-2 rounded-lg bg-sky-500/10"><CloudSun className="w-4 h-4 text-sky-500" /></div>
           <div>
-            <p className="text-sm font-semibold">Pronóstico del clima (48 h)</p>
-            <p className="text-[10px] text-muted-foreground">Fuente: {data?.provider || provider}</p>
+            <p className="text-sm font-semibold">{t('dashboard.weather.title')}</p>
+            <p className="text-[10px] text-muted-foreground">{t('dashboard.weather.source')}: {data?.provider || provider}</p>
           </div>
         </div>
         <div className="flex items-center gap-1 rounded-lg border bg-muted/20 p-0.5">
@@ -189,7 +191,7 @@ function WeatherCard() {
         </div>
       </div>
 
-      {loading && <p className="text-[11px] text-muted-foreground py-8 text-center">Cargando pronóstico del clima...</p>}
+      {loading && <p className="text-[11px] text-muted-foreground py-8 text-center">{t('dashboard.weather.loading')}</p>}
       {!loading && error && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <p className="text-[11px] text-red-500 max-w-[420px]">{error}</p>
@@ -197,7 +199,7 @@ function WeatherCard() {
             onClick={() => setRetryTick((t) => t + 1)}
             className="px-3 py-1.5 rounded-lg border border-input text-[11px] font-medium hover:bg-muted transition-colors"
           >
-            Reintentar
+            {t('dashboard.weather.retry')}
           </button>
         </div>
       )}
@@ -205,19 +207,19 @@ function WeatherCard() {
         <>
           <div className="flex items-center justify-between mb-2 px-0.5">
             <p className="text-[10px] text-muted-foreground font-mono">
-              {data.provider} · {data.series.length} h · desde {data.series[0]?.time}
+              {data.provider} · {data.series.length} {t('dashboard.weather.hours')} · {t('dashboard.weather.from')} {data.series[0]?.time}
             </p>
-            <p className="text-[10px] text-muted-foreground">5 variables</p>
+            <p className="text-[10px] text-muted-foreground">{t('dashboard.weather.variables')}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-            {mini('Irradiancia', last('ghi'), 'W/m²', '#f59e0b', traces.ghi || [])}
-            {mini('Temperatura', last('temp'), '°C', '#ef4444', traces.temp || [])}
-            {mini('Viento 100 m', last('wind'), 'm/s', '#14b8a6', traces.wind || [])}
-            {mini('Humedad', last('hum'), '%', '#3b82f6', traces.hum || [])}
-            {mini('Precipitación', last('precip'), 'mm', '#8b5cf6', traces.precip || [])}
+            {mini(t('dashboard.weather.irradiance'), last('ghi'), 'W/m²', '#f59e0b', traces.ghi || [])}
+            {mini(t('dashboard.weather.temperature'), last('temp'), '°C', '#ef4444', traces.temp || [])}
+            {mini(t('dashboard.weather.wind'), last('wind'), 'm/s', '#14b8a6', traces.wind || [])}
+            {mini(t('dashboard.weather.humidity'), last('hum'), '%', '#3b82f6', traces.hum || [])}
+            {mini(t('dashboard.weather.precipitation'), last('precip'), 'mm', '#8b5cf6', traces.precip || [])}
           </div>
           <p className="text-[9px] text-muted-foreground mt-2">
-            Con TimesFM 2.5 instalado, el selector usa el modelo zero-shot (contexto 512 h). Este pronóstico alimenta los modelos calibrados del bucle.
+            {t('dashboard.weather.note')}
           </p>
         </>
       )}
@@ -226,6 +228,7 @@ function WeatherCard() {
 }
 
 function GenerationBandCard({ label, color, sensorId, tipo }) {
+  const { t } = useTranslation();
   const [pred, setPred] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -301,21 +304,21 @@ function GenerationBandCard({ label, color, sensorId, tipo }) {
           </div>
           <div>
             <p className="text-sm font-semibold">{label}</p>
-            <p className="text-[10px] text-muted-foreground">P10/P50/P90 · modelo ajustado del sensor</p>
+            <p className="text-[10px] text-muted-foreground">{t('dashboard.generation.subtitle')}</p>
           </div>
         </div>
         <div className="flex gap-3 text-right">
           <div>
-            <p className="text-[9px] text-muted-foreground uppercase">Pico P50</p>
+            <p className="text-[9px] text-muted-foreground uppercase">{t('dashboard.generation.peakP50')}</p>
             <p className="text-sm font-bold" style={{ color }}>{peak.toFixed(1)} kW</p>
           </div>
           <div>
-            <p className="text-[9px] text-muted-foreground uppercase">Energía 24h</p>
+            <p className="text-[9px] text-muted-foreground uppercase">{t('dashboard.generation.energy24h')}</p>
             <p className="text-sm font-bold">{energy.toFixed(1)} kWh</p>
           </div>
         </div>
       </div>
-      {loading && <p className="text-[11px] text-muted-foreground py-8 text-center">Cargando banda calibrada...</p>}
+      {loading && <p className="text-[11px] text-muted-foreground py-8 text-center">{t('dashboard.generation.loadingBand')}</p>}
       {!loading && error && (
         <div className="flex flex-col items-center gap-2 py-8 text-center">
           <p className="text-[11px] text-red-500 max-w-[420px]">{error}</p>
@@ -323,7 +326,7 @@ function GenerationBandCard({ label, color, sensorId, tipo }) {
             onClick={() => setRetryTick((t) => t + 1)}
             className="px-3 py-1.5 rounded-lg border border-input text-[11px] font-medium hover:bg-muted transition-colors"
           >
-            Reintentar
+            {t('common.retry')}
           </button>
         </div>
       )}
@@ -378,6 +381,7 @@ const fmtShortDate = (d) => {
 };
 
 function SensorsRow() {
+  const { t } = useTranslation();
   const diagramNodes = useSelector((state) => state.diagram.nodes);
   const sensorMappings = useSelector((state) => state.diagram.sensorMappings);
   const [series, setSeries] = useState({});
@@ -391,6 +395,10 @@ function SensorsRow() {
     })),
     [diagramNodes, sensorMappings],
   );
+  const mappedKey = useMemo(() => {
+    const ids = (diagramNodes || []).map((n) => n.id).sort().join(',');
+    return `${ids}|${JSON.stringify(sensorMappings || {})}`;
+  }, [diagramNodes, sensorMappings]);
 
   useEffect(() => {
     let alive = true;
@@ -443,16 +451,14 @@ function SensorsRow() {
     };
 
     loadAll();
-    // Refresco periodico (solo relee los datos, no los crea ni modifica).
     const interval = setInterval(loadAll, 60000);
     return () => { alive = false; clearInterval(interval); };
-  }, [mappedNodes]);
+  }, [mappedKey]);
 
   if (mappedNodes.length === 0) {
     return (
       <div className="bg-card border border-dashed rounded-xl p-5 text-center text-[11px] text-muted-foreground">
-        Arma tu diagrama unifilar para ver aquí sus sensores en vivo.
-        Esta sección refleja el diagrama: al agregar o quitar nodos, cambia automáticamente.
+        {t('dashboard.buildDiagram')}
       </div>
     );
   }
@@ -475,7 +481,7 @@ function SensorsRow() {
                 <span className="text-[9px] text-muted-foreground">{meta.label}</span>
               </div>
               <p className="text-lg font-bold tabular-nums opacity-50">—</p>
-              <p className="text-[9px] text-muted-foreground mt-1">Sin sensor ligado</p>
+              <p className="text-[9px] text-muted-foreground mt-1">{t('dashboard.noSensorsLinked')}</p>
             </div>
           );
         }
@@ -500,11 +506,11 @@ function SensorsRow() {
               </p>
             )}
             <p className="text-[9px] text-muted-foreground/70 mt-0.5">
-              último: {s?.lastAt ? fmtShortDate(s.lastAt) : '—'}
+              {t('dashboard.lastLabel')}: {s?.lastAt ? fmtShortDate(s.lastAt) : '—'}
             </p>
             {stale && (
               <p className="text-[9px] font-medium text-amber-500 mt-0.5">
-                Sin datos recientes
+                {t('dashboard.staleData')}
               </p>
             )}
             <PlotlyMini
@@ -533,6 +539,7 @@ function SensorsRow() {
 }
 
 function CalibrationCard() {
+  const { t } = useTranslation();
   const sensorMappings = useSelector((state) => state.diagram?.sensorMappings || {});
   const [data, setData] = useState(null);
 
@@ -556,14 +563,14 @@ function CalibrationCard() {
       <div className="flex items-center gap-2 mb-3">
         <div className="p-2 rounded-lg bg-emerald-500/10"><BatteryCharging className="w-4 h-4 text-emerald-500" /></div>
         <div>
-          <p className="text-sm font-semibold">Ajuste de modelos (calibración)</p>
-          <p className="text-[10px] text-muted-foreground">Artefactos por sensor · cascada N1/N2 · solo sensores del diagrama</p>
+          <p className="text-sm font-semibold">{t('dashboard.calibration.title')}</p>
+          <p className="text-[10px] text-muted-foreground">{t('dashboard.calibration.subtitle')}</p>
         </div>
       </div>
-      {!data && <p className="text-[11px] text-muted-foreground py-4 text-center">Cargando...</p>}
+      {!data && <p className="text-[11px] text-muted-foreground py-4 text-center">{t('dashboard.calibration.loading')}</p>}
       {data && models.length === 0 && (
         <p className="text-[11px] text-muted-foreground py-4 text-center">
-          Aún no hay modelos calibrados. Liga un sensor en el diagrama y ejecuta la optimización.
+          {t('dashboard.calibration.empty')}
         </p>
       )}
       {data && models.length > 0 && (
@@ -578,7 +585,7 @@ function CalibrationCard() {
                 {m.params?.losses_pct != null && (
                   <p>params: losses {Number(m.params.losses_pct).toFixed(1)} · η {Number(m.params.inverter_eta).toFixed(2)} · γ {Number(m.params.temp_coeff_pct_per_c).toFixed(2)}</p>
                 )}
-                {m.q10 != null && <p>banda residuo: {Number(m.q10).toFixed(2)} … {Number(m.q90).toFixed(2)}</p>}
+                {m.q10 != null && <p>{t('dashboard.calibration.residueBand')}: {Number(m.q10).toFixed(2)} … {Number(m.q90).toFixed(2)}</p>}
               </div>
             </div>
           ))}
@@ -589,19 +596,23 @@ function CalibrationCard() {
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const dispatch = useDispatch();
   const optimization = useSelector((state) => state.optimization);
   const diagramNodes = useSelector((state) => state.diagram?.nodes || []);
   const sensorMappings = useSelector((state) => state.diagram?.sensorMappings || {});
+  const scenarioMemo = useMemo(() => {
+    const sr = optimization.latestResult?.scenario_results;
+    if (!sr) return null;
+    return Object.keys(sr).map((k) => ({ name: k, ...sr[k] }));
+  }, [optimization.latestResult?.scenario_results]);
+  const totalHoursMemo = useMemo(() => optimization.latestResult?.total_hours || 24, [optimization.latestResult?.total_hours]);
 
-  // Tarjetas de "Generacion calibrada" COHERENTES con el diagrama: solo para
-  // bloques de generacion (solar/solar_panel_ac/wind) con sensor ligado.
-  // Sin bloque solar no aparece "solar"; con eolica aparece la eolica.
   const generationCards = useMemo(() => {
     const GEN_META = {
-      solar_panel: { label: 'Generación solar calibrada (24 h)', color: '#f59e0b', tipo: 'solar' },
-      solar_panel_ac: { label: 'Generación solar calibrada (24 h)', color: '#f59e0b', tipo: 'solar' },
-      wind_turbine: { label: 'Generación eólica calibrada (24 h)', color: '#14b8a6', tipo: 'wind' },
+      solar_panel: { label: t('dashboard.generation.solar'), color: '#f59e0b', tipo: 'solar' },
+      solar_panel_ac: { label: t('dashboard.generation.solar'), color: '#f59e0b', tipo: 'solar' },
+      wind_turbine: { label: t('dashboard.generation.wind'), color: '#14b8a6', tipo: 'wind' },
     };
     return (diagramNodes || [])
       .filter((n) => GEN_META[n.data?.deviceType] && sensorMappings?.[n.id])
@@ -623,47 +634,47 @@ export default function DashboardPage() {
   }, [dispatch]);
 
   const statusLabel = optimization.status === 'complete' || optimization.status === 'optimal'
-    ? 'Óptimo' : optimization.status === 'running' ? 'Activa' : 'Idle';
+    ? t('dashboard.optimal') : optimization.status === 'running' ? t('dashboard.active') : t('dashboard.idle');
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight capitalize">Dashboard</h1>
+        <h1 className="text-2xl font-bold tracking-tight capitalize">{t('dashboard.title')}</h1>
         <p className="text-muted-foreground">
-          Bucle completo: clima → modelos ajustados → predicción → optimización.
+          {t('dashboard.subtitle')}
         </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Costo Total"
+          title={t('dashboard.totalCost')}
           val={optimization.latestResult?.objective_value != null
             ? `${(optimization.latestResult.objective_value / 1000).toFixed(1)}k` : '--'}
           unit="u.m."
-          trend={optimization.latestResult?.objective_value != null ? 'optimizado' : 'pendiente'}
+          trend={optimization.latestResult?.objective_value != null ? t('dashboard.optimized') : t('dashboard.pending')}
           color="text-yellow-500" positive={false} icon={Activity}
         />
         <StatCard
-          title="Potencia Pico Total"
+          title={t('dashboard.peakPower')}
           val={optimization.latestResult?.dispatch_plan
             ? `${optimization.latestResult.dispatch_plan.reduce((max, d) => d.power_kw > max ? d.power_kw : max, 0).toFixed(1)}` : '--'}
           unit="kW"
-          trend="predicha"
+          trend={t('dashboard.predicted')}
           color="text-orange-500" positive icon={Gauge}
         />
         <StatCard
-          title="Estado Optimización"
+          title={t('dashboard.optStatus')}
           val={statusLabel}
           unit=""
-          trend={optimization.mpc.running ? 'MPC activo' : 'MPC detenido'}
+          trend={optimization.mpc.running ? t('dashboard.mpcActive') : t('dashboard.mpcStopped')}
           color="text-green-500" positive icon={Activity}
         />
         <StatCard
-          title="Escenarios"
+          title={t('dashboard.scenarios')}
           val={optimization.latestResult?.scenario_results
             ? String(Object.keys(optimization.latestResult.scenario_results).length) : '3'}
           unit=""
-          trend="estocástico"
+          trend={t('dashboard.stochastic')}
           color="text-blue-500" positive icon={Database}
         />
       </div>
@@ -683,7 +694,7 @@ export default function DashboardPage() {
       ))}
 
       <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Sensores</p>
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">{t('dashboard.sensors')}</p>
         <ErrorBoundary compact>
           <SensorsRow />
         </ErrorBoundary>
@@ -698,24 +709,20 @@ export default function DashboardPage() {
       </ErrorBoundary>
 
       {optimization.latestResult?.dispatch_plan ? (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6" style={{ overflowAnchor: 'none' }}>
           <ErrorBoundary compact>
             <DispatchSchedule
               dispatchPlan={optimization.latestResult.dispatch_plan}
-              scenarios={optimization.latestResult?.scenario_results
-                ? Object.keys(optimization.latestResult.scenario_results).map((k) => ({ name: k, ...optimization.latestResult.scenario_results[k] }))
-                : null}
-              totalHours={optimization.latestResult?.total_hours || 24}
+              scenarios={scenarioMemo}
+              totalHours={totalHoursMemo}
             />
           </ErrorBoundary>
           <ErrorBoundary compact>
             <DispatchByDevice
               dispatchPlan={optimization.latestResult.dispatch_plan}
               diagramNodes={diagramNodes}
-              scenarios={optimization.latestResult?.scenario_results
-                ? Object.keys(optimization.latestResult.scenario_results).map((k) => ({ name: k, ...optimization.latestResult.scenario_results[k] }))
-                : null}
-              totalHours={optimization.latestResult?.total_hours || 24}
+              scenarios={scenarioMemo}
+              totalHours={totalHoursMemo}
             />
           </ErrorBoundary>
         </div>
@@ -726,8 +733,8 @@ export default function DashboardPage() {
               <Database size={40} className="text-primary/40" />
             </div>
             <div>
-              <p className="font-semibold text-foreground">Analítica de Datos</p>
-              <p className="text-sm max-w-[280px]">Arma tu red en el Diagrama Unifilar y ejecuta la optimización para ver el despacho aquí.</p>
+              <p className="font-semibold text-foreground">{t('dashboard.analytics')}</p>
+              <p className="text-sm max-w-[280px]">{t('dashboard.analyticsDesc')}</p>
             </div>
           </div>
         </div>
