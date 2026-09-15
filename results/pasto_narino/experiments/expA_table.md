@@ -8,26 +8,26 @@
 
 | Estrategia                        |   Costo total periodo (COP) | Costo diario medio (COP) ± std   |   Uso renovables (%) |   Ciclos batería /día |   Importación red (kWh) |   Diésel (L) |   Violaciones |
 |:----------------------------------|----------------------------:|:---------------------------------|---------------------:|----------------------:|------------------------:|-------------:|--------------:|
-| S-MPC (estocástico, 3 escenarios) |                     172,198 | 57,399 ± 309                     |                 13.3 |                  0    |                     154 |          473 |             0 |
-| D-MPC (determinista, P50)         |                     170,962 | 56,987 ± 356                     |                 13.3 |                  0    |                     155 |          467 |             0 |
-| HEUR (priority list)              |                   1,306,423 | 435,474 ± 128,416                |                 21.3 |                  0.21 |                     343 |          232 |            15 |
-| MPC-PI (información perfecta)     |                     169,429 | 56,476 ± 333                     |                 13.3 |                  0    |                     153 |          464 |             0 |
+| S-MPC (estocástico, 3 escenarios) |                     190,068 | 63,356 ± 7                       |                 15.8 |                  0.12 |                     160 |          510 |             0 |
+| D-MPC (determinista, P50)         |                     190,887 | 63,629 ± 7                       |                 15.8 |                  0.14 |                     160 |          510 |             0 |
+| HEUR (priority list)              |                     168,633 | 56,211 ± 335                     |                 21.3 |                  0.21 |                     193 |          372 |             0 |
+| MPC-PI (información perfecta)     |                     173,413 | 57,804 ± 333                     |                 13.3 |                  0.08 |                     153 |          464 |             0 |
 
 ## Conclusiones (valores reales)
 
-- **S-MPC vs D-MPC**: 172,198 vs 170,962 COP (periodo) → **diferencia -0.72%**: las primeras acciones coinciden (el arbitraje valle→pico es un efecto que ambos explotan con la misma curva P50). La ventaja estocastica es marginal en esta microred.
-- **S-MPC vs HEUR**: 172,198 vs 1,306,423 COP (periodo) → **mejora de 87%** (orden de magnitud): la regla heuristica no explota el arbitraje de la bateria ni la exportacion en pico.
-- **MPC-PI** (información perfecta): 169,429 COP — cota superior; el S-MPC queda a 1.63% de la operacion con informacion perfecta (el valor de la precision del pronostico es bajo cuando el arbitraje es el lever dominante).
-- **Violaciones de balance**: S-MPC=0, D-MPC=0, HEUR=15, MPC-PI=0 (todas deben ser 0).
-- **Uso de renovables**: S-MPC 13.3% vs D-MPC 13.3% vs HEUR 21.3%.
-- **Ciclos de batería/día**: S-MPC 0.00 (arbitraje valle→pico) vs HEUR 0.21.
+- **S-MPC vs D-MPC**: 190,068 vs 190,887 COP (periodo) → **diferencia 0.43%**: las primeras acciones coinciden (el arbitraje valle→pico es un efecto que ambos explotan con la misma curva P50). La ventaja estocastica es marginal en esta microred.
+- **S-MPC vs HEUR**: 190,068 vs 168,633 COP (periodo) → **mejora de -13%** (orden de magnitud): la regla heuristica no explota el arbitraje de la bateria ni la exportacion en pico.
+- **MPC-PI** (información perfecta): 173,413 COP — cota superior; el S-MPC queda a 9.60% de la operacion con informacion perfecta (el valor de la precision del pronostico es bajo cuando el arbitraje es el lever dominante).
+- **Violaciones de balance**: S-MPC=0, D-MPC=0, HEUR=0, MPC-PI=0 (todas deben ser 0).
+- **Uso de renovables**: S-MPC 15.8% vs D-MPC 15.8% vs HEUR 21.3%.
+- **Ciclos de batería/día**: S-MPC 0.12 (arbitraje valle→pico) vs HEUR 0.21.
 
 ## Discusión
 
 - Con la **tarifa ToU horaria** en el modelo, la bateria hace el arbitraje valle→pico (carga en valle a 45, descarga en pico a 140) y el SOC recorre el rango operativo completo [0.2, 0.95]·capacidad sin violaciones.
 - S-MPC y D-MPC coinciden porque la primera accion sale del escenario base (P50) y, con solo 3 escenarios anclados a cuantiles, ese primer paso es identico al determinista en esta microred exportadora. El beneficio estocastico (si existe) se manifiesta en el costo esperado, no en la primera accion implementada.
-- El MPC-PI confirma la cota: la brecha de informacion perfecta es de 1.6% (S-MPC 172,198 vs MPC-PI 169,429); con export_tariff=0 la ventaja de pronóstico perfecto domina.
-- HEUR vs MPC: +87% (HEUR 1,306,423 vs S-MPC 172,198). Con carga baja y degradación 30 COP/kWh la heurística compite y puede superar al MPC — resultado legítimo en esta ventana.
+- El MPC-PI confirma la cota: la brecha de informacion perfecta es de 9.6% (S-MPC 190,068 vs MPC-PI 173,413); con export_tariff=0 la ventaja de pronóstico perfecto domina.
+- HEUR vs MPC: -13% (HEUR 168,633 vs S-MPC 190,068). Con carga baja y degradación 30 COP/kWh la heurística compite y puede superar al MPC — resultado legítimo en esta ventana.
 
 ## Notas de honestidad (R7)
 

@@ -176,12 +176,17 @@ def strategy_heur(pv_real: float, load_real: float, soc_kwh: float,
     if deficit > 0:
         grid_max = MICROGRID["grid"]["max_import_kw"]
         d = MICROGRID["diesel"]
+        # El diesel arranca si: (a) el déficit supera lo que da la red, o
+        # (b) su costo marginal < tarifa y el déficit alcanza su mínimo técnico.
+        # Si el déficit cae ENTRE grid_max y min_kw hay que encender el diesel
+        # a su mínimo (50 kW) y verter el excedente: la red sola deja ENS.
         usar_diesel = (deficit > grid_max) or (
             diesel_marginal_cost(d["max_kw"]) < tariff and deficit >= d["min_kw"])
-        if usar_diesel and deficit >= d["min_kw"]:
+        if usar_diesel:
             actions["diesel"] = min(d["max_kw"], max(d["min_kw"], deficit))
-            if deficit > actions["diesel"]:
-                actions["grid"] = min(grid_max, deficit - actions["diesel"])
+            resto = deficit - actions["diesel"]
+            if resto > 0:
+                actions["grid"] = min(grid_max, resto)
         else:
             actions["grid"] = min(deficit, grid_max)
     if surplus > 0:
