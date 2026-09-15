@@ -137,4 +137,8 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
             - act["discharge"] / b["discharge_efficiency"]
         soc = float(np.clip(soc, b["soc_min"] * cap, b["soc_max"] * cap))
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    # SOC tras aplicar la acción de la última hora (la variable `soc` ya quedó
+    # actualizada al salir del bucle) → permite encadenar días en lazo CONTINUO.
+    df.attrs["soc_final_kwh"] = float(soc)
+    return df

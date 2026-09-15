@@ -540,8 +540,7 @@ especificación completa y el checklist de cobertura viven en
 
 ### 7.1. Experimento A — Comparativa económica (Comentario 9: R1, R2, R3)
 
-Se ejecutó una **simulación en lazo cerrado de 3 días** (2026-08-05 → 2026-08-07, 14 días ideal) con horizonte deslizante horario: en cada hora se emite el
-2026-07-31) con horizonte deslizante horario: en cada hora se emite el
+Se ejecutó una **simulación en lazo cerrado continuo de 14 días** (2026-07-24 → 2026-08-06, 336 h, PV realizado de las mediciones Mongo del sistema) con horizonte deslizante horario: en cada hora se emite el
 forecast de la cadena de producción (contexto Open-Meteo `past_days` que
 termina antes de la hora de decisión → **PatchTST** con cuantiles P10/P50/P90
 → **ajuste de datos** con las plantas PV/load calibradas contra mediciones
@@ -549,9 +548,10 @@ reales), se resuelve el MPC estocástico de 24 h y se implementa **solo la
 primera acción** del escenario base (P50). El estado avanza con los valores
 realizados (demanda y PV de las mediciones del sistema en Mongo; clima ERA5
 del sitio) y la red cierra el balance como slack. El **SOC se propaga** entre
-horas (cada solve recibe el SOC real del lazo cerrado), garantizando que las
-acciones sean físicamente realizables (SOC ∈ [0.2, 0.95]·capacidad, verificado
-en las 1,344 horas simuladas). Las cuatro estrategias comparten los mismos
+horas **y entre días** (lazo continuo real: cada día hereda el SOC final del
+anterior vía `soc_final_kwh`; cada solve recibe el SOC real del lazo cerrado),
+garantizando que las acciones sean físicamente realizables (SOC ∈ [0.2, 0.95]·capacidad, verificado
+en las 1,344 horas-estrategia simuladas, 0 saltos de SOC no explicados). Las cuatro estrategias comparten los mismos
 días, el mismo estado inicial (SOC fijo 0.65, reproducible) y la misma
 microred.
 
@@ -565,37 +565,39 @@ fijo 40 COP/h.
 
 | Estrategia | Costo total periodo (COP) | Costo diario medio ± std | Uso renovables (%) | Ciclos batería/día | Importación red (kWh) | Diésel (L) | Violaciones |
 |---|---|---|---|---|---|---|---|
-| S-MPC (estocástico, 3 escenarios) | −1,428,731 | −102,052 ± 1,625 | 61.2 | 0.51 | 3 | 2,353 | 0 |
-| D-MPC (determinista, P50) | −1,428,730 | −102,052 ± 1,625 | 61.2 | 0.51 | 3 | 2,353 | 0 |
-| HEUR (priority list) | −117,912 | −8,422 ± 1,619 | 61.2 | 0.04 | 35 | 12 | 0 |
-| MPC-PI (información perfecta) | −1,432,591 | −102,328 ± 1,624 | 61.2 | 0.51 | 3 | 2,361 | 0 |
+| S-MPC (estocástico, 3 escenarios) | 836,767 | 59,769 ± 3,626 | 20.0 | 0.13 | 141 | 485 | 0 |
+| D-MPC (determinista, P50) | 832,478 | 59,463 ± 3,829 | 20.0 | 0.14 | 151 | 474 | 0 |
+| HEUR (priority list) | 791,184 | 56,513 ± 669 | 18.0 | 0.02 | 180 | 424 | 0 |
+| MPC-PI (información perfecta) | 781,903 | 55,850 ± 676 | 17.6 | 0.01 | 151 | 457 | 0 |
 
-**Conclusiones (valores reales):**
+**Conclusiones (valores reales, lazo continuo 14 días):**
 
-- El costo neto es **negativo** (ingreso) porque la microred es exportadora
-  (PV 184 kWh/día vs carga 90 kWh/día): el excedente se vende al precio
-  variable del período y el diésel arbitra la exportación en las horas de
-  tarifa alta (marginal ~110 COP/kWh vs pico 140).
-- **S-MPC ≈ D-MPC (diferencia 0.00%)**: la primera acción implementada sale
+- Costos **positivos** (ventana diésel-dominada: carga ~1,050 kWh/día vs PV
+  ~110 kWh/día, renovable 18–20%, diésel on/off 168–210 h entre 50–80 kW).
+- **S-MPC ≈ D-MPC (+0.52%)**: la primera acción implementada sale
   del escenario base (P50) y, con S=3 escenarios anclados a cuantiles, ese
   primer paso coincide con el determinista en esta microred. El beneficio
   estocástico (si existe) se manifiesta en el costo esperado, no en la
   primera acción — hallazgo reportado tal cual.
-- **MPC (cualquier variante) mejora a HEUR en 1,112%** (−1.43M vs −0.12M
-  COP): la regla heurística no explota el arbitraje valle→pico de la batería
-  ni la exportación en pico.
-- **MPC-PI (información perfecta) = −1,432,591 COP**: cota superior; el S-MPC
-  queda a **0.27%** de la operación con información perfecta — evidencia
-  cuantitativa de que, en esta configuración, el valor económico está en la
-  operación (arbitraje y exportación en pico), no en la precisión del
-  pronóstico.
-- **Batería**: 0.51 ciclos/día de arbitraje valle→pico (carga a 45,
-  descarga a 140) con el SOC recorriendo [0.2, 0.95]·capacidad.
-- **Violaciones de balance = 0** en las cuatro estrategias.
+- **MPC-PI (información perfecta) = 781,903 COP (mínimo)**: cota superior
+  válida; el S-MPC queda a **7.02%** de la operación con información perfecta.
+- **HEUR = 791,184 COP (−5.45% vs S-MPC)**: tras eliminar el reset diario de
+  SOC (que le regalaba hasta 89 kWh/día y subestimaba su costo en 776,176),
+  HEUR drena el SOC inicial común 130→41 kWh y opera clavado en el piso sin
+  volver a cargar; su ventaja restante es legítima en esta ventana pero
+  depende del SOC inicial y de no pagar degradación por ciclar.
+- **Batería**: 0.13–0.14 ciclos/día en MPC (arbitraje valle→pico parcial con
+  degradación 40 COP/kWh); MPC-PI carga y retiene (SOC fin 173.5 kWh, solo
+  3 h de descarga) — miopía del horizonte de 24 h + penalidad terminal,
+  reportado tal cual.
+- **Violaciones de balance = 0** y ENS = 0 en las cuatro estrategias; 0 saltos
+  de SOC no explicados por charge/discharge en las 4 trazas (verificado).
 
 Salidas reproducibles: `results/pasto_narino/experiments/expA_*` (trazas
 horarias, métricas, costo acumulado, figura y tabla markdown).
 
+> **Corrección lazo continuo (2026-09-15)**: la corrida anterior de 14 días eran en realidad 14 lazos diarios independientes — cada medianoche el SOC se reiniciaba a 130 kWh (HEUR recibía hasta +89 kWh/día gratis, a MPC-PI se le borraban 437 kWh cargados). Se propaga `soc_final_kwh` entre días (`backtest.py` + `soc_carry` en `experiment_a.py`); los números de la tabla ya son de lazo continuo real.
+>
 > **Corrección MPC 2026-08-26 (PLAN_CORRECCION_MPC.md, rama `fix/mpc-correcciones`)**: los valores de la tabla anterior (−1.43 M COP, 1,112% de mejora) estaban **contaminados por 3 errores de formulación** — diésel sin binaria on/off (mín 50 kW permanente), exportación remunerada a tarifa de importación (arbitraje diésel→red a 140 COP/kWh) y balance `≥` con sobre-generación gratis. Tras corregir — binaria `U_diesel` con `P∈[0,max]·U`, descomposición `P_import/P_export` con `export_tariff=0`, balance `==` con `ENS` penalizado a 5,000 COP/kWh y `CURT`, `nonant` en `t=0`, degradación `30 COP/kWh` — los costos vuelven a ser **positivos y realistas**. Ventana de validación reciente (2026-08-05→07, 3 días, mismo Pipeline PatchTST+MGP, SOC 0.65): S-MPC 11,933 COP (3,978/día), D-MPC 12,039, HEUR 11,047, MPC-PI 7,633; diésel 0 L (apagado cuando sobra energía), exportación en pico 19-21 = 0 kWh, violaciones 0. La mejora 1,112% desaparece; la brecha real depende de la ventana y del costo de degradación (con 30 COP/kWh la heurística es competitiva en microrred exportadora de baja carga). Ver trazas corregidas en `expA_traces_*.csv` y panel experimental de la UI (`/front/optimization/experiment/*`).
 
 ### 7.2. Experimento B — Tiempo de cómputo del MPC (Comentario 11: R4)

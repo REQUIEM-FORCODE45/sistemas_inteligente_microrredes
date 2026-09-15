@@ -161,6 +161,7 @@ def main() -> int:
         per_day = {}
         cum = np.zeros(len(days))
         chunks = []
+        soc_carry = initial_soc          # misma condición inicial para las 4
         for i, d in enumerate(days):
             # rebanada del dia (24 h) de los realizados — el lazo cerrado NO
             # debe ver datos futuros mas alla del horizonte del dia
@@ -168,13 +169,19 @@ def main() -> int:
             pv_day = pv_real.loc[d:d_end]
             load_day = load_real.loc[d:d_end]
             trace = run_day(strat, d, pv_day, load_day, prov,
-                            {"initial_soc": initial_soc})
+                            {"initial_soc": soc_carry})          # ← SOC heredado
+            # Heredar el SOC final del día al siguiente (lazo CONTINUO).
+            # OJO: leer trace.attrs[...] aquí, pd.concat() pierde df.attrs.
+            soc_carry = float(trace.attrs.get(
+                "soc_final_kwh", trace["soc_kwh"].iloc[-1])) \
+                / MICROGRID["battery"]["capacity_kwh"]
             m = evaluate_day(trace)
             per_day[d.date().isoformat()] = m
             cum[i] = m["cost_total"] + (cum[i - 1] if i > 0 else 0.0)
             chunks.append(trace)
-            logger.info("  %s: costo dia %d = %.0f COP (viol=%d)",
-                        d.date(), i + 1, m["cost_total"], m["violations"])
+            logger.info("  %s: costo dia %d = %.0f COP (viol=%d, SOC fin=%.0f kWh)",
+                        d.date(), i + 1, m["cost_total"], m["violations"],
+                        soc_carry * MICROGRID["battery"]["capacity_kwh"])
         all_days[strat] = per_day
         traces[strat] = pd.concat(chunks, ignore_index=True)
         cumulative[strat] = cum
@@ -273,8 +280,9 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
         f"(el arbitraje valle→pico es un efecto que ambos explotan con la misma "
         f"curva P50). La ventaja estocastica es marginal en esta microred.",
         f"- **S-MPC vs HEUR**: {smpc_cost:,.0f} vs {heur_cost:,.0f} COP (periodo) "
-        f"→ **mejora de {savings_vs_h:.0f}%** (orden de magnitud): la regla "
-        f"heuristica no explota el arbitraje de la bateria ni la exportacion en pico.",
+        f"→ **diferencia de {savings_vs_h:+.0f}%** (negativo = HEUR más barato "
+        f"en esta ventana): la regla heuristica evita el mínimo técnico del "
+        f"diésel y no paga degradación por ciclar la batería.",
         f"- **MPC-PI** (información perfecta): {mpc_pi_cost:,.0f} COP — cota superior; "
         f"el S-MPC queda a {abs(gap_mpc_pi):.2f}% de la operacion con informacion "
         f"perfecta (el valor de la precision del pronostico es bajo cuando el "
@@ -297,14 +305,14 @@ def _write_markdown(summaries, table, cum_df, initial_soc, out_dir, days,
         "violaciones.",
         "- S-MPC y D-MPC coinciden porque la primera accion sale del escenario "
         "base (P50) y, con solo 3 escenarios anclados a cuantiles, ese primer "
-        "paso es identico al determinista en esta microred exportadora. El "
+        "paso es identico al determinista en esta microred diésel-dominada. El "
         "beneficio estocastico (si existe) se manifiesta en el costo esperado, "
         "no en la primera accion implementada.",
         f"- El MPC-PI confirma la cota: la brecha de informacion perfecta es "
         f"de {abs(gap_mpc_pi):.1f}% (S-MPC {smpc_cost:,.0f} vs MPC-PI {mpc_pi_cost:,.0f}); "
         f"con export_tariff=0 la ventaja de pronóstico perfecto domina.",
         f"- HEUR vs MPC: {savings_vs_h:+.0f}% (HEUR {heur_cost:,.0f} vs S-MPC {smpc_cost:,.0f}). "
-        f"Con carga baja y degradación 30 COP/kWh la heurística compite y puede superar al MPC — resultado legítimo en esta ventana.",
+        f"Con degradación 40 COP/kWh la heurística compite y puede superar al MPC — resultado legítimo en esta ventana.",
         "",
         "## Notas de honestidad (R7)",
         "",
