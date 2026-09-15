@@ -28,12 +28,16 @@ from optimization.experiments.config import (MICROGRID, HEUR,
 
 def _build_job(anchor: pd.Timestamp, band: pd.DataFrame, load_fc: pd.Series,
                horizon: int, scenarios: list | None,
-               initial_soc: float | None = None) -> dict:
+               initial_soc: float | None = None,
+               grid_max_kw: float | None = None) -> dict:
     """Payload del solver con la topologia de la microred (igual produccion).
 
     `initial_soc` es el SOC REAL del lazo cerrado en la hora de decision:
     sin esto, cada solve arranca con SOC=0.65 y la bateria "regala" energia
     (artefacto que invalida el receding horizon).
+    `grid_max_kw` sobreescribe el limite de importacion (Exp A2: escasez de
+    red; None = valor de MICROGRID). Se ajusta min_import_kw = -grid_max_kw
+    (isla: 0.0/0.0, sin importacion ni exportacion).
     """
     t0 = band.index[0]
     idx = pd.date_range(t0, periods=horizon, freq="h", tz=band.index.tz)
@@ -71,8 +75,10 @@ def _build_job(anchor: pd.Timestamp, band: pd.DataFrame, load_fc: pd.Series,
         "storage": [battery],
         "loads": [{"id": "load_1", "type": "load", "max_kw": 1000, "min_kw": 0}],
         "grid": {
-            "max_import_kw": MICROGRID["grid"]["max_import_kw"],
-            "min_import_kw": MICROGRID["grid"]["min_import_kw"],
+            "max_import_kw": (MICROGRID["grid"]["max_import_kw"]
+                              if grid_max_kw is None else float(grid_max_kw)),
+            "min_import_kw": (MICROGRID["grid"]["min_import_kw"]
+                              if grid_max_kw is None else -float(grid_max_kw)),
             "cost_fixed": MICROGRID["grid"]["cost_fixed"],
             "export_tariff": MICROGRID["grid"].get("export_tariff", 0.0),
             "ens_penalty_cop_kwh": MICROGRID["grid"].get("ens_penalty_cop_kwh", 5000.0),
@@ -91,10 +97,11 @@ D_SCEN = [{"name": "Base", "probability": 1.0, "quantile": "P50"}]
 def mpc_first_action(band: pd.DataFrame, load_fc: pd.Series,
                      horizon: int, scenarios: list | None,
                      base_scenario: str,
-                     initial_soc: float | None = None) -> dict:
+                     initial_soc: float | None = None,
+                     grid_max_kw: float | None = None) -> dict:
     """Resuelve el MPC y devuelve la primera accion del escenario base."""
     job = _build_job(band.index[0], band, load_fc, horizon, scenarios,
-                     initial_soc=initial_soc)
+                     initial_soc=initial_soc, grid_max_kw=grid_max_kw)
     out = build_and_solve(job)
     if out.get("status") != "optimal":
         raise RuntimeError(f"MPC no resolvio: {out.get('status')} {out.get('error')}")
@@ -119,48 +126,56 @@ def mpc_first_action(band: pd.DataFrame, load_fc: pd.Series,
 # Estrategias
 # --------------------------------------------------------------------------- #
 def strategy_smpc(band: pd.DataFrame, load_fc: pd.Series,
-                  horizon: int = 24, initial_soc: float | None = None) -> dict:
+                  horizon: int = 24, initial_soc: float | None = None,
+                  grid_max_kw: float | None = None) -> dict:
     """S-MPC: 3 escenarios anclados a cuantiles (default de produccion)."""
     return mpc_first_action(band, load_fc, horizon, None, "Nublado",
-                            initial_soc=initial_soc)
+                            initial_soc=initial_soc, grid_max_kw=grid_max_kw)
 
 
 def strategy_dmpc(band: pd.DataFrame, load_fc: pd.Series,
-                  horizon: int = 24, initial_soc: float | None = None) -> dict:
+                  horizon: int = 24, initial_soc: float | None = None,
+                  grid_max_kw: float | None = None) -> dict:
     """D-MPC: determinista (solo P50)."""
     return mpc_first_action(band, load_fc, horizon, D_SCEN, "Base",
-                            initial_soc=initial_soc)
+                            initial_soc=initial_soc, grid_max_kw=grid_max_kw)
 
 
 def strategy_mpc_pi(band: pd.DataFrame, load_fc: pd.Series,
-                    horizon: int = 24, initial_soc: float | None = None) -> dict:
+                    horizon: int = 24, initial_soc: float | None = None,
+                    grid_max_kw: float | None = None) -> dict:
     """MPC-PI: D-MPC con el forecast perfecto (serie realizada)."""
     return mpc_first_action(band, load_fc, horizon, D_SCEN, "Base",
-                            initial_soc=initial_soc)
+                            initial_soc=initial_soc, grid_max_kw=grid_max_kw)
 
 def strategy_oracle(band: pd.DataFrame, load_fc: pd.Series,
-                    horizon: int = 24, initial_soc: float | None = None) -> dict:
-    return strategy_mpc_pi(band, load_fc, horizon, initial_soc)
+                    horizon: int = 24, initial_soc: float | None = None,
+                    grid_max_kw: float | None = None) -> dict:
+    return strategy_mpc_pi(band, load_fc, horizon, initial_soc, grid_max_kw)
 
 
 def strategy_heur(pv_real: float, load_real: float, soc_kwh: float,
                   tariff: float, capacity_kwh: float,
-                  b: dict | None = None) -> dict:
+                  b: dict | None = None,
+                  grid_max_kw: float | None = None) -> dict:
     """Priority list sobre la hora actual (valores realizados).
 
     Regla documentada:
-      1. PV (gratis) cubre la carga.
-      2. Si queda deficit y tarifa >= umbral de pico y SOC > piso:
-         bateria descarga (hasta el deficit o su max).
-      3. Si sigue el deficit: diesel si su costo marginal < tarifa de red
-         (y el deficit >= min del diesel; si no, red).
-      4. Excedente PV: si tarifa <= valle y SOC < techo, cargar bateria.
-      5. Excedente restante se exporta (hasta el limite) o se recorta.
+       1. PV (gratis) cubre la carga.
+       2. Si queda deficit y tarifa >= umbral de pico y SOC > piso:
+          bateria descarga (hasta el deficit o su max).
+       3. Si sigue el deficit: diesel si su costo marginal < tarifa de red
+          (y el deficit >= min del diesel; si no, red).
+       4. Excedente PV: si tarifa <= valle y SOC < techo, cargar bateria.
+       5. Excedente restante se exporta (hasta el limite) o se recorta.
+    `grid_max_kw` sobreescribe el limite de red de la regla (Exp A2; None =
+    valor de MICROGRID). Con 0 (isla) la regla no usa red: el deficit que ni
+    el diesel a maximo cubre queda como ENS explicito en `actions["ens"]`.
     """
     b = b or MICROGRID["battery"]
     soc_min_kwh = b["soc_min"] * capacity_kwh
     actions = {"diesel": 0.0, "grid": 0.0, "charge": 0.0, "discharge": 0.0,
-               "curtailed": 0.0}
+               "curtailed": 0.0, "ens": 0.0}
 
     deficit = max(0.0, load_real - pv_real)
     surplus = max(0.0, pv_real - load_real)
@@ -174,7 +189,8 @@ def strategy_heur(pv_real: float, load_real: float, soc_kwh: float,
             actions["discharge"] = discharge
             deficit -= discharge
     if deficit > 0:
-        grid_max = MICROGRID["grid"]["max_import_kw"]
+        grid_max = (MICROGRID["grid"]["max_import_kw"]
+                    if grid_max_kw is None else float(grid_max_kw))
         d = MICROGRID["diesel"]
         # El diesel arranca si: (a) el déficit supera lo que da la red, o
         # (b) su costo marginal < tarifa y el déficit alcanza su mínimo técnico.
@@ -187,8 +203,11 @@ def strategy_heur(pv_real: float, load_real: float, soc_kwh: float,
             resto = deficit - actions["diesel"]
             if resto > 0:
                 actions["grid"] = min(grid_max, resto)
+                resto -= actions["grid"]
+            actions["ens"] = max(0.0, resto)
         else:
             actions["grid"] = min(deficit, grid_max)
+            actions["ens"] = max(0.0, deficit - actions["grid"])
     if surplus > 0:
         if (tariff <= HEUR["valley_tariff"]
                 and soc_kwh < HEUR["soc_charge_ceiling"] * capacity_kwh):

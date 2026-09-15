@@ -74,6 +74,15 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
     b = MICROGRID["battery"]
     cap = b["capacity_kwh"]
     soc = (params.get("initial_soc") or b["initial_soc"]) * cap
+    # Exp A2 (escasez de red): limite de importacion del lazo. None = config.
+    _gmax = params.get("grid_max_kw")
+    grid_max = (MICROGRID["grid"]["max_import_kw"]
+                if _gmax is None else float(_gmax))
+    grid_min = (MICROGRID["grid"]["min_import_kw"]
+                if _gmax is None else -float(_gmax))
+    # Exp A2: el ENS por escasez es METRICA, no violacion (el balance cierra
+    # por construccion via slack). Default False = comportamiento Exp A.
+    ens_as_metric = bool(params.get("ens_as_metric", False))
     tariff = tou_variable_tariff(pv_real.index)
 
     rows = []
@@ -92,20 +101,34 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
         t = float(tariff.iloc[h])
 
         if strategy == "smpc":
-            act = strat.strategy_smpc(lookahead, load_fc_24, initial_soc=soc / cap)
+            act = strat.strategy_smpc(lookahead, load_fc_24,
+                                      initial_soc=soc / cap,
+                                      grid_max_kw=None if _gmax is None
+                                      else grid_max)
         elif strategy == "dmpc":
-            act = strat.strategy_dmpc(lookahead, load_fc_24, initial_soc=soc / cap)
+            act = strat.strategy_dmpc(lookahead, load_fc_24,
+                                      initial_soc=soc / cap,
+                                      grid_max_kw=None if _gmax is None
+                                      else grid_max)
         elif strategy in ("mpc-pi", "oracle"):
-            act = strat.strategy_mpc_pi(lookahead, load_fc_24, initial_soc=soc / cap)
+            act = strat.strategy_mpc_pi(lookahead, load_fc_24,
+                                        initial_soc=soc / cap,
+                                        grid_max_kw=None if _gmax is None
+                                        else grid_max)
         elif strategy == "heur":
-            act = strat.strategy_heur(pv_r, load_r, soc, t, cap)
+            act = strat.strategy_heur(pv_r, load_r, soc, t, cap,
+                                      grid_max_kw=None if _gmax is None
+                                      else grid_max)
         else:
             raise ValueError(f"Estrategia desconocida: {strategy}")
 
         p_grid, viol, ens, curtailed_slack = _grid_slack(
             load_r, pv_r, act["diesel"], act["discharge"], act["charge"],
-            MICROGRID["grid"]["min_import_kw"],
-            MICROGRID["grid"]["max_import_kw"])
+            grid_min, grid_max)
+        if ens_as_metric:
+            # El ENS por escasez es la metrica del Exp A2 (isla/grid10):
+            # el balance cierra por construccion, no es violacion.
+            viol = 0
         curtailed = act.get("curtailed", 0.0) + curtailed_slack
         export_tariff = MICROGRID["grid"].get("export_tariff", 0.0)
         ens_penalty = MICROGRID["grid"].get("ens_penalty_cop_kwh", 5000.0)
@@ -121,6 +144,9 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
             "discharge_kw": act["discharge"],
             "curtailed_kw": curtailed,
             "ens_kw": ens,
+            "deficit_kw": max(0.0, load_r - pv_r - act["diesel"]
+                              - act["discharge"] + act["charge"]
+                              - max(p_grid, 0.0)),
             "tariff": t,
             "soc_kwh": soc,
             "violation": viol,
