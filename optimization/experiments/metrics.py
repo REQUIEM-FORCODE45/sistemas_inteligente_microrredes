@@ -10,6 +10,14 @@ Definiciones (evaluadas con valores REALIZADOS, no pronosticados):
   - Energia_importada_red [kWh] = Σ max(P_grid, 0)
   - Combustible_diesel [L] = Σ (c + b*P_d + a*P_d^2)  (consumo horario)
   - Violaciones            = Σ horas con balance no satisfecho (debe ser 0)
+  - SoC_final [kWh]        = SOC de la ultima hora (lazo continuo: hereda dias)
+  - Costo_normalizado       = Costo_total + (0.65*cap - SoC_final) * 80.
+    NOTA METODOLOGICA: los costos crudos NO son comparables entre estrategias
+    porque los estados finales difieren (p.ej. HEUR liquida su reserva y MPC-PI
+    la acumula). La diferencia de inventario respecto a la referencia 0.65*cap
+    se valora a 80 COP/kWh (tarifa media: reponer/ceder 1 kWh cuesta lo que la
+    red media). Limitacion: no captura dinamica intra-periodo ni el valor pico
+    de la reserva; solo iguala el punto de llegada para ordenar el ranking.
 """
 from __future__ import annotations
 
@@ -26,6 +34,21 @@ STRATEGY_LABELS = {
     "mpc-pi": "MPC-PI (información perfecta)",
     "oracle": "MPC-PI (información perfecta)",
 }
+
+# Referencia de inventario para el costo normalizado (ver NOTA METODOLOGICA).
+NORM_SOC_REF = 0.65          # fracción de capacidad (igual al SOC inicial común)
+NORM_PRICE_COP_KWH = 80.0    # tarifa media ToU [COP/kWh]
+
+
+def normalized_cost(cost_total_period: float, soc_final_kwh: float) -> float:
+    """Costo con la reserva terminal igualada a la referencia.
+
+    costo_norm = costo + (0.65*cap - SoC_final) * 80. Positivo si la estrategia
+    dejó menos reserva que la referencia (debe "recomprarla"); negativo si
+    dejó más (se le abona)."""
+    cap = MICROGRID["battery"]["capacity_kwh"]
+    return float(cost_total_period
+                 + (NORM_SOC_REF * cap - soc_final_kwh) * NORM_PRICE_COP_KWH)
 
 
 def evaluate_day(trace: pd.DataFrame) -> dict:
@@ -92,14 +115,17 @@ def summarize(days: dict[str, dict]) -> dict:
     return out
 
 
-def summary_table(summaries: dict[str, dict]) -> pd.DataFrame:
+def summary_table(summaries: dict[str, dict],
+                  soc_info: dict[str, dict] | None = None) -> pd.DataFrame:
     """Tabla: filas = estrategias, columnas = metricas (media +/- std).
 
     Columnas de costo: 'Costo total periodo (COP)' (Σ del periodo) y
-    'Costo diario medio (COP) ± std' — valores DISTINTOS por diseno."""
+    'Costo diario medio (COP) ± std' — valores DISTINTOS por diseno.
+    `soc_info[strat_id]` = {"final": kWh, ...} (de la traza, sin re-simular);
+    si se provee, añade 'SoC final (kWh)' y 'Costo normalizado (COP)'."""
     rows = []
     for strat_id, s in summaries.items():
-        rows.append({
+        row = {
             "Estrategia": STRATEGY_LABELS.get(strat_id, strat_id),
             "Costo total periodo (COP)": f"{s['cost_total_period']:,.0f}",
             "Costo diario medio (COP) ± std": (
@@ -109,5 +135,11 @@ def summary_table(summaries: dict[str, dict]) -> pd.DataFrame:
             "Importación red (kWh)": f"{s['energy_imported_kwh']:,.0f}",
             "Diésel (L)": f"{s['diesel_liters']:,.0f}",
             "Violaciones": str(s["violations_total"]),
-        })
+        }
+        if soc_info and strat_id in soc_info:
+            fin = float(soc_info[strat_id]["final"])
+            row["SoC final (kWh)"] = f"{fin:,.1f}"
+            row["Costo normalizado (COP)"] = (
+                f"{normalized_cost(s['cost_total_period'], fin):,.0f}")
+        rows.append(row)
     return pd.DataFrame(rows)

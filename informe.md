@@ -563,12 +563,12 @@ complementariedad carga/descarga de batería (Ecs. 4–6) vía binarias big-M.
 Tarifas: valle (00–05) 45, media (06–18, 22–23) 80, pico (19–21) 140 COP/kWh,
 fijo 40 COP/h.
 
-| Estrategia | Costo total periodo (COP) | Costo diario medio ± std | Uso renovables (%) | Ciclos batería/día | Importación red (kWh) | Diésel (L) | Violaciones |
-|---|---|---|---|---|---|---|---|
-| S-MPC (estocástico, 3 escenarios) | 836,767 | 59,769 ± 3,626 | 20.0 | 0.13 | 141 | 485 | 0 |
-| D-MPC (determinista, P50) | 832,478 | 59,463 ± 3,829 | 20.0 | 0.14 | 151 | 474 | 0 |
-| HEUR (priority list) | 791,184 | 56,513 ± 669 | 18.0 | 0.02 | 180 | 424 | 0 |
-| MPC-PI (información perfecta) | 781,903 | 55,850 ± 676 | 17.6 | 0.01 | 151 | 457 | 0 |
+| Estrategia | Costo total periodo (COP) | Costo diario medio ± std | Uso renovables (%) | Ciclos batería/día | Importación red (kWh) | Diésel (L) | Violaciones | SoC final (kWh) | Costo normalizado (COP) |
+|---|---|---|---|---|---|---|---|---|---|
+| S-MPC (estocástico, 3 escenarios) | 836,767 | 59,769 ± 3,626 | 20.0 | 0.13 | 141 | 485 | 0 | 100.3 | 839,145 |
+| D-MPC (determinista, P50) | 832,478 | 59,463 ± 3,829 | 20.0 | 0.14 | 151 | 474 | 0 | 119.2 | 833,343 |
+| HEUR (priority list) | 791,184 | 56,513 ± 669 | 18.0 | 0.02 | 180 | 424 | 0 | 41.3 | 798,280 |
+| MPC-PI (información perfecta) | 781,903 | 55,850 ± 676 | 17.6 | 0.01 | 151 | 457 | 0 | 173.5 | 778,424 |
 
 **Conclusiones (valores reales, lazo continuo 14 días):**
 
@@ -592,6 +592,14 @@ fijo 40 COP/h.
   reportado tal cual.
 - **Violaciones de balance = 0** y ENS = 0 en las cuatro estrategias; 0 saltos
   de SOC no explicados por charge/discharge en las 4 trazas (verificado).
+- **Comparabilidad**: los costos crudos no son directamente comparables porque
+  los estados finales difieren (HEUR 41, S-MPC 100, D-MPC 119, MPC-PI 174 kWh
+  frente a 130 iniciales). El **costo normalizado** valora la diferencia de
+  reserva respecto a 0.65·cap a 80 COP/kWh (tarifa media) — ranking resultante:
+  **MPC-PI 778,424 < HEUR 798,280 < D-MPC 833,343 < S-MPC 839,145**. Con estados
+  finales igualados, la información perfecta domina como predice la teoría.
+  Limitación explícita: no captura dinámica intra-periodo ni el valor pico de
+  la reserva.
 
 Salidas reproducibles: `results/pasto_narino/experiments/expA_*` (trazas
 horarias, métricas, costo acumulado, figura y tabla markdown).
