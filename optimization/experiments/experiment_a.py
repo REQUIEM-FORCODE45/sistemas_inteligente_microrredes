@@ -103,11 +103,20 @@ def main() -> int:
                          "porque la ultima medicion cambia con el trafico MQTT)")
     ap.add_argument("--load-scale", type=float, default=1.0,
                     help="Escala la carga realizada (1.0=original; 10≈34 kW nominal)")
+    ap.add_argument("--start-date", type=str, default=None,
+                    help="Inicio de la ventana YYYY-MM-DD (default: 2026-07-18 del "
+                         "periodo de prueba). Permite ventanas contiguas con "
+                         "cobertura PV completa, p.ej. 2026-07-24 (Mongo "
+                         "07-24→08-07). No altera el modelo ni los datos.")
     args = ap.parse_args()
     if args.report_only:
         return report_only()
 
-    days = test_period_days()[:args.days]
+    if args.start_date:
+        _start = pd.Timestamp(args.start_date, tz=TZ).floor("D")
+        days = pd.date_range(_start, periods=args.days, freq="D", tz=TZ)
+    else:
+        days = test_period_days()[:args.days]
     end = days[-1] + pd.Timedelta(hours=23)
     logger.info("Periodo de prueba: %s -> %s (%d dias)",
                 days[0], end, len(days))
