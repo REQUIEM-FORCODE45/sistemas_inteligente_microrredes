@@ -250,7 +250,7 @@ def _build_pyomo_model(
 
     for t in model.T:
         for s in model.S:
-            model.P_import[t, s].setub(max_import if max_import > 0 else 1e6)
+            model.P_import[t, s].setub(max_import if max_import >= 0 else 1e6)
             if max_export > 0:
                 model.P_export[t, s].setub(max_export)
             else:

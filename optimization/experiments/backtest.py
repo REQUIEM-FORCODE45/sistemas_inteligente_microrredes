@@ -57,6 +57,9 @@ def _perfect_forecast(anchor: pd.Timestamp, pv_real: pd.Series,
     if len(ld) < hours:
         pad = np.full(hours - len(ld), ld[-1] if len(ld) else 0.0)
         ld = np.concatenate([ld, pad])
+    # Con serie completa (cola perfecta) el slice excede `hours`: truncar.
+    # Con la rebanada del dia len == hours (Exp A, bit-identico).
+    pv, ld = pv[:hours], ld[:hours]
     idx = pd.date_range(anchor, periods=hours, freq="h", tz=pv_real.index.tz)
     band = pd.DataFrame({"P10": pv, "P50": pv, "P90": pv}, index=idx)
     load_fc = pd.Series(ld, index=idx)
@@ -90,7 +93,16 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
         anchor = day_start + pd.Timedelta(hours=h)
         if strategy in ("mpc-pi", "oracle"):
             # MPC-PI: el forecast ES el realizado (informacion perfecta).
-            band, load_fc = _perfect_forecast(anchor, pv_real, load_real)
+            # Con params["pv_full"/"load_full"] (serie completa del periodo,
+            # Exp A2) la cola del lookahead usa valores realizados reales en
+            # vez del relleno plano con el ultimo valor del dia. Default: solo
+            # la rebanada del dia (comportamiento Exp A, bit-identico).
+            _pv_full = params.get("pv_full")
+            _ld_full = params.get("load_full")
+            band, load_fc = _perfect_forecast(
+                anchor,
+                _pv_full if _pv_full is not None else pv_real,
+                _ld_full if _ld_full is not None else load_real)
         else:
             band, load_fc = provider.forecast(anchor)
         lookahead = band.iloc[:HOURS]

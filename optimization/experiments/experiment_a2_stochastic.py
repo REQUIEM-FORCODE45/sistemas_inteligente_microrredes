@@ -66,11 +66,16 @@ def _window(days_n: int, start_date: str | None) -> pd.DatetimeIndex:
 
 def run_cell(strat: str, gmax: float, days: pd.DatetimeIndex,
              pv_real: pd.Series, load_real: pd.Series,
-             provider, initial_soc: float) -> pd.DataFrame:
-    """14 días (o N) en lazo continuo para un (modo, estrategia). Una fila/día."""
+             provider, initial_soc: float) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """N días en lazo continuo para un (modo, estrategia).
+
+    Devuelve (diaria una fila/día, horaria una fila/hora). Para mpc-pi se pasa
+    la serie completa del periodo (cola perfecta, cota válida); las demás
+    usan la rebanada del día como siempre."""
     cap = MICROGRID["battery"]["capacity_kwh"]
     soc_carry = initial_soc
     rows = []
+    hour_chunks = []
     for d in days:
         d_end = d + pd.Timedelta(hours=23)
         pv_day = pv_real.loc[d:d_end]
@@ -78,7 +83,9 @@ def run_cell(strat: str, gmax: float, days: pd.DatetimeIndex,
         trace = run_day(strat, d, pv_day, load_day, provider,
                         {"initial_soc": soc_carry,
                          "grid_max_kw": gmax,
-                         "ens_as_metric": True})
+                         "ens_as_metric": True,
+                         "pv_full": pv_real,
+                         "load_full": load_real})
         soc_start = soc_carry * cap
         soc_carry = float(trace.attrs.get(
             "soc_final_kwh", trace["soc_kwh"].iloc[-1])) / cap
@@ -105,7 +112,15 @@ def run_cell(strat: str, gmax: float, days: pd.DatetimeIndex,
             "curtailed_kwh": m["curtailed_kwh"],
             "viol": m["violations"],
         })
-    return pd.DataFrame(rows)
+        h = trace[["timestamp", "load_real_kw", "pv_real_kw", "diesel_kw",
+                   "discharge_kw", "charge_kw", "grid_kw", "ens_kw",
+                   "deficit_kw", "soc_kwh"]].copy()
+        h.insert(0, "fecha", d.date().isoformat())
+        h.rename(columns={"grid_kw": "grid_net_kw"}, inplace=True)
+        h["import_kw"] = h["grid_net_kw"].clip(lower=0.0)
+        hour_chunks.append(h)
+    hourly = pd.concat(hour_chunks, ignore_index=True)
+    return pd.DataFrame(rows), hourly
 
 
 def _se(x: np.ndarray) -> float:
@@ -248,9 +263,48 @@ def _fig_ens(mets: pd.DataFrame, out_dir: Path):
     plt.close(fig)
 
 
+def diagnose_ens(hours: dict[tuple[str, str], pd.DataFrame]) -> list[str]:
+    """Diagnóstico horario del ENS sistemático (Exp A2, punto 2 del rigor).
+
+    Por (modo, estrategia) con ENS>0.01 kWh: hora(s) con ENS, valor medio y
+    fracción de esas horas con el SoC en el piso (≤ soc_min*cap + 0.5 kWh,
+    medido al INICIO de la hora, como guarda la traza). Verifica la hipótesis:
+    déficit en pico de carga (h18) con diésel a mínimo y batería vacía.
+    Documenta la causa real encontrada, sin asumir."""
+    cap = MICROGRID["battery"]["capacity_kwh"]
+    floor = MICROGRID["battery"]["soc_min"] * cap
+    out = ["## Diagnóstico horario del ENS",
+           "",
+           f"Piso de batería: {floor:.0f} kWh. SoC medido al inicio de cada hora.",
+           ""]
+    any_ens = False
+    for (mode, strat) in sorted(hours):
+        h = hours[(mode, strat)]
+        bad = h[h["ens_kw"] > 0.01].copy()
+        if bad.empty:
+            out.append(f"- **{mode}/{STRAT_SHORT[strat]}**: sin ENS>0.01 kWh.")
+            continue
+        any_ens = True
+        hrs = sorted(pd.to_datetime(bad["timestamp"]).dt.strftime("%H:%M").unique())
+        hrs_txt = ", ".join(hrs[:12]) + ("…" if len(hrs) > 12 else "")
+        at_floor = (bad["soc_kwh"] <= floor + 0.5).mean() * 100
+        out.append(
+            f"- **{mode}/{STRAT_SHORT[strat]}**: {len(bad)} h con ENS "
+            f"(horas: {hrs_txt}), media {bad['ens_kw'].mean():.1f} kWh, "
+            f"max {bad['ens_kw'].max():.1f} kWh; SoC en piso en el "
+            f"{at_floor:.0f}% de esas horas; diésel medio esas horas "
+            f"{bad['diesel_kw'].mean():.0f} kW, descarga media "
+            f"{bad['discharge_kw'].mean():.1f} kW.")
+    if not any_ens:
+        out.append("Sin ENS físico en ninguna celda: nada que diagnosticar.")
+    out.append("")
+    return out
+
+
 def _write_table(mets: pd.DataFrame, estr: pd.DataFrame,
                  paired: pd.DataFrame, days: pd.DatetimeIndex,
-                 initial_soc: float, out_dir: Path):
+                 initial_soc: float, out_dir: Path,
+                 hours: dict[tuple[str, str], pd.DataFrame] | None = None):
     cap = MICROGRID["battery"]["capacity_kwh"]
     ref = 0.65 * cap
     L = ["# Experimento A2 — Estocástico bajo escasez de red y adversidad",
@@ -321,7 +375,13 @@ def _write_table(mets: pd.DataFrame, estr: pd.DataFrame,
     L += ["",
           "Figuras: `expA2_figura_riesgo.png` (media/CVaR_80 y estratos PV), "
           "`expA2_figura_ens.png` (ENS y déficit máximo).",
-          "Limitación: el costo fijo de red (40 COP/h) se sigue cargando incluso "
+          ""]
+    if hours:
+        L += diagnose_ens(hours)
+    else:
+        L += ["## Diagnóstico horario del ENS", "",
+              "_Sin trazas horarias (corrida particionada)._", ""]
+    L += ["Limitación: el costo fijo de red (40 COP/h) se sigue cargando incluso "
           "en isla (model_builder intacto); iguala a todas, no sesga el ranking. "
           "En isla/grid10 el costo MPC está dominado por el ENS penalizado a "
           "5,000 COP/kWh: comparar también el ENS físico (kWh), no solo COP."]
@@ -342,6 +402,12 @@ def main() -> int:
                          "modo, p.ej. --modes isla --tag isla). Con tag solo "
                          "se escribe expA2_daily_<tag>.csv; el merge posterior "
                          "genera métricas/figuras/tabla globales.")
+    ap.add_argument("--pv-source", type=str, default="mongo",
+                    choices=["mongo", "era5"],
+                    help="PV realizado: 'mongo' (mediciones; default) o 'era5' "
+                         "(planta calibrada sobre ERA5 uniforme en la ventana; "
+                         "precedente: validación ExpA-3d. Necesario para "
+                         "ventanas >15 días sin cobertura Mongo).")
     args = ap.parse_args()
 
     days = _window(args.days, args.start_date)
@@ -349,7 +415,15 @@ def main() -> int:
     logger.info("Periodo A2: %s -> %s (%d dias) | modos %s | estr %s",
                 days[0], end, len(days), args.modes, args.strategies)
     load_real = load_realized_demand(days[0], end)
-    pv_real = load_realized_pv(days[0], end)
+    if args.pv_source == "era5":
+        from optimization.experiments.data_loader import (
+            load_realized_climate, load_pv_plant)
+        logger.info("PV realizado: planta calibrada sobre ERA5 (uniforme, "
+                     "sin Mongo)")
+        climate = load_realized_climate(days[0], end)
+        pv_real = load_pv_plant().predict_band(climate)["P50"].clip(lower=0.0)
+    else:
+        pv_real = load_realized_pv(days[0], end)
     logger.info("Demanda: %.1f kWh/dia | PV: %.1f kWh/dia | SOC ini %.2f",
                 load_real.sum() / len(days), pv_real.sum() / len(days),
                 args.initial_soc)
@@ -359,16 +433,23 @@ def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     cells = []
+    hours = {}
     for mode in args.modes:
         gmax = GRID_MODES[mode]
         for strat in args.strategies:
             logger.info("Modo %s estrategia %s ...", mode, strat)
             prov = mpc_pi_provider if strat == "mpc-pi" else provider
-            cell = run_cell(strat, gmax, days, pv_real, load_real, prov,
-                            args.initial_soc)
+            cell, hourly = run_cell(strat, gmax, days, pv_real, load_real,
+                                    prov, args.initial_soc)
             cell.insert(0, "estrategia", strat)
             cell.insert(0, "modo", mode)
             cells.append(cell)
+            hourly.insert(0, "estrategia", strat)
+            hourly.insert(0, "modo", mode)
+            hours[(mode, strat)] = hourly
+            _htag = f"{args.tag}_" if args.tag else ""
+            hourly.to_csv(OUT_DIR / f"expA2_hourly_{_htag}{mode}_{strat}.csv",
+                           index=False)
             logger.info("  %s/%s: costo %.0f norm %.0f ENS %.0f viol %d",
                         mode, strat, cell["costo_total"].sum(),
                         cell["costo_norm"].sum(), cell["ens_kwh"].sum(),
@@ -385,7 +466,8 @@ def main() -> int:
     paired = paired_test(daily)
     _fig_riesgo(mets, estr, OUT_DIR)
     _fig_ens(mets, OUT_DIR)
-    _write_table(mets, estr, paired, days, args.initial_soc, OUT_DIR)
+    _write_table(mets, estr, paired, days, args.initial_soc, OUT_DIR,
+                 hours)
     logger.info("Salidas A2 en %s", OUT_DIR)
     return 0
 
