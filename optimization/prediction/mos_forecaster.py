@@ -64,7 +64,10 @@ _FEAT_NAMES = ["proxy_ecmwf", "v1", "pers_h24", "ghi_toa", "hora",
 # ECMWF en vivo: variables pedidas -> tag de proxy/feature.
 _ECMWF_COLS = {"shortwave_radiation": "ghi", "cloud_cover": "nubes",
                "temperature_2m": "temp", "wind_speed_10m": "viento",
-               "relative_humidity_2m": "rh", "surface_pressure": "pres"}
+               "relative_humidity_2m": "rh", "surface_pressure": "pres",
+               "precipitation": "precip"}
+# Origen del pass-through (NO _PROXY: precipitation->ghi copiaría GHI crudo).
+_PASS_SRC = {"cloud_cover": "nubes", "precipitation": "precip"}
 _MOS_TARGETS = ["shortwave_radiation", "direct_normal_irradiance",
                 "diffuse_radiation", "temperature_2m",
                 "relative_humidity_2m", "cloud_cover",
@@ -246,8 +249,8 @@ class MOSClimateForecaster(ClimateForecaster):
         return df
 
     # ------------------------------------------------------------------ #
-    def _ecmwf_live(self, start: pd.Timestamp, hours: int) -> pd.DataFrame:
-        """ECMWF IFS en vivo (proxy + contexto). Reintentos con backoff (SPEC)."""
+    def _ecmwf_frame(self) -> pd.DataFrame:
+        """ECMWF IFS en vivo completo (4 días). Reintentos con backoff (SPEC)."""
         import requests
         params = dict(
             latitude=float(self.site_cfg["latitude"]),
@@ -264,20 +267,65 @@ class MOSClimateForecaster(ClimateForecaster):
                 r.raise_for_status()
                 fc = r.json()["hourly"]
                 idx = pd.to_datetime(fc["time"]).tz_localize("America/Bogota")
-                out = pd.DataFrame(
+                return pd.DataFrame(
                     {tag: pd.to_numeric(fc[col], errors="coerce")
                      for col, tag in _ECMWF_COLS.items()}, index=idx)
-                out = out.loc[(out.index >= start)
-                              & (out.index < start + pd.Timedelta(hours=hours))]
-                if len(out) < hours:
-                    raise RuntimeError(
-                        f"ECMWF en vivo cubre {len(out)}h < {hours}h")
-                return out
             except Exception as exc:  # noqa: BLE001 - reintento ciego + raise
                 last = exc
                 logger.warning("MOS ECMWF intento %d/6: %s", attempt + 1, exc)
                 time.sleep(min(2 ** attempt, 30))
         raise RuntimeError(f"MOS: ECMWF en vivo inaccesible: {last}")
+
+    def _ecmwf_live(self, start: pd.Timestamp, hours: int) -> pd.DataFrame:
+        """ECMWF IFS en vivo recortado a [start, start+hours)."""
+        out = self._ecmwf_frame()
+        out = out.loc[(out.index >= start)
+                      & (out.index < start + pd.Timedelta(hours=hours))]
+        if len(out) < hours:
+            raise RuntimeError(
+                f"ECMWF en vivo cubre {len(out)}h < {hours}h")
+        return out
+
+    def _proxy_df(self, now_hour: pd.Timestamp, horizon: int,
+                  live: bool) -> pd.DataFrame:
+        """Proxy por hora futura: ECMWF en vivo, o archive+en vivo partido.
+
+        El archive ERA5 no sirve fechas futuras (400): si la ventana
+        [now_hour, +horizon) cruza 'ahora', la parte pasada sale del archive
+        (misma familia que el proxy de entrenamiento) y la futura del ECMWF
+        en vivo. `live=True` (operación) usa solo ECMWF.
+        """
+        tz = self.site_cfg.get("timezone", "America/Bogota")
+        end = now_hour + pd.Timedelta(hours=horizon - 1)
+        if live:
+            return self._ecmwf_live(now_hour, horizon)
+        cut = pd.Timestamp.now(tz=tz).floor("h")
+        parts = []
+        if now_hour < cut:
+            hi = min(end, cut - pd.Timedelta(hours=1))
+            client = OpenMeteoClient(
+                latitude=self.site_cfg["latitude"],
+                longitude=self.site_cfg["longitude"], timezone=tz,
+                variables=list(_ECMWF_COLS))
+            arch = client.fetch_archive(
+                now_hour.strftime("%Y-%m-%d"), hi.strftime("%Y-%m-%d"))
+            if arch.empty:
+                raise RuntimeError("MOS: archive sin datos para el proxy")
+            arch = arch.loc[(arch.index >= now_hour) & (arch.index <= hi)]
+            parts.append(pd.DataFrame(
+                {tag: _medfill(arch[col]) for col, tag in _ECMWF_COLS.items()
+                 if col in arch}, index=arch.index))
+        if end >= cut:
+            lo = max(now_hour, cut)
+            frame = self._ecmwf_frame()
+            parts.append(frame.loc[(frame.index >= lo) & (frame.index <= end)])
+        if not parts:
+            raise RuntimeError("MOS: ventana de proxy vacía")
+        proxy_src = pd.concat(parts)
+        for tag in _ECMWF_COLS.values():
+            if tag not in proxy_src:
+                proxy_src[tag] = 0.0
+        return proxy_src
 
     # ------------------------------------------------------------------ #
     def _engineer_ctx(self, ctx: pd.DataFrame) -> pd.DataFrame:
@@ -390,41 +438,16 @@ class MOSClimateForecaster(ClimateForecaster):
         lat = float(self.site_cfg["latitude"])
         fut_toa, _ = _sol_geo(fut_idx[:horizon], lat)
         use_live = anchor is None
-        if use_live:
-            proxy_src = self._ecmwf_live(now_hour, horizon)
-            src_note = "ecmwf_ifs025 en vivo"
-        else:
-            # Sin ECMWF operativo histórico: proxy = ERA5 archive (misma
-            # familia que el proxy de entrenamiento; ver advertencia del
-            # módulo). Solo válido para backtest, no para operación.
-            client = OpenMeteoClient(
-                latitude=self.site_cfg["latitude"],
-                longitude=self.site_cfg["longitude"], timezone=tz,
-                variables=list(_ECMWF_COLS))
-            arch = client.fetch_archive(
-                now_hour.strftime("%Y-%m-%d"),
-                (now_hour + pd.Timedelta(hours=horizon - 1)).strftime(
-                    "%Y-%m-%d"))
-            if arch.empty:
-                raise RuntimeError("MOS: archive sin datos para el proxy")
-            arch = arch.loc[(arch.index >= now_hour)
-                            & (arch.index < now_hour + pd.Timedelta(
-                                hours=horizon))]
-            proxy_src = pd.DataFrame(
-                {tag: _medfill(arch[col]) for col, tag in _ECMWF_COLS.items()
-                 if col in arch},
-                index=arch.index)
-            for tag in _ECMWF_COLS.values():
-                if tag not in proxy_src:
-                    proxy_src[tag] = 0.0
-            src_note = "ERA5 archive como proxy (backtest)"
-        logger.info("MOS proxy: %s (%dh)", src_note, horizon)
+        proxy_src = self._proxy_df(now_hour, horizon, live=use_live)
+        logger.info("MOS proxy: %s (%dh)",
+                    "ecmwf_ifs025 en vivo" if use_live
+                    else "archive+en vivo (backtest)", horizon)
         ctx_hour = ctx.index.hour.values
         central = {}
         for var in _MOS_TARGETS:
             if var in _PASS_THROUGH:
                 central[var] = np.nan_to_num(
-                    proxy_src[_PROXY[var]].values[:horizon]).astype(float)
+                    proxy_src[_PASS_SRC[var]].values[:horizon]).astype(float)
                 continue
             tag = _PROXY[var]
             proxy = np.nan_to_num(proxy_src[tag].values[:horizon]).astype(

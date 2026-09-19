@@ -405,12 +405,13 @@ class PatchTSTClimateForecaster(ClimateForecaster):
 
 
 # --------------------------------------------------------------------------- #
-from optimization.prediction.mos_forecaster import MOSClimateForecaster
+# NOTA (Cambio 02): "mos" NO se importa a nivel de módulo para evitar el
+# import circular mos_forecaster <-> forecaster (el import directo de
+# mos_forecaster fallaba). Se resuelve perezosamente en get_climate_provider.
 _PROVIDERS = {
     "openmeteo": OpenMeteoClimateForecaster,
     "timesfm": TimesFMClimateForecaster,
     "patchtst": PatchTSTClimateForecaster,
-    "mos": MOSClimateForecaster,
 }
 
 
@@ -418,6 +419,13 @@ def get_climate_provider(site_cfg: dict = None,
                          name: str | None = None) -> ClimateForecaster:
     """Factory: nombre o env FORECASTER (default openmeteo)."""
     name = (name or os.environ.get("FORECASTER") or "openmeteo").lower()
+    if name == "mos":
+        from optimization.prediction.mos_forecaster import (
+            MOSClimateForecaster,  # import perezoso: evita ciclo con forecaster
+        )
+        if site_cfg is None:
+            site_cfg = load_site(DEFAULT_SITE)["site"]
+        return MOSClimateForecaster(site_cfg)
     if name not in _PROVIDERS:
         logger.warning("FORECASTER=%s desconocido; usa openmeteo", name)
         name = "openmeteo"

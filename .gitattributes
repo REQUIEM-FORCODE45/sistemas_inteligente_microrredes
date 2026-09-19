@@ -1,0 +1,4 @@
+# Artefactos de modelo: sin conversión de fin de línea
+# (Cambio 02: git/CRLF corrompía los 10 LightGBM en Windows con autocrlf=true)
+optimization/prediction/mos/** -text
+*.pt binary
