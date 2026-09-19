@@ -98,3 +98,25 @@ Piso de batería: 40 kWh. SoC medido al inicio de cada hora.
 - **isla/S-MPC**: 3 h con ENS (horas: 13:00, 14:00, 16:00), media 1.2 kWh, max 2.3 kWh; SoC en piso en el 0% de esas horas; diésel medio esas horas 52 kW, descarga media 0.0 kW.
 
 Limitación: el costo fijo de red (40 COP/h) se sigue cargando incluso en isla (model_builder intacto); iguala a todas, no sesga el ranking. En isla/grid10 el costo MPC está dominado por el ENS penalizado a 5,000 COP/kWh: comparar también el ENS físico (kWh), no solo COP.
+
+## Sensibilidad a la fuente de PV realizado (spot-check 4 días, isla)
+
+Ventana 07-24→07-27 (4d, primeros de la ventana principal): misma configuración,
+solo cambia el PV realizado (mongo = sensores, 764 kWh; era5 = planta sobre
+ERA5, 623 kWh). Spot-check honesto por throughput del solver (~50 s/solve en
+isla): no es estadística de 14 días, es robustez direccional.
+
+| Estrategia | ENS mongo | ENS era5 | Norma mongo | Norma era5 |
+|:-----------|----------:|---------:|------------:|-----------:|
+| S-MPC | 0.0 | 0.0 | 278,690 | 278,690 |
+| D-MPC | 0.0 | 0.0 | 276,330 | 276,330 |
+| HEUR | 0.0 | 0.0 | 293,329 | 295,494 |
+| MPC-PI | 0.0 | 0.0 | 240,582 | 242,187 |
+
+Lectura: el orden se conserva en ambas fuentes (MPC-PI < D-MPC ≤ S-MPC < HEUR).
+S-MPC/D-MPC dan costos bit-idénticos entre fuentes: con diésel sobredimensionado
+e import 0, el PV extra de mongo (141 kWh) se absorbe como vertido sin costo
+(export_tariff=0), no como ahorro. HEUR y MPC-PI sí se mueven (su regla/cota usan
+el realizado directo). Conclusión: el hallazgo isla no depende de la fuente de PV
+en esta ventana soleada (ENS 0 en ambas; la ventana completa de 14 días con días
+nublados es donde aparece el ENS 3.5/10.6 de la tabla principal).

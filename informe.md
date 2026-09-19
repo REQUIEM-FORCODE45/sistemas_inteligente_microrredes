@@ -695,4 +695,51 @@ el insert en Mongo Atlas y la red.
   serie realizada como forecast (cota superior genuina); (4) el SOC inicial
   es fijo (0.65) e idéntico para todas las estrategias (reproducible).
 
+### 7.5. Experimento A2 — Valor del estocástico bajo escasez (riesgo, no solo media)
+
+El Exp A (red 30 kW) no distingue S-MPC de D-MPC (+0.5% a favor del determinista,
+p=0.003 en test pareado: con red suficiente lo determinista gana). El A2 mide
+si el estocástico paga bajo **escasez de red** (modos grid30/grid10/isla, 14 días
+07-24→08-06, lazo continuo, mismo pronóstico y SOC inicial 0.65) con métricas de
+**riesgo**: CVaR_80 del costo diario, ENS total y déficit máximo, más test-t
+pareado por día (se reporta el p-valor sin afirmar significancia).
+
+- **Cota válida**: MPC-PI (forecast = serie realizada, cola perfecta) es mínimo
+  en los 3 modos (normalizado 771,650 / 795,276 / 844,381). En isla su ENS es
+  0.04 kWh ≈ 0: la cota es genuina.
+- **Isla, S-MPC vs D-MPC**: ENS 3.5 vs 10.6 kWh (**−67%**), CVaR_80 71,752 vs
+  80,463 (**−10.8%**), costo normalizado 936,035 vs 964,807 (**−3.0%**).
+- **Trade-off explícito**: el S-MPC quema 8,006 vs 7,870 L de diésel (**+1.7%**)
+  para recortar el ENS 67%: paga combustible por robustez, no por energía.
+- **Diagnóstico horario del ENS**: residual diurno (09–17h, media ~1.2 kWh) con
+  diésel ~52 kW (cerca del mínimo técnico 50) y SoC en piso el 0% de esas horas:
+  el MPC retiene reserva y deja micro-déficits; la hipótesis de pico vespertino
+  con batería vacía queda **refutada**. (El ENS "sistemático" de corridas previas
+  —152 kWh/día idéntico en las 3 MPC— era un artefacto: `setub(1e6)` anulaba el
+  límite isla y el plan importaba 29 kW que el backtest recortaba; corregido.)
+- **p=0.206** en el pareado S−D de isla (Δ −2,055 ± 1,545 COP/día): no
+  distinguible del ruido con n=14. **Recomendación**: liderar con métricas de
+  riesgo (CVaR, ENS) y presentar la media con su intervalo, no como victoria.
+- **Solo en escasez**: en grid30 el D-MPC es mejor con p=0.003 (+414 COP/día);
+  en grid10 son indistinguibles (p=0.78). El valor del S-MPC aparece solo
+  cuando la red escasea.
+- **Convención de fuente (principal vs sensibilidad)**: la convención principal
+  es **mongo** (sensores del sistema: el lazo se evalúa contra lo medido);
+  **era5** (planta calibrada sobre ERA5) es solo sensibilidad. Spot-check 4 días
+  en isla (07-24→07-27): el orden se conserva en ambas fuentes
+  (MPC-PI < D-MPC ≤ S-MPC < HEUR; ENS 0 en las 4) y S/D dan costos idénticos
+  entre fuentes (el PV extra se vierte sin costo con export_tariff=0). Ver
+  subsección de sensibilidad en `expA2_table.md`.
+
+**Convención de fuente de PV realizado (principal vs sensibilidad)**: la
+convención **principal es mongo** (mediciones de los sensores del sistema: el
+backtest evalúa contra lo que la microred realmente midió). La variante
+**era5** (planta PV calibrada sobre reanálisis ERA5, coherente con la cadena de
+pronóstico que también nace de modelos) se usa solo como **análisis de
+sensibilidad** en isla; si confirma el orden S<D en ENS y costo, el hallazgo es
+robusto a la fuente (ver subsección de sensibilidad en `expA2_table.md`).
+
+Salidas: `results/pasto_narino/experiments/expA2_*` (diaria, horaria por
+modo/estrategia, métricas, figuras de riesgo/ENS, tabla markdown).
+
 *Documento generado el 30 de mayo de 2026. Plataforma en desarrollo activo.*
