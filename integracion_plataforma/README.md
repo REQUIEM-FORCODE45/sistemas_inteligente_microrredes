@@ -13,11 +13,26 @@ y se planifica **antes** de crearse.
 
 | # | Carpeta | Objetivo | Estado |
 |---|---|---|---|
-| **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** (corrector LightGBM sobre ECMWF) como provider de clima + comparativa con el protocolo del repo | 🟢 **Listo para implementar** |
+| **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** (corrector LightGBM sobre ECMWF) como provider de clima + comparativa con el protocolo del repo | 🟡 PASO 1 **implementado y auditado** (`2d9f816`) · **PASO 2 pendiente** |
+| **02** | `cambio_02_correcciones_mos/` | Corregir los 3 defectos hallados en la revisión QA del Cambio 01 | 🟢 **Listo para implementar** |
 
-> Los cambios siguientes (servicio de escenarios, nodo LLM-director, bucle evolutivo)
-> **no están planeados todavía** y por eso **no existen carpetas** para ellos. Se
-> crearán cuando su diseño esté cerrado.
+**Orden**: 02 (correcciones, desbloquea) → PASO 2 del 01 (comparativa).
+
+> Los cambios posteriores a la Fase 1 (servicio de escenarios, nodo LLM-director,
+> bucle evolutivo) **no están planeados todavía** y por eso **no existen carpetas**
+> para ellos. Se crearán cuando su diseño esté cerrado.
+
+### Revisión QA del Cambio 01
+
+`cambio_01_mos_forecaster/REVISION_QA.md` — 3 defectos (2 bloqueantes) + PASO 2 sin
+implementar, con causa raíz demostrada y arreglo exacto para cada uno.
+
+| # | Defecto | Severidad |
+|---|---|---|
+| 1 | git/CRLF corrompe los 10 modelos LightGBM | 🔴 Crítica (Windows) |
+| 2 | `precipitation` devuelve GHI crudo | 🔴 Crítica |
+| 3 | Import circular `mos_forecaster` ↔ `forecaster` | 🟠 Media |
+| 4 | PASO 2 (comparativa) sin implementar | ⚪ Pendiente |
 
 ---
 
