@@ -1,0 +1,71 @@
+{
+  "paquete": "MOS Fase 1 — integracion SIGE",
+  "origen": "C:\\Users\\2D\\tesis-microrred",
+  "nota": "Modelos YA ENTRENADOS. No reentrenar.",
+  "archivos": {
+    "models/lgbm_mos_shortwave_radiation.txt": {
+      "bytes": 2711851,
+      "sha256": "8c2fd217aa0c710e"
+    },
+    "models/lgbm_mos_direct_normal_irradiance.txt": {
+      "bytes": 2716386,
+      "sha256": "61fcc016122a225a"
+    },
+    "models/lgbm_mos_diffuse_radiation.txt": {
+      "bytes": 2729526,
+      "sha256": "945ada7c0c7dadd5"
+    },
+    "models/lgbm_mos_temperature_2m.txt": {
+      "bytes": 2828693,
+      "sha256": "1c6db6dfd7c9aa21"
+    },
+    "models/lgbm_mos_relative_humidity_2m.txt": {
+      "bytes": 2802273,
+      "sha256": "c15a1ab8d59b8a79"
+    },
+    "models/lgbm_mos_cloud_cover.txt": {
+      "bytes": 2740143,
+      "sha256": "9ae2559bff9f22c2"
+    },
+    "models/lgbm_mos_wind_speed_100m.txt": {
+      "bytes": 2844200,
+      "sha256": "26a91b9e1d109375"
+    },
+    "models/lgbm_mos_wind_speed_10m.txt": {
+      "bytes": 2851675,
+      "sha256": "5a14d2a0822b2722"
+    },
+    "models/lgbm_mos_surface_pressure.txt": {
+      "bytes": 2870723,
+      "sha256": "4d530fa1b2831b6b"
+    },
+    "models/lgbm_mos_precipitation.txt": {
+      "bytes": 2813881,
+      "sha256": "4e288e0434a593ac"
+    },
+    "itransformer/modelo_b.pt": {
+      "bytes": 1996373,
+      "sha256": "20f539a387eacd95"
+    },
+    "itransformer/config_modelos.json": {
+      "bytes": 9154,
+      "sha256": "bd80c79b2f190551"
+    },
+    "reference/prediccion_en_vivo.py": {
+      "bytes": 12239,
+      "sha256": "35270ea4b36bbe7a"
+    },
+    "reference/mos_multivariable.py": {
+      "bytes": 10510,
+      "sha256": "8595e5596efd0130"
+    },
+    "SPEC_MOS_FASE1.md": {
+      "bytes": 17397,
+      "sha256": "9ff5399c5db8a7d1"
+    },
+    "README.md": {
+      "bytes": 6009,
+      "sha256": "3a4bfc898eb4fa77"
+    }
+  }
+}
