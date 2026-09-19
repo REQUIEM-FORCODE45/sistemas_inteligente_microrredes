@@ -405,10 +405,12 @@ class PatchTSTClimateForecaster(ClimateForecaster):
 
 
 # --------------------------------------------------------------------------- #
+from optimization.prediction.mos_forecaster import MOSClimateForecaster
 _PROVIDERS = {
     "openmeteo": OpenMeteoClimateForecaster,
     "timesfm": TimesFMClimateForecaster,
     "patchtst": PatchTSTClimateForecaster,
+    "mos": MOSClimateForecaster,
 }
 
 
