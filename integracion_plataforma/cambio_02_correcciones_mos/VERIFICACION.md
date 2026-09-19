@@ -1,12 +1,11 @@
 # VERIFICACIÓN — Cambio 02 (correcciones del MOS)
 
-**Commit verificado**: `b67ba09` (`fix(mos): CRLF vía .gitattributes + precip
-pass-through real + import perezoso`).
-**Método**: pruebas ejecutadas sobre un **clon limpio** del repo (no sobre el
-working tree local, que todavía arrastra el estado anterior).
+**Commits verificados**: `b67ba09` (fixes) y `b92c72c` (cierre del hueco de `.gitattributes`).
+**Método**: pruebas ejecutadas sobre **clones limpios** del repo (no sobre un working
+tree heredado), más la comprobación de salud del clon de trabajo.
 
-**Veredicto**: los 3 fixes son **correctos** y la regresión es **cero**. Quedan
-**2 pendientes** (uno en el repo, uno local).
+**Veredicto**: ✅ **Cambio 02 CERRADO**. Los 3 fixes correctos, regresión **cero**, y el
+hueco del `.gitattributes` corregido y verificado.
 
 ---
 
@@ -31,7 +30,7 @@ justo el detalle que evita la degradación silenciosa a `openmeteo`. ✔️
 | Máximo horario | 933 | **0.30** mm/h |
 | ¿`precipitation == GHI`? | Sí (bug) | **False** |
 | Negativos | — | **ninguno** (rango 0.00–0.30) |
-| En vivo (ECMWF, 24 h) | — | **0.70 mm**, `≠ GHI`, 0 NaN, tz OK |
+| En vivo (ECMWF, 24 h) | — | **0.70–0.80 mm**, `≠ GHI`, 0 NaN, tz OK |
 
 Implementación revisada: `_ECMWF_COLS` ahora pide `"precipitation": "precip"` y el
 pass‑through usa el mapa propio `_PASS_SRC` (no `_PROXY`). El vector de features del
@@ -43,7 +42,7 @@ entrenamiento se reproduce. ✔️
 ## ✅ Regresión — CERO
 
 Comparación **elemento a elemento** (arrays de 72×10) entre el commit anterior
-(`2d9f816`) y el actual (`b67ba09`), mismo `anchor=2026-09-10`, mismos modelos:
+(`2d9f816`) y `b67ba09`, mismo `anchor=2026-09-10`, mismos modelos:
 
 ```
 variable                         max|delta|   veredicto
@@ -64,49 +63,46 @@ lo buscado. ✔️
 
 ---
 
-## 🟠 Fix 1 — `.gitattributes` · PARCIAL
+## ✅ Fix 1 — `.gitattributes` · RESUELTO (`b92c72c`)
 
-**Lo correcto**: el archivo está bien escrito y **funciona**:
-- En un **clon nuevo** (con `autocrlf=true`, igual que una máquina nueva) los modelos
-  quedan en **LF (0 CRs)** y **cargan 10/10** con LightGBM. ✔️
+La regla `optimization/prediction/mos/** -text` **no cubría las copias del paquete**
+(`integracion_plataforma/…/models/`), que es de donde se copian los modelos.
+Con `b92c72c` se añadió `integracion_plataforma/** -text`.
 
-**Pendiente 1 — hueco en el `.gitattributes`** (a corregir en el repo):
+**Verificación en clon NUEVO** (con `autocrlf=true`, como una máquina recién clonada):
 
-La regla `optimization/prediction/mos/** -text` **no cubre las copias del paquete**:
+| Carpeta | CRs antes | CRs ahora | Modelos que cargan |
+|---|---|---|---|
+| `optimization/prediction/mos/models/` | 9,649 | **0** | **10/10** |
+| `integracion_plataforma/cambio_01_mos_forecaster/models/` | 9,649 | **0** | **10/10** |
 
-```
-integracion_plataforma/cambio_01_mos_forecaster/models/lgbm_mos_shortwave_radiation.txt
-  → CRs = 9,649  (CRLF)  → LightGBM muere
-```
+**Clon de trabajo** (tras la renormalización local `rm` + `git checkout`):
 
-Es la **fuente de la que se copian los modelos** — un clon nuevo la entrega rota.
-Ampliar la regla:
+| Carpeta | CRs | Modelos que cargan |
+|---|---|---|
+| `optimization/prediction/mos/models/` | 0 | **10/10** |
+| `integracion_plataforma/cambio_01_mos_forecaster/models/` | 2 | **10/10** |
 
-```
-optimization/prediction/mos/** -text
-integracion_plataforma/** -text
-*.pt binary
-```
-
-**Pendiente 2 — renormalizar este clon** (operación local, una vez por máquina):
-
-El `.gitattributes` solo se aplica al **escribir** archivos. Como la pull no
-re-escribe los `.txt` (no cambiaron en el commit), este clon sigue con CRLF:
-
-```bash
-rm -rf optimization/prediction/mos/models/*.txt
-git checkout -- optimization/prediction/mos/models/
-```
-
-Sin este paso, el provider **sigue fallando en esta máquina** aunque el repo esté bien.
+> ⚠️ **Nota operativa**: el `.gitattributes` solo actúa al **escribir** archivos. Un
+> clon que ya tenía los `.txt` en CRLF necesita **una vez** por máquina:
+> ```bash
+> rm -rf optimization/prediction/mos/models/*.txt \
+>        integracion_plataforma/cambio_01_mos_forecaster/models/*.txt
+> git checkout -- optimization/prediction/mos/models/ \
+>                 integracion_plataforma/cambio_01_mos_forecaster/models/
+> ```
 
 ---
 
-## Resumen
+## Resumen final
 
 | # | Fix | Estado |
 |---|---|---|
-| 1 | CRLF vía `.gitattributes` | 🟠 Correcto pero **parcial** (hueco en `integracion_plataforma/` + renorm. local) |
+| 1 | CRLF vía `.gitattributes` (provider + paquete) | ✅ **Resuelto y verificado en clon nuevo** |
 | 2 | Precipitación pass-through | ✅ Resuelto y verificado |
 | 3 | Import perezoso | ✅ Resuelto y verificado |
 | — | Regresión (9 targets) | ✅ **Cero** (0.000e+00) |
+| — | Renormalización del clon de trabajo | ✅ Hecha |
+
+**Cambio 02 cerrado.** Siguiente: PASO 2 (comparativa) del Cambio 01 —
+spec en `../cambio_01_mos_forecaster/SPEC_MOS_FASE1.md §4`.

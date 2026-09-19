@@ -13,10 +13,12 @@ y se planifica **antes** de crearse.
 
 | # | Carpeta | Objetivo | Estado |
 |---|---|---|---|
-| **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** (corrector LightGBM sobre ECMWF) como provider de clima + comparativa con el protocolo del repo | 🟡 PASO 1 **implementado y auditado** (`2d9f816`) · **PASO 2 pendiente** |
-| **02** | `cambio_02_correcciones_mos/` | Corregir los 3 defectos hallados en la revisión QA del Cambio 01 | 🟢 **Listo para implementar** |
+| **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** como provider de clima (PASO 1) + comparativa con el protocolo del repo (PASO 2) | 🟡 PASO 1 ✅ implementado, corregido y auditado · **PASO 2** 🟢 listo → `SPEC_PASO2.md` |
+| **02** | `cambio_02_correcciones_mos/` | Corregir los 3 defectos hallados en la revisión QA del Cambio 01 | ✅ **Cerrado y verificado** (`b92c72c`) |
 
-**Orden**: 02 (correcciones, desbloquea) → PASO 2 del 01 (comparativa).
+**Orden**: Cambio 02 ✅ **cerrado** → **siguiente a programar**: **PASO 2** del
+Cambio 01 (comparativa **+ panel en la plataforma**, en un solo paso unificado) —
+spec en `cambio_01_mos_forecaster/SPEC_PASO2.md`.
 
 > Los cambios posteriores a la Fase 1 (servicio de escenarios, nodo LLM-director,
 > bucle evolutivo) **no están planeados todavía** y por eso **no existen carpetas**
