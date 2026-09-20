@@ -326,7 +326,11 @@ class MOSClimateForecaster(ClimateForecaster):
             client = OpenMeteoClient(
                 latitude=self.site_cfg["latitude"],
                 longitude=self.site_cfg["longitude"], timezone=tz,
-                variables=list(_ECMWF_COLS))
+                variables=list(_ECMWF_COLS),
+                # Misma fuente que el entrenamiento (ECMWF IFS, no ERA5):
+                # si no, el proxy ES la verdad y el MOS corrige una entrada
+                # perfecta (VERIFICACION_PASO2.md Problema 2).
+                models="ecmwf_ifs025")
             arch = client.fetch_archive(
                 now_hour.strftime("%Y-%m-%d"), hi.strftime("%Y-%m-%d"))
             if arch.empty:

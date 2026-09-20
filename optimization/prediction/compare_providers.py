@@ -260,6 +260,8 @@ def _figuras(det: pd.DataFrame, outdir: str):
         sub = det[det["variable"] == var]
         for c in conts:
             s = sub[sub["contendiente"] == c].sort_values("horizonte_h")
+            if s.empty:
+                continue  # leyenda solo con series dibujadas
             ax.plot(s["horizonte_h"], s["mae"], marker="o", ms=4,
                     color=colors.get(c, "#000000"), label=c)
         ax.set_title(f"MAE vs horizonte — {var}")
@@ -270,21 +272,36 @@ def _figuras(det: pd.DataFrame, outdir: str):
     fig.savefig(os.path.join(outdir, "fig_compare_ghi.png"), dpi=150)
     plt.close(fig)
 
+    # Barras de SKILL vs persistencia (adimensional: un solo eje válido).
+    # N/A explícitos: mos en cloud_cover/precipitation (pass-through, no hay
+    # habilidad que medir) y combos sin filas (crudo sin DNI/DHI/precip).
     h24 = det[det["horizonte_h"] == 24]
     variables = sorted(h24["variable"].unique())
+    ref = h24[h24["contendiente"] == "persistence"].set_index("variable")["mae"]
     x = np.arange(len(variables))
-    w = 0.8 / max(1, len(conts))
-    fig, ax = plt.subplots(figsize=(13, 5))
-    for i, c in enumerate(conts):
-        vals = [h24[(h24["contendiente"] == c)
-                    & (h24["variable"] == v)]["mae"].mean()
-                for v in variables]
-        ax.bar(x + (i - len(conts) / 2 + 0.5) * w, vals, w, label=c,
+    have = [c for c in conts if c != "persistence" and not h24[
+        h24["contendiente"] == c].empty]
+    w = 0.8 / max(1, len(have))
+    fig, ax = plt.subplots(figsize=(14, 5))
+    for i, c in enumerate(have):
+        vals = []
+        for v in variables:
+            if c == "mos" and v in ("cloud_cover", "precipitation"):
+                vals.append(np.nan)  # N/A: pass-through, no skill
+                continue
+            r = h24[(h24["contendiente"] == c) & (h24["variable"] == v)]
+            b = ref.get(v)
+            vals.append(np.nan if r.empty or not b else
+                        1 - float(r["mae"].mean()) / b)
+        ax.bar(x + (i - len(have) / 2 + 0.5) * w, vals, w, label=c,
                color=colors.get(c, "#000000"))
+    ax.axhline(0, color="#111827", lw=1)
     ax.set_xticks(x, variables, rotation=30, ha="right", fontsize=8)
-    ax.set_title("MAE por variable a 24 h")
+    ax.set_title("Skill vs persistencia por variable (h=24; N/A = sin medición)")
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3, axis="y")
+    fig.text(0.01, 0.01, "MOS cloud/precip: pass-through (N/A). NWP corregido "
+             "con ML (same-family ERA5/ECMWF).", fontsize=8, color="#64748b")
     fig.tight_layout()
     fig.savefig(os.path.join(outdir, "fig_compare_bars.png"), dpi=150)
     plt.close(fig)
