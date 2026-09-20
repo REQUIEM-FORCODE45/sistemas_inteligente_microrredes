@@ -216,7 +216,15 @@ class MOSClimateForecaster(ClimateForecaster):
 
     # ------------------------------------------------------------------ #
     def _context_df(self, anchor: pd.Timestamp | None = None) -> pd.DataFrame:
-        """Contexto observado (Open-Meteo past_days), igual que PatchTST."""
+        """Contexto observado: past_days en vivo, archive si hay `anchor`.
+
+        Opción B (PASO 2): con anchor pasado, el contexto sale del archive
+        ERA5 (ventana [anchor-34d, anchor-1h]) en vez del forecast API (tope
+        92 días que solo llega ~70 días atrás). Así el backtest cubre todo
+        2025 y contexto+proxy+verdad quedan todos en ERA5. La ruta en vivo
+        (`anchor is None`) NO se toca. El corte `index < anchor` se conserva
+        siempre (anti-fuga).
+        """
         client = OpenMeteoClient(
             latitude=self.site_cfg["latitude"],
             longitude=self.site_cfg["longitude"],
@@ -229,6 +237,18 @@ class MOSClimateForecaster(ClimateForecaster):
             if anchor.tz is None:
                 anchor = anchor.tz_localize(client.timezone)
             now_hour = anchor.floor("h")
+            start = (now_hour - pd.Timedelta(
+                hours=self.CONTEXT_LENGTH + 24 * 13)).strftime("%Y-%m-%d")
+            df = client.fetch_archive(
+                start, (now_hour - pd.Timedelta(hours=1)).strftime("%Y-%m-%d"))
+            if df.empty:
+                raise RuntimeError("Contexto MOS vacío (archive sin datos)")
+            df = df.loc[df.index < now_hour]
+            if len(df) < self.CONTEXT_LENGTH:
+                raise RuntimeError(
+                    f"Contexto insuficiente: {len(df)}h < "
+                    f"{self.CONTEXT_LENGTH}h (anchor={now_hour}, archive)")
+            return df
         need_from = now_hour - pd.Timedelta(hours=self.CONTEXT_LENGTH + 24)
         base_days = self.CONTEXT_LENGTH // 24 + 1
         extra_days = max(0, int((pd.Timestamp.now(tz=client.timezone)
@@ -349,9 +369,10 @@ class MOSClimateForecaster(ClimateForecaster):
         ctx["doy_sin"] = np.sin(2 * np.pi * doy / 365.0)
         ctx["doy_cos"] = np.cos(2 * np.pi * doy / 365.0)
         if "shortwave_radiation" in ctx:
-            kt = np.where(ctx["ghi_toa"].values > 10,
-                          ctx["shortwave_radiation"].values
-                          / ctx["ghi_toa"].values, 0.0).clip(0, 1.2)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                kt = np.where(ctx["ghi_toa"].values > 10,
+                              ctx["shortwave_radiation"].values
+                              / ctx["ghi_toa"].values, 0.0).clip(0, 1.2)
         else:
             kt = np.zeros(len(ctx))
         ctx["kt"] = kt

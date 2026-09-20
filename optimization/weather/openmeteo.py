@@ -55,6 +55,9 @@ class OpenMeteoClient:
     timezone: str = DEFAULT_TZ
     variables: List[str] = field(default_factory=lambda: list(WEATHER_VARIABLES))
     session: _requests.Session = field(default_factory=_requests.Session)
+    # Modelo NWP (solo archive/forecast que lo soporten, p.ej. ecmwf_ifs025
+    # en archive para el contendiente crudo del PASO 2). None = default API.
+    models: Optional[str] = None
 
     # ------------------------------------------------------------------ #
     def _get_with_retry(self, url: str, params: dict, timeout: int = 60) -> dict:
@@ -78,12 +81,15 @@ class OpenMeteoClient:
         )
 
     def _base_params(self) -> dict:
-        return {
+        params = {
             "latitude": self.latitude,
             "longitude": self.longitude,
             "hourly": ",".join(self.variables),
             "timezone": self.timezone,
         }
+        if self.models:
+            params["models"] = self.models
+        return params
 
     # -- ARCHIVE (historico ERA5, para entrenar/calibrar/backfill) ------ #
     def fetch_archive(self, start_date: str, end_date: str) -> pd.DataFrame:

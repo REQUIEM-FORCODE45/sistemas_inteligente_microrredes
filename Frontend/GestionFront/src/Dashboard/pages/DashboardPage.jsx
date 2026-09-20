@@ -6,6 +6,7 @@ import { setOptimizationResult, setMpcStatus } from '../store/optimization/optim
 import { DispatchSchedule } from '../components/optimization/DispatchSchedule';
 import { DispatchByDevice } from '../components/optimization/DispatchByDevice';
 import { ExperimentPanel } from '../components/optimization/ExperimentPanel';
+import { ForecastComparisonPanel } from '../components/prediction/ForecastComparisonPanel';
 import ErrorBoundary from '../components/ErrorBoundary';
 import {
   Activity, Database, CloudSun, Gauge, BatteryCharging,
@@ -706,6 +707,10 @@ export default function DashboardPage() {
 
       <ErrorBoundary compact>
         <ExperimentPanel variant="side" />
+      </ErrorBoundary>
+
+      <ErrorBoundary compact>
+        <ForecastComparisonPanel variant="side" />
       </ErrorBoundary>
 
       {optimization.latestResult?.dispatch_plan ? (

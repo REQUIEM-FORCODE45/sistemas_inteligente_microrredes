@@ -33,7 +33,8 @@ def walk_forward_mae(climate: pd.DataFrame, train_h: int = 30 * 24,
                      step_h: int = 24, horizons=(1, 6, 12, 24),
                      baselines=("persistence", "climatology", "arima"),
                      arima_every: int = 1, daytime_only: bool = True,
-                     ghi_threshold: float = 50.0) -> pd.DataFrame:
+                     ghi_threshold: float = 50.0,
+                     providers=(), step_delay: float = 0.0) -> pd.DataFrame:
     """MAE por baseline, variable y horizonte (ventana movil temporal).
 
     En cada paso: entrena con los ultimos train_h y mide los proximos
@@ -43,15 +44,26 @@ def walk_forward_mae(climate: pd.DataFrame, train_h: int = 30 * 24,
     daytime_only: las variables RADIATIVAS se evaluan solo en horas diurnas
     (GHI_real > threshold) para no diluir con noches perfectas (HO1/HO2);
     el resto de variables incluye todas las horas.
+
+    `providers`: iterable de objetos con `.forecast(days, anchor=ts)` que
+    devuelven `ClimateForecast` (p.ej. MOS/PatchTST, PASO 2). Se instancian
+    FUERA (una vez) y se evalúan con el mismo bucle. Con `providers=()`
+    (default) el resultado es idéntico al anterior (regresión cero).
+    Columnas extra `se` (error cuadrático) y `err` (sesgo con signo) para
+    RMSE/bias/skill; `summarize()` las ignora.
     """
+    import time as _time
     rows = []
     n = len(climate)
     t = train_h
     step = 0
+    prov_list = list(providers or [])
     while t + max(horizons) < n:
         train = climate.iloc[t - train_h:t]
         actual = climate.iloc[t:t + max(horizons)]
+        anchor = climate.index[t]
         run_arima = (step % arima_every == 0)
+        forecasts = {}
         for name in baselines:
             if name == "arima" and not run_arima:
                 continue
@@ -60,22 +72,50 @@ def walk_forward_mae(climate: pd.DataFrame, train_h: int = 30 * 24,
                 if fc is None:
                     logger.warning("baseline %s no disponible; se omite", name)
                     continue
-                fc = fc.reindex(actual.index)
-                for h in horizons:
-                    a, f = actual.iloc[h - 1], fc.iloc[h - 1]
-                    for var in climate.columns:
-                        if (daytime_only and var in RADIATION_VARS
-                                and a["shortwave_radiation"] <= ghi_threshold):
-                            continue
-                        mae = abs(float(a[var]) - float(f[var]))
-                        if not np.isnan(mae):
-                            rows.append({"baseline": name, "horizon_h": h,
-                                         "variable": var, "mae": mae})
+                forecasts[name] = fc.reindex(actual.index)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("baseline %s fallo en paso %d: %s", name, t, exc)
                 continue
+        for prov in prov_list:
+            # Objeto con .forecast(days, anchor) o callable(anchor, horizon_h).
+            pname = getattr(prov, "provider_name", None) or str(prov)
+            try:
+                if hasattr(prov, "forecast"):
+                    fc = prov.forecast(
+                        days=max(horizons) / 24, anchor=anchor).data
+                else:
+                    fc = prov(anchor, max(horizons))
+                forecasts[pname] = fc.reindex(actual.index)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("provider %s fallo en paso %s: %s",
+                               pname, anchor, exc)
+                continue
+        if prov_list and any(
+                (getattr(p, "provider_name", None) or str(p)) not in forecasts
+                for p in prov_list):
+            # Mismo periodo para todos: si un provider falla el paso, se
+            # descarta el paso completo (nunca comparar ventanas distintas).
+            t += step_h
+            step += 1
+            continue
+        for name, fc in forecasts.items():
+            for h in horizons:
+                a, f = actual.iloc[h - 1], fc.iloc[h - 1]
+                for var in climate.columns:
+                    if var not in fc.columns:
+                        continue
+                    if (daytime_only and var in RADIATION_VARS
+                            and a["shortwave_radiation"] <= ghi_threshold):
+                        continue
+                    err = float(a[var]) - float(f[var])
+                    if not np.isnan(err):
+                        rows.append({"baseline": name, "horizon_h": h,
+                                     "variable": var, "mae": abs(err),
+                                     "se": err ** 2, "err": err})
         t += step_h
         step += 1
+        if step_delay > 0:
+            _time.sleep(step_delay)
     return pd.DataFrame(rows)
 
 

@@ -18,6 +18,12 @@ const initialState = {
     lastRun: null,
     error: null,
   },
+  forecastComparison: {
+    summary: null,
+    series: null,
+    running: false,
+    error: null,
+  },
 };
 
 const optimizationSlice = createSlice({
@@ -61,6 +67,19 @@ const optimizationSlice = createSlice({
     clearExperiment(state) {
       state.experimentA = { summary: null, traces: null, running: false, lastRun: null, error: null };
     },
+    setForecastComparison(state, action) {
+      state.forecastComparison.summary = action.payload;
+      state.forecastComparison.error = null;
+    },
+    setForecastSeries(state, action) {
+      state.forecastComparison.series = action.payload;
+    },
+    setForecastRunning(state, action) {
+      state.forecastComparison.running = action.payload;
+    },
+    setForecastError(state, action) {
+      state.forecastComparison.error = action.payload;
+    },
   },
 });
 
@@ -75,6 +94,10 @@ export const {
   setExperimentRunning,
   setExperimentError,
   clearExperiment,
+  setForecastComparison,
+  setForecastSeries,
+  setForecastRunning,
+  setForecastError,
 } = optimizationSlice.actions;
 
 export default optimizationSlice.reducer;

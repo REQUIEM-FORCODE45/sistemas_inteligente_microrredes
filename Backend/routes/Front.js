@@ -232,6 +232,33 @@ router.post('/optimization/experiment/run', validateJwt, async (req, res) => {
   } catch (err) { res.status(400).json({ success: false, message: err.message }); }
 });
 
+// --- Comparativa de forecast (PASO 2 / SPEC_PASO2.md Mitad B) ---------------
+router.get('/prediction/forecast/comparison', validateJwt, async (req, res) => {
+  try {
+    const fc = require('../services/forecastComparisonService');
+    res.json({ success: true, ...(await fc.getComparisonSummary()) });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.get('/prediction/forecast/comparison/series', validateJwt, async (req, res) => {
+  try {
+    const fc = require('../services/forecastComparisonService');
+    res.json({ success: true, ...(await fc.getComparisonSeries()) });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.get('/prediction/forecast/comparison/status', validateJwt, async (req, res) => {
+  try {
+    const fc = require('../services/forecastComparisonService');
+    res.json({ success: true, ...(await fc.getComparisonStatus()) });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.post('/prediction/forecast/comparison/run', validateJwt, async (req, res) => {
+  try {
+    const fc = require('../services/forecastComparisonService');
+    const months = req.body?.months || 20;
+    res.json({ success: true, ...(await fc.runComparison(months)) });
+  } catch (err) { res.status(400).json({ success: false, message: err.message }); }
+});
+
 // --- Metricas de rendimiento (Experimento C: R5/R6) ------------------------
 // Latencias p50/p95/p99/max + throughput de MQTT, Mongo, WebSocket y MPC.
 // El cliente de carga puede resetear el historial con ?reset=1.

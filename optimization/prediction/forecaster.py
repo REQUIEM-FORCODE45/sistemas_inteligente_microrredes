@@ -310,6 +310,22 @@ class PatchTSTClimateForecaster(ClimateForecaster):
             if anchor.tz is None:
                 anchor = anchor.tz_localize(client.timezone)
             now_hour = anchor.floor("h")
+            # Opción B (PASO 2): contexto del archive ERA5 para anchors
+            # pasados (el forecast API solo llega ~70 días atrás). La ruta
+            # en vivo NO se toca. Corte anti-fuga conservado.
+            start = (now_hour - pd.Timedelta(
+                hours=self.CONTEXT_LENGTH + 24 * 13)).strftime("%Y-%m-%d")
+            df = client.fetch_archive(
+                start, (now_hour - pd.Timedelta(hours=1)).strftime("%Y-%m-%d"))
+            if df.empty:
+                raise RuntimeError(
+                    "Contexto PatchTST vacío (archive sin datos)")
+            df = df.loc[df.index < now_hour]
+            if len(df) < self.CONTEXT_LENGTH:
+                raise RuntimeError(
+                    f"Contexto insuficiente: {len(df)}h < "
+                    f"{self.CONTEXT_LENGTH}h (anchor={now_hour}, archive)")
+            return df.reset_index().rename(columns={"time": "timestamp"})
         # el fetch de Open-Meteo es relativo a HOY: para que la ventana cubra
         # 512h antes de 'anchor' se piden past_days extra. Se cachea por
         # instancia (el backtest reutiliza el mismo contexto en cada hora).
