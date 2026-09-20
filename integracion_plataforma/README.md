@@ -13,12 +13,17 @@ y se planifica **antes** de crearse.
 
 | # | Carpeta | Objetivo | Estado |
 |---|---|---|---|
-| **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** como provider de clima (PASO 1) + comparativa con el protocolo del repo (PASO 2) | ✅ PASO 1 implementado, corregido y auditado · ✅ PASO 2 implementado (motor + panel; serie-ejemplo pendiente de cuota API) |
+| **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** como provider de clima (PASO 1) + comparativa con el protocolo del repo (PASO 2) | 🟡 PASO 1 ✅ auditado · PASO 2 ⚠️ **implementado** (`98ff052`) con **5 hallazgos** → `VERIFICACION_PASO2.md` |
 | **02** | `cambio_02_correcciones_mos/` | Corregir los 3 defectos hallados en la revisión QA del Cambio 01 | ✅ **Cerrado y verificado** (`b92c72c`) |
 
-**Orden**: Cambio 02 ✅ **cerrado** → PASO 2 ✅ **implementado** (motor +
-panel; serie-ejemplo del overlay pendiente de cuota Open-Meteo) — spec en
-`cambio_01_mos_forecaster/SPEC_PASO2.md`.
+**Orden**: Cambio 02 ✅ cerrado → PASO 2 ⚠️ **implementado y verificado con hallazgos**.
+Antes de dar la comparativa por buena:
+1. proxy del backtest con `models="ecmwf_ifs025"` (**1 línea** — arregla las 12 filas
+   degeneradas del MOS y el desajuste con el entrenamiento);
+2. generar `comparativa_series.json` (overlay) — junto con lo anterior, en la misma corrida;
+3. rehacer `fig_compare_bars.png` (un eje para 10 variables no comunica 5 de ellas).
+
+Evidencia completa en `cambio_01_mos_forecaster/VERIFICACION_PASO2.md`.
 
 > Los cambios posteriores a la Fase 1 (servicio de escenarios, nodo LLM-director,
 > bucle evolutivo) **no están planeados todavía** y por eso **no existen carpetas**
