@@ -13,17 +13,22 @@ y se planifica **antes** de crearse.
 
 | # | Carpeta | Objetivo | Estado |
 |---|---|---|---|
-| **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** como provider de clima (PASO 1) + comparativa con el protocolo del repo (PASO 2) | 🟡 PASO 1 ✅ auditado · PASO 2 ⚠️ **implementado** (`98ff052`) con **5 hallazgos** → `VERIFICACION_PASO2.md` |
+| **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** como provider de clima (PASO 1) + comparativa con el protocolo del repo (PASO 2) | 🟡 PASO 1 ✅ auditado · PASO 2 ✅ **cerrado con lo verificado** → `CIERRE_PASO2.md` |
 | **02** | `cambio_02_correcciones_mos/` | Corregir los 3 defectos hallados en la revisión QA del Cambio 01 | ✅ **Cerrado y verificado** (`b92c72c`) |
 
-**Orden**: Cambio 02 ✅ cerrado → PASO 2 ⚠️ **implementado y verificado con hallazgos**.
-Antes de dar la comparativa por buena:
-1. proxy del backtest con `models="ecmwf_ifs025"` (**1 línea** — arregla las 12 filas
-   degeneradas del MOS y el desajuste con el entrenamiento);
-2. generar `comparativa_series.json` (overlay) — junto con lo anterior, en la misma corrida;
-3. rehacer `fig_compare_bars.png` (un eje para 10 variables no comunica 5 de ellas).
+**PASO 2 — cerrado con los datos disponibles** (sin re-correr; cuota Open-Meteo agotada):
 
-Evidencia completa en `cambio_01_mos_forecaster/VERIFICACION_PASO2.md`.
+- ✅ **Ingeniería demostrada**: regresión cero (`max|Δmae| = 0.000e+00`), aliasing resuelto,
+  Opción B correcta, panel integrado y **ejecutado**, fix del proxy IFS aplicado (`1a0c19d`).
+- ✅ **Hallazgos válidos** (4 contendientes no contaminados): **el NWP crudo gana en GHI**
+  (63.5 vs 107.0 de PatchTST) → el camino es corregir el NWP (MOS), no sustituirlo;
+  **PatchTST gana en las otras 9** (excepto DHI → climatología).
+- ⚠️ **La fila del MOS de esta tabla no es interpretable** (su proxy fue ERA5 = la verdad;
+  probado: las 2 variables pass-through dan 0.000 exacto). Su evidencia válida sigue siendo
+  la del proyecto: MOS 29.44 vs crudo 30.93 (jul-dic 2025, proxy correcto).
+- 📌 El panel **hoy muestra números pre-fix** → no presentarlos como finales.
+
+Detalle y evidencia: `cambio_01_mos_forecaster/CIERRE_PASO2.md`.
 
 > Los cambios posteriores a la Fase 1 (servicio de escenarios, nodo LLM-director,
 > bucle evolutivo) **no están planeados todavía** y por eso **no existen carpetas**
