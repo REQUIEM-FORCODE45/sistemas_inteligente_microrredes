@@ -66,19 +66,31 @@ muy corto plazo, pero **no mejora al NWP en radiación más allá de 6 h**.
 
 ---
 
-## ⚠️ Defecto encontrado (cosmético) — el banner de stale da FALSO POSITIVO
+## ✅ Defecto encontrado → **RESUELTO** (`8c4d9a5`)
 
-Ejecutado:
+**Síntoma** (detectado al verificar `e4e10a8`):
 
 ```
-HEAD: e4e10a8 | dataCommit: 468f22d | stale: true   ← avisa "datos previos al fix"
-git merge-base --is-ancestor 1a0c19d 468f22d  →  SÍ  ← los datos SÍ son posteriores al fix
+HEAD: e4e10a8 | dataCommit: 468f22d | stale: true   ← avisaba "datos previos al fix"
+git merge-base --is-ancestor 1a0c19d 468f22d → SÍ    ← los datos SÍ eran posteriores al fix
 ```
 
-La comprobación `dataCommit !== head` **siempre** será verdadera: commitear los resultados
-mueve el HEAD. Así que el banner se queda encendido para siempre, con datos válidos.
+La comprobación `dataCommit !== head` **siempre** es verdadera (commitear los resultados mueve
+el HEAD) → falso positivo permanente, con datos válidos.
 
-**Arreglo recomendado (el robusto)**: que el runner grabe en `meta` **qué proxy usó**
-(`"proxy": "ecmwf_ifs025"`) y el servicio marque stale solo si no coincide. Es semántico,
-no depende del historial de git y no tiene falsos positivos.
-Mínimo alternativo: comprobar ancestría (`git merge-base --is-ancestor <fix> <dataCommit>`).
+**Arreglo aplicado** (el semántico, como se recomendó):
+
+- El runner graba `"proxy": "ecmwf_ifs025"` en `meta` (`compare_providers.py`).
+- El servicio decide `stale = proxy !== 'ecmwf_ifs025'` (`forecastComparisonService.js`).
+
+**Verificado ejecutando** (HEAD `8c4d9a5`):
+
+```
+stale: false | proxy: ecmwf_ifs025 | dataCommit: 468f22d | head: 8c4d9a5
+detalle: 276 filas | resumen: 30 | overlay available: true
+```
+
+Y el comportamiento con datos antiguos es el correcto: **sin `meta.proxy` → `stale: true`**,
+así que la comparativa de 12 meses pre-fix quedaría marcada — exactamente lo que se busca.
+
+**Criterio de cierre del cambio 04: cumplido.**
