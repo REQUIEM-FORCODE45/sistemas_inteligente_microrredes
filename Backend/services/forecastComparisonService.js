@@ -40,12 +40,27 @@ function filesStatus() {
   return out;
 }
 
+function headCommit() {
+  // HEAD actual para el banner "datos previos al fix" (3.4). Barato (~10ms),
+  // con fallback silencioso si git no está disponible.
+  try {
+    const { execSync } = require('child_process');
+    return execSync('git rev-parse --short HEAD', {
+      cwd: path.join(__dirname, '..', '..'), timeout: 5000,
+    }).toString().trim() || null;
+  } catch (e) { return null; }
+}
+
 async function getComparisonSummary() {
   const detalle = parseCsv(path.join(FORECAST_DIR, 'comparativa_detalle.csv'));
   const resumen = parseCsv(path.join(FORECAST_DIR, 'comparativa_resumen.csv'));
   const skill = readJson(path.join(FORECAST_DIR, 'comparativa_skill.json'));
   if (!detalle || !resumen) return { available: false, files: filesStatus() };
-  return { available: true, detalle, resumen, skill, files: filesStatus() };
+  const dataCommit = skill?.meta?.commit || null;
+  const head = headCommit();
+  const stale = !!(dataCommit && head && dataCommit !== head);
+  return { available: true, detalle, resumen, skill, files: filesStatus(),
+           dataCommit, head, stale };
 }
 
 async function getComparisonSeries() {

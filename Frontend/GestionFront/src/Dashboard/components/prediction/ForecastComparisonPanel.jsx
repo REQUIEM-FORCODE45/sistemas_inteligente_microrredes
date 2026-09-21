@@ -30,6 +30,9 @@ export const ForecastComparisonPanel = ({ variant = 'side' }) => {
 
   const detalle = fc.summary?.detalle || [];
   const series = fc.series || null;
+  const hasSeries = !!series?.available;
+  const tabs = hasSeries ? ['metrics', 'curvas', 'barras', 'overlay'] : ['metrics', 'curvas', 'barras'];
+  const activeTab = tabs.includes(tab) ? tab : 'metrics';
 
   return (
     <div className={`bg-card border rounded-xl shadow-sm space-y-3 ${isFull ? 'p-6' : 'p-4'}`}>
@@ -52,6 +55,11 @@ export const ForecastComparisonPanel = ({ variant = 'side' }) => {
       <p className="text-[11px] text-muted-foreground italic">
         NWP corregido con ML — ERA5 (verdad) y ECMWF (entrada) son de la misma familia; el MAE del MOS es optimista.
       </p>
+      {fc.summary?.stale && (
+        <p className="text-[11px] text-amber-600 border border-amber-300 rounded px-2 py-1">
+          Datos previos al fix del proxy (commit <code>{fc.summary.dataCommit}</code>) — re-correr la comparativa para números vigentes.
+        </p>
+      )}
       <div className="flex gap-2 text-xs flex-wrap">
         <select value={horizon} onChange={e => setHorizon(e.target.value)} className="border rounded px-2 py-1">
           {HORIZONS.map(h => <option key={h} value={h}>h={h}</option>)}
@@ -61,15 +69,15 @@ export const ForecastComparisonPanel = ({ variant = 'side' }) => {
         </select>
       </div>
       <div className="flex gap-1 text-xs border-b">
-        {['metrics', 'curvas', 'barras', 'overlay'].map(t => (
-          <button key={t} onClick={() => setTab(t)} className={`px-3 py-1.5 capitalize ${tab === t ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{t}</button>
+        {tabs.map(t => (
+          <button key={t} onClick={() => setTab(t)} className={`px-3 py-1.5 capitalize ${activeTab === t ? 'border-b-2 border-primary font-medium' : 'text-muted-foreground'}`}>{t}</button>
         ))}
       </div>
       <div className={isFull ? 'min-h-[420px]' : ''}>
-        {tab === 'metrics' && <ForecastMetricsTable detalle={detalle} horizon={horizon} variable={variable} />}
-        {tab === 'curvas' && <ForecastMaeChart detalle={detalle} height={isFull ? 420 : 320} />}
-        {tab === 'barras' && <ForecastSkillChart detalle={detalle} horizon={horizon} height={isFull ? 420 : 320} />}
-        {tab === 'overlay' && <ForecastOverlayChart series={series} variable={variable} height={isFull ? 420 : 320} />}
+        {activeTab === 'metrics' && <ForecastMetricsTable detalle={detalle} horizon={horizon} variable={variable} />}
+        {activeTab === 'curvas' && <ForecastMaeChart detalle={detalle} height={isFull ? 420 : 320} />}
+        {activeTab === 'barras' && <ForecastSkillChart detalle={detalle} horizon={horizon} height={isFull ? 420 : 320} />}
+        {activeTab === 'overlay' && hasSeries && <ForecastOverlayChart series={series} variable={variable} height={isFull ? 420 : 320} />}
       </div>
     </div>
   );

@@ -122,7 +122,7 @@ def predict_sensor_endpoint(sensor_id: str = Query(...),
 
     Self-healing: si el sensor no tiene modelo calibrado, lo CALIBRA primero
     (asi al ligar un sensor en el diagrama la grafica sale sin pasos extra).
-    provider: openmeteo|timesfm|patchtst (None = env FORECASTER).
+    provider: openmeteo|timesfm|patchtst|mos (None = env FORECASTER).
     """
     from optimization.calibration.service import (is_calibrated, fit_from_sensor)
     calibrated_now = False
@@ -147,7 +147,7 @@ def predict_weather(hours: int = Query(default=48, ge=1, le=168),
     """Pronostico de CLIMA horario (10 vars contratadas) + proveedor.
 
     Es lo que alimenta los modelos calibrados; visible en el Dashboard.
-    provider: openmeteo|timesfm|patchtst (None = env FORECASTER).
+    provider: openmeteo|timesfm|patchtst|mos (None = env FORECASTER).
     """
     import pandas as pd
     from optimization.config.loader import load_site as _ls

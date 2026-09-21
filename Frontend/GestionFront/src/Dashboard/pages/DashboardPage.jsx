@@ -17,6 +17,7 @@ const PROVIDERS = [
   { id: 'openmeteo', label: 'Open-Meteo (NWP)' },
   { id: 'timesfm', label: 'TimesFM 2.5' },
   { id: 'patchtst', label: 'PatchTST' },
+  { id: 'mos', label: 'MOS (ECMWF+ML)' },
 ];
 
 // Meta por tipo de equipo del diagrama (DEVICE_TYPE de deviceTypes.js).
@@ -175,6 +176,9 @@ function WeatherCard() {
           <div>
             <p className="text-sm font-semibold">{t('dashboard.weather.title')}</p>
             <p className="text-[10px] text-muted-foreground">{t('dashboard.weather.source')}: {data?.provider || provider}</p>
+            {provider === 'mos' && (
+              <p className="text-[10px] text-muted-foreground italic">NWP corregido con ML — ERA5 (verdad) y ECMWF (entrada) son de la misma familia; el error es optimista.</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 rounded-lg border bg-muted/20 p-0.5">
