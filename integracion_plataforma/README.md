@@ -15,7 +15,7 @@ y se planifica **antes** de crearse.
 |---|---|---|---|
 | **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** como provider de clima (PASO 1) + comparativa con el protocolo del repo (PASO 2) | 🟡 PASO 1 ✅ auditado · PASO 2 ✅ **cerrado con lo verificado** → `CIERRE_PASO2.md` |
 | **02** | `cambio_02_correcciones_mos/` | Corregir los 3 defectos hallados en la revisión QA del Cambio 01 | ✅ **Cerrado y verificado** (`b92c72c`) |
-| **03** | `cambio_03_mos_visible_dashboard/` | **Ver el MOS en el Dashboard**: añadirlo al selector de providers + avisos de credibilidad (N/A en la tabla, datos previos al fix) | 🟡 **3.1–3.6 ✅ implementado y verificado** (`f3abca8`) · **3.7–3.8 (entorno) pendientes** → `VERIFICACION.md` |
+| **03** | `cambio_03_mos_visible_dashboard/` | **Ver el MOS en el Dashboard**: añadirlo al selector de providers + avisos de credibilidad (N/A en la tabla, datos previos al fix) | ✅ **3.1–3.6 implementado y verificado** (`f3abca8`) · 🟢 3.7 (reproducibilidad) → `VERIFICACION.md` |
 
 **PASO 2 — cerrado con los datos disponibles** (sin re-correr; cuota Open-Meteo agotada):
 

@@ -91,46 +91,32 @@ añadir `mos`.
 
 ---
 
-## 3.7 (bloqueante para que el MOS RESPONDA) `lightgbm` no está declarado
+## 3.7 (reproducibilidad, **no** bloqueante) declarar `lightgbm`
 
 `optimization/requirements.txt` **no incluye `lightgbm`**, que es dependencia **dura** del
-provider MOS (los 10 modelos y su carga). Sin ella, el endpoint devuelve el error amable
-*"MOS requiere lightgbm en esta máquina"* y la tarjeta **nunca** muestra datos.
+provider MOS. **En la VM ya está instalado** — prueba: la comparativa corrió el MOS durante
+12 meses, y eso exige `lightgbm` **y** `torch`. Así que **hoy no bloquea nada**; el problema
+es de **reproducibilidad**: un setup limpio desde el `requirements.txt` dejaría el MOS sin
+su dependencia.
 
-→ Añadir en la sección *"Calibración (Fase 4) y ML de residuos"*:
+→ Añadir en la sección *"Calibración (Fase 4) y ML de residuos"*: `lightgbm>=4.0.0`
+(y, ya que estamos, declarar `torch`, que hoy solo figura en un comentario).
 
-```
-lightgbm>=4.0.0
-```
-
-**Criterio**: `pip install -r optimization/requirements.txt` deja el MOS funcionando.
-
-> Nota: `torch` también lo necesita el MOS (el iTransformer embebido) y en el
-> `requirements.txt` solo aparece **en un comentario**. Ya era requerido por
-> PatchTST/TimesFM, pero conviene declararlo igual.
+**Criterio**: `pip install -r optimization/requirements.txt` reproduce el entorno del MOS.
 
 ---
 
-## 3.8 (bloqueante en esta máquina) `dev.sh` arranca con el python del sistema
+## ~~3.8 `dev.sh` arranca con el python del sistema~~ — RETIRADO
 
-`dev.sh:28` → `PYTHON="${PYTHON:-/usr/bin/python3}"`. En esta máquina eso resuelve a
-`C:\Users\2D\AppData\Local\Microsoft\WindowsApps\python3`, que **no tiene fastapi,
-lightgbm ni torch** → el servicio de predicción no arranca (o el MOS falla al pedirlo).
+⚠️ **Retirado por corrección del autor**: la plataforma **no corre en el Windows del
+usuario**, corre dentro de una **VM (Linux)**. En la VM, `/usr/bin/python3` es el intérprete
+correcto y ya tiene las dependencias → **`dev.sh` no se toca.**
 
-→ Arrancar con un entorno que tenga las dependencias:
+El hallazgo anterior salió de inspeccionar el **clon de Windows** (que es solo para
+lectura/verificación) y no aplica al entorno real.
 
-```bash
-PYTHON=/c/Users/2D/tesis-microrred/.venv/Scripts/python.exe ./dev.sh
-```
-
-…o crear un venv propio del repo desde `optimization/requirements.txt`.
-
-**Criterio**: `./dev.sh status` muestra `prediccion` levantado y
-`GET http://localhost:8000/predict/weather?provider=mos` responde **200**.
-
-⚠️ El venv de la tesis trae **pandas 3.0.5**; el repo declara `pandas>=2.0.0` y puede no
-estar probado con 3.x. Si se usa ese venv, verificar que el servicio arranca antes de dar
-el cambio por bueno.
+**Regla**: no extrapolar diagnósticos de entorno del clon Windows a la plataforma. La
+verificación de la UI (arrancar, ver el selector, ver la tarjeta) se hace **dentro de la VM**.
 
 ---
 

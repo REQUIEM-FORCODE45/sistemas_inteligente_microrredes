@@ -26,14 +26,14 @@ celdas N/A (mos pass-through): 12
 El `stale: true` es correcto: los datos son del commit `a1bff6b`, **anterior** al fix del
 proxy (`1a0c19d`) → el banner aparecerá y evita que se lean números pre-fix como vigentes.
 
-## Pendiente: 3.7 y 3.8 (entorno) 🟢
+## Pendiente: solo 3.7 (reproducibilidad) 🟢
 
-Añadidos a este mismo spec después del commit de la otra IA:
+- **3.7** `optimization/requirements.txt` no declara `lightgbm` → añadirlo. **No bloquea
+  nada**: en la VM ya está instalado (prueba: la comparativa corrió el MOS 12 meses, lo que
+  exige `lightgbm` + `torch`).
+- ~~**3.8** `dev.sh`~~ → **RETIRADO** por corrección del autor: la plataforma corre en una
+  **VM (Linux)**, no en el Windows del usuario. `dev.sh` **no se toca**; el hallazgo salió de
+  inspeccionar el clon de Windows, que es solo para lectura/verificación.
 
-- **3.7** `optimization/requirements.txt` no declara `lightgbm` (dependencia dura del
-  provider MOS) → añadir `lightgbm>=4.0.0`.
-- **3.8** `dev.sh` arranca con `/usr/bin/python3`, que en esta máquina es el de
-  WindowsApps **sin fastapi/lightgbm/torch** → arrancar con
-  `PYTHON=<venv>/Scripts/python.exe ./dev.sh`.
-
-Sin estos dos, el selector mostraría el MOS pero la tarjeta no daría datos.
+**La verificación de la UI** (arrancar, ver el selector, ver la tarjeta del MOS) se hace
+**dentro de la VM** — no en el clon de Windows.
