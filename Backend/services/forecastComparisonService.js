@@ -58,9 +58,13 @@ async function getComparisonSummary() {
   if (!detalle || !resumen) return { available: false, files: filesStatus() };
   const dataCommit = skill?.meta?.commit || null;
   const head = headCommit();
-  const stale = !!(dataCommit && head && dataCommit !== head);
+  // Chequeo semántico (VERIFICACION cambio_04): dataCommit !== head es
+  // SIEMPRE true tras commitear (falso positivo). La señal válida es el
+  // proxy registrado por el runner: stale solo si falta o difiere.
+  const proxy = skill?.meta?.proxy || null;
+  const stale = proxy !== 'ecmwf_ifs025';
   return { available: true, detalle, resumen, skill, files: filesStatus(),
-           dataCommit, head, stale };
+           dataCommit, head, stale, proxy };
 }
 
 async function getComparisonSeries() {

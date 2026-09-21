@@ -197,6 +197,7 @@ def main() -> int:
                             "commit": commit, "periodo": [str(start.date()),
                                                           str(end.date())],
                             "horizontes": horizons,
+                            "proxy": "ecmwf_ifs025",
                             "nota": "NWP corregido con ML (same-family ERA5/ECMWF)"}},
                   fh, indent=2, ensure_ascii=False)
 

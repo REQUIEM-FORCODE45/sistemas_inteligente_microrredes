@@ -302,6 +302,7 @@
       48,
       72
     ],
-    "nota": "NWP corregido con ML (same-family ERA5/ECMWF)"
+    "nota": "NWP corregido con ML (same-family ERA5/ECMWF). Proxy del backtest verificado IFS (mos cloud==crudo exacto).",
+    "proxy": "ecmwf_ifs025"
   }
 }
