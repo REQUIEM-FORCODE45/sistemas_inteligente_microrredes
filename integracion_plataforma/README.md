@@ -16,21 +16,23 @@ y se planifica **antes** de crearse.
 | **01** | `cambio_01_mos_forecaster/` | Integrar el **MOS** como provider de clima (PASO 1) + comparativa con el protocolo del repo (PASO 2) | 🟡 PASO 1 ✅ auditado · PASO 2 ✅ **cerrado con lo verificado** → `CIERRE_PASO2.md` |
 | **02** | `cambio_02_correcciones_mos/` | Corregir los 3 defectos hallados en la revisión QA del Cambio 01 | ✅ **Cerrado y verificado** (`b92c72c`) |
 | **03** | `cambio_03_mos_visible_dashboard/` | **Ver el MOS en el Dashboard**: añadirlo al selector de providers + avisos de credibilidad (N/A en la tabla, datos previos al fix) | ✅ **3.1–3.6 implementado y verificado** (`f3abca8`) · 🟢 3.7 (reproducibilidad) → `VERIFICACION.md` |
-| **04** | `cambio_04_comparativa_corta/` | **Sustituir la comparativa de 12 meses por una corta (4 meses)**: la de 12 quedó pre-fix y su fila del MOS no es interpretable | 🟢 **Listo para ejecutar** (~3 h, reanudable) |
+| **04** | `cambio_04_comparativa_corta/` | **Sustituir la comparativa de 12 meses por una corta (4 meses)**: la de 12 quedó pre-fix y su fila del MOS no es interpretable | ✅ **Ejecutado y verificado** (`e4e10a8`): 7/7 criterios, fila del MOS **válida** · 1 defecto cosmético (banner stale) → `VERIFICACION.md` |
 
-**PASO 2 — cerrado con los datos disponibles** (sin re-correr; cuota Open-Meteo agotada):
+**PASO 2 — cerrado con una comparativa CORTA y VÁLIDA** (cambio 04; ventana 2026-05-08 → 09-06):
 
 - ✅ **Ingeniería demostrada**: regresión cero (`max|Δmae| = 0.000e+00`), aliasing resuelto,
-  Opción B correcta, panel integrado y **ejecutado**, fix del proxy IFS aplicado (`1a0c19d`).
-- ✅ **Hallazgos válidos** (4 contendientes no contaminados): **el NWP crudo gana en GHI**
-  (63.5 vs 107.0 de PatchTST) → el camino es corregir el NWP (MOS), no sustituirlo;
-  **PatchTST gana en las otras 9** (excepto DHI → climatología).
-- ⚠️ **La fila del MOS de esta tabla no es interpretable** (su proxy fue ERA5 = la verdad;
-  probado: las 2 variables pass-through dan 0.000 exacto). Su evidencia válida sigue siendo
-  la del proyecto: MOS 29.44 vs crudo 30.93 (jul-dic 2025, proxy correcto).
-- 📌 El panel **hoy muestra números pre-fix** → no presentarlos como finales.
+  Opción B correcta, panel integrado y **ejecutado**, proxy IFS aplicado (`1a0c19d`).
+- ✅ **Fila del MOS VÁLIDA** — verificado con una prueba dura: su pass-through coincide
+  **exacto** con el `ecmwf_crudo` (13.61) → el proxy del backtest **es** el IFS.
+- 📊 **Resultado**: el MOS **arrasa al ML puro** (GHI 48.7 vs 93.1 de PatchTST, −48%) y
+  **mejora al NWP crudo** en presión (−73%), RH (−44%) y temp (−31%); pero **empata/pierde
+  en GHI** (crudo 47.0 vs MOS 48.7: gana en h=1 y pierde desde h≥6) y es **peor que la
+  persistencia en viento** (skill −0.40).
+- ⚠️ 1 defecto cosmético: el banner de stale da **falso positivo** (ver §Defecto del informe).
+- 📌 La comparativa de 12 meses (pre-fix) queda **descartada**.
 
-Detalle y evidencia: `cambio_01_mos_forecaster/CIERRE_PASO2.md`.
+Detalle: `cambio_04_comparativa_corta/VERIFICACION.md` ·
+histórico: `cambio_01_mos_forecaster/CIERRE_PASO2.md`.
 
 > Los cambios posteriores a la Fase 1 (servicio de escenarios, nodo LLM-director,
 > bucle evolutivo) **no están planeados todavía** y por eso **no existen carpetas**
