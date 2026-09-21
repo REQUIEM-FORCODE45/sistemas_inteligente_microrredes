@@ -97,7 +97,9 @@ fuera la actual, y no hace falta tocar nada más.
 
 ## 5. Pendiente (no bloquea la tesis)
 
-1. **Re-correr la comparativa** cuando la cuota se libere (~10 h, reanudable).
+1. **Re-correr la comparativa** → ⚠️ **decisión del autor: se descarta la de 12 meses** y se
+   hace una **comparativa corta de 4 meses** (misma ventana para todos, fila del MOS válida).
+   Plan y comando exactos en `../cambio_04_comparativa_corta/README.md` (~3 h, reanudable).
    ⚠️ **Antes de correr: borrar los parciales mensuales**
    (`rm -f results/pasto_narino/forecast/comparativa_detalle_20*.csv`). Si no, el resume
    los salta y produce **exactamente la tabla vieja** en segundos — el fallo silencioso
