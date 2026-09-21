@@ -91,6 +91,49 @@ añadir `mos`.
 
 ---
 
+## 3.7 (bloqueante para que el MOS RESPONDA) `lightgbm` no está declarado
+
+`optimization/requirements.txt` **no incluye `lightgbm`**, que es dependencia **dura** del
+provider MOS (los 10 modelos y su carga). Sin ella, el endpoint devuelve el error amable
+*"MOS requiere lightgbm en esta máquina"* y la tarjeta **nunca** muestra datos.
+
+→ Añadir en la sección *"Calibración (Fase 4) y ML de residuos"*:
+
+```
+lightgbm>=4.0.0
+```
+
+**Criterio**: `pip install -r optimization/requirements.txt` deja el MOS funcionando.
+
+> Nota: `torch` también lo necesita el MOS (el iTransformer embebido) y en el
+> `requirements.txt` solo aparece **en un comentario**. Ya era requerido por
+> PatchTST/TimesFM, pero conviene declararlo igual.
+
+---
+
+## 3.8 (bloqueante en esta máquina) `dev.sh` arranca con el python del sistema
+
+`dev.sh:28` → `PYTHON="${PYTHON:-/usr/bin/python3}"`. En esta máquina eso resuelve a
+`C:\Users\2D\AppData\Local\Microsoft\WindowsApps\python3`, que **no tiene fastapi,
+lightgbm ni torch** → el servicio de predicción no arranca (o el MOS falla al pedirlo).
+
+→ Arrancar con un entorno que tenga las dependencias:
+
+```bash
+PYTHON=/c/Users/2D/tesis-microrred/.venv/Scripts/python.exe ./dev.sh
+```
+
+…o crear un venv propio del repo desde `optimization/requirements.txt`.
+
+**Criterio**: `./dev.sh status` muestra `prediccion` levantado y
+`GET http://localhost:8000/predict/weather?provider=mos` responde **200**.
+
+⚠️ El venv de la tesis trae **pandas 3.0.5**; el repo declara `pandas>=2.0.0` y puede no
+estar probado con 3.x. Si se usa ese venv, verificar que el servicio arranca antes de dar
+el cambio por bueno.
+
+---
+
 ## Criterios de cierre
 
 - [ ] `./dev.sh` → login → Dashboard: el selector incluye **MOS**.
