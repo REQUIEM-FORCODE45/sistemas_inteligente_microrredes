@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
@@ -10,6 +10,7 @@ import {
   Menu,
   ChevronLeft,
   ChevronRight,
+  CloudSun,
   Database,
   Users,
   LogOut,
@@ -17,6 +18,7 @@ import {
   Sparkles,
   GitBranch,
 } from 'lucide-react';
+import ClimatePage from '../../climate/ClimatePage';
 import DiagramEditor from '../components/diagram/DiagramEditor';
 import UserManagment from '../components/users/UserManagment';
 import { logout } from '../../Authentication/store';
@@ -87,7 +89,25 @@ export const App = () => {
   const { t, i18n } = useTranslation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // URL real /clima (decision aprobada): el tab se sincroniza con el path
+  // para que /clima sea enlazable y el diagrama pueda enlazar, no embeber.
+  const [activeTab, setActiveTab] = useState(
+    () => (typeof window !== 'undefined' && window.location.pathname === '/clima' ? 'clima' : 'dashboard'));
+
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const tab = window.location.pathname === '/clima' ? 'clima' : null;
+      if (tab) setActiveTab(tab);
+    };
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, []);
+
+  const selectTab = (id) => {
+    setActiveTab(id);
+    const path = id === 'clima' ? '/clima' : '/';
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
 
   const dispatch = useDispatch();
   const handleLogout = () => dispatch(logout());
@@ -97,6 +117,7 @@ export const App = () => {
   const menuItems = [
     { id: 'dashboard', label: t('nav.dashboard'), icon: Layout, requiredRole: 'user' },
     { id: 'realtime', label: t('nav.realtime'), icon: Activity, requiredRole: 'user' },
+    { id: 'clima', label: t('nav.clima'), icon: CloudSun, requiredRole: 'user' },
     { id: 'diagram', label: t('nav.diagram'), icon: GitBranch, requiredRole: 'user' },
     { id: 'devices', label: t('nav.devices'), icon: Database, requiredRole: 'user' },
     { id: 'server-driven', label: t('nav.serverDriven'), icon: Sparkles, requiredRole: 'user' },
@@ -133,7 +154,7 @@ export const App = () => {
 
         <nav className="flex-1 pt-4 overflow-y-auto no-scrollbar">
           {menuItems.map((item) => (
-            <div key={item.id} onClick={() => setActiveTab(item.id)}>
+            <div key={item.id} onClick={() => selectTab(item.id)}>
               <SidebarItem
                 icon={item.icon}
                 label={item.label}
@@ -179,7 +200,7 @@ export const App = () => {
         </div>
         <nav className="p-2 pt-4">
           {menuItems.map((item) => (
-            <div key={item.id} onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}>
+            <div key={item.id} onClick={() => { selectTab(item.id); setIsMobileMenuOpen(false); }}>
               <SidebarItem icon={item.icon} label={item.label} active={activeTab === item.id} />
             </div>
           ))}
@@ -252,6 +273,10 @@ export const App = () => {
               </div>
             ) : activeTab === 'realtime' ? (
               <RealtimeView />
+            ) : activeTab === 'clima' ? (
+              <ErrorBoundary>
+                <ClimatePage />
+              </ErrorBoundary>
             ) : activeTab === 'dashboard' ? (
               <ErrorBoundary>
                 <DashboardPage />

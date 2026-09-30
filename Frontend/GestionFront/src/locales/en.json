@@ -77,6 +77,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "realtime": "Real-time Monitoring",
+    "clima": "Climate",
     "diagram": "Single-Line Diagram",
     "devices": "IoT Devices",
     "serverDriven": "Server-Driven UI",

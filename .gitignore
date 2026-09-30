@@ -66,3 +66,6 @@ venv/
 
 # --- DEV LAUNCHER ---
 .dev-logs/
+
+# --- CLIMA 05.6 (almacen append-only regenerable: se siembra de reference/) ---
+data/clima/

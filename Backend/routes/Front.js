@@ -259,6 +259,62 @@ router.post('/prediction/forecast/comparison/run', validateJwt, async (req, res)
   } catch (err) { res.status(400).json({ success: false, message: err.message }); }
 });
 
+// --- Contexto climatico visual (Cambio 05, MVP 05.1+05.6+05.7) -----------
+// Endpoints bajo /api/front/climate con validateJwt (C2: cero toques a app.js).
+// Degradacion honesta: si la fuente externa falla, ultima version guardada
+// con stale:true + antiguedad; sin versiones -> 503 "sin datos", nunca ceros.
+router.get('/climate/context', validateJwt, async (req, res) => {
+  try {
+    const ctx = require('../services/climateContextService');
+    const store = require('../services/climateStoreService');
+    const c = await ctx.getContext({ remote: true });
+    if (c.stale) {
+      const ult = store.ultimaVersion('clima_indices');
+      if (ult?.cuerpo) {
+        return res.json({ success: true, stale: true,
+          antiguedad: ult.registro.descargado_en, ...ult.cuerpo.datos });
+      }
+      return res.status(503).json({ success: false, stale: true, message: 'Sin datos climaticos guardados' });
+    }
+    store.guardarVersion('clima_indices', { indices: c.indices },
+      { cobertura: `${c.indices.mes[0]}..${c.indices.mes[c.indices.mes.length - 1]}`, fuente: c.meta.fuente });
+    res.json({ success: true, ...c });
+  } catch (err) {
+    try {
+      const store = require('../services/climateStoreService');
+      const ult = store.ultimaVersion('clima_indices');
+      if (ult?.cuerpo) {
+        return res.json({ success: true, stale: true,
+          antiguedad: ult.registro.descargado_en, ...ult.cuerpo.datos });
+      }
+    } catch (e) { /* sin respaldo */ }
+    res.status(503).json({ success: false, message: 'Sin datos climaticos' });
+  }
+});
+router.get('/climate/snapshot', validateJwt, async (req, res) => {
+  try {
+    const store = require('../services/climateStoreService');
+    const { familia = 'clima_indices', desde } = req.query;
+    res.json({ success: true, versiones: store.listarVersiones(familia, desde || null) });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.get('/climate/figuras', validateJwt, async (req, res) => {
+  try {
+    const store = require('../services/climateStoreService');
+    res.json({ success: true, figuras: store.listarVersiones('figuras') });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.post('/climate/refresh', validateJwt, async (req, res) => {
+  try {
+    const ctx = require('../services/climateContextService');
+    const store = require('../services/climateStoreService');
+    const c = await ctx.getContext({ remote: true });
+    const reg = store.guardarVersion('clima_indices', { indices: c.indices },
+      { cobertura: `${c.indices.mes[0]}..${c.indices.mes[c.indices.mes.length - 1]}`, fuente: c.meta.fuente });
+    res.json({ success: true, version: reg, stale: c.stale });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 // --- Metricas de rendimiento (Experimento C: R5/R6) ------------------------
 // Latencias p50/p95/p99/max + throughput de MQTT, Mongo, WebSocket y MPC.
 // El cliente de carga puede resetear el historial con ?reset=1.
