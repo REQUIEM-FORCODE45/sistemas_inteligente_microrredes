@@ -1,0 +1,2 @@
+# Los .parquet son binarios: sin conversion de fin de linea (core.autocrlf=true en este repo)
+*.parquet -text

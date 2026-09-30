@@ -1,0 +1,59 @@
+{
+  "ventana": [
+    "2024-05-01 00:00:00",
+    "2024-05-03 23:00:00"
+  ],
+  "oni": -0.9,
+  "modo": "nina",
+  "resultados": {
+    "E0_sin_bess_diesel_todo": {
+      "estrategia": "E0_sin_bess_diesel_todo",
+      "costo_diesel_cop": 7355853.045410488,
+      "no_servida_kwh": 64.24945405697467,
+      "soc_min_pct": 9.669987250380718,
+      "soc_final_pct": 9.669987250380718,
+      "ciclos_bess": 0.1915675605606916,
+      "throughput_kwh": 76.62702422427664,
+      "violaciones": 67.0,
+      "U_robusta": -2433.12,
+      "U_P10": -2461.25
+    },
+    "E1_conservadora": {
+      "estrategia": "E1_conservadora",
+      "costo_diesel_cop": 7611840.086107528,
+      "no_servida_kwh": 72.37625801106589,
+      "soc_min_pct": 50.0,
+      "soc_final_pct": 50.071663575702765,
+      "ciclos_bess": 0.00037717671422506706,
+      "throughput_kwh": 0.15087068569002682,
+      "violaciones": 0.0,
+      "U_robusta": -2626.23,
+      "U_P10": -2777.03
+    },
+    "E2_agresiva_bess": {
+      "estrategia": "E2_agresiva_bess",
+      "costo_diesel_cop": 6620159.180451291,
+      "no_servida_kwh": 219.22125800307649,
+      "soc_min_pct": 19.812500113774487,
+      "soc_final_pct": 19.884163689477248,
+      "ciclos_bess": 0.14376780117379626,
+      "throughput_kwh": 57.5071204695185,
+      "violaciones": 0.0,
+      "U_robusta": -6923.81,
+      "U_P10": -7026.84
+    },
+    "E3_sin_diesel": {
+      "estrategia": "E3_sin_diesel",
+      "costo_diesel_cop": 0.0,
+      "no_servida_kwh": 1829.1537737842839,
+      "soc_min_pct": 14.93314514511756,
+      "soc_final_pct": 14.999746909430508,
+      "ciclos_bess": 0.16696878087901826,
+      "throughput_kwh": 66.7875123516073,
+      "violaciones": 0.0,
+      "U_robusta": -55078.24,
+      "U_P10": -56438.77
+    }
+  },
+  "elegida": "E1_conservadora"
+}
