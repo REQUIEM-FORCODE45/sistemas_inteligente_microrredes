@@ -22,6 +22,25 @@ persistente** que va acumulando historia, y —en su fase final— la decisión 
 
 ---
 
+### Correcciones **v1.1** — verificadas contra el repo (2026-09-29)
+
+Cuatro afirmaciones de la v1 estaban **equivocadas**. Se corrigen aquí **con la evidencia** (leído
+en el repo, no supuesto). **Quien implemente debe usar estas, no las de la v1.**
+
+| # | la v1 decía | la realidad verificada | efecto |
+|---|---|---|---|
+| **C1** | "entrada propia en el menú, junto a las actuales de `Sidebar.jsx`" (§3.7) | El menú del dashboard es el arreglo **`menuItems` en `Frontend/GestionFront/src/Dashboard/pages/App.jsx` (L97-104)** y el contenido se pinta con la cadena **`activeTab === …` (desde L234)**. `Sidebar.jsx` pertenece a `AuthPage.jsx` (L53), **no** al dashboard. El enrutado vive en **`src/router/app.routes.jsx`** + `src/router/AppRouter.jsx`, con **react-router 7.13 ya instalado** | la sección entra como **entrada en `menuItems` + rama de contenido**, o como **ruta anidada real** en `app.routes.jsx` |
+| **C2** | endpoints en un router nuevo (`routes/climate.js`) **+ 1 línea en `app.js`** (§6) | `app.js:84` ya monta `app.use('/api/front', require('./routes/Front'))`, y ese archivo usa `validateJwt` **25 veces** | los endpoints van **en `routes/Front.js` bajo `/climate`** ⇒ **cero modificaciones en `app.js`** |
+| **C3** | "Frontend: … sobre `PlotlyMini`" (§3.1) | `PlotlyMini.jsx` es un **mini** de **110 px**, con `showticklabels:false` y `showlegend:false` → **inservible** para A1/A3/A4 | se reutiliza **solo su patrón** (`purge` → `newPlot` → `resize`) y se crea **`ClimateChart.jsx`** a tamaño completo (mínimos del §3.7) |
+| **C4** | "este patrón ya existe en la plataforma para el MOS: reutilizarlo" (§3.6) | **No existe.** El backend tiene 3 menciones de `stale`, todas en `forecastComparisonService.js` (`stale = proxy !== 'ecmwf_ifs025'`: un flag **semántico de proxy**, no un mecanismo de frescura) | el patrón `stale:true` + antigüedad **se crea** en `climateStoreService` |
+
+**Confirmado tal cual en la v1** (no cambia): el módulo autocontenido (§3.7), los tamaños mínimos,
+los anti-patrones prohibidos, el contrato (§5), el `append-only` con `.gitattributes`
+`*.parquet -text`, y la fuente de coordenadas — `optimization/config/sites/pasto_narino.yaml`
+líneas **11-14** (exactas).
+
+---
+
 ## 1. Lo que YA existe en el repo (verificado leyéndolo)
 
 | pieza | ruta | por qué importa aquí |
