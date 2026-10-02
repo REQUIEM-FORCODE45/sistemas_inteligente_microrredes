@@ -278,6 +278,12 @@ router.get('/climate/context', validateJwt, async (req, res) => {
     }
     store.guardarVersion('clima_indices', { indices: c.indices },
       { cobertura: `${c.indices.mes[0]}..${c.indices.mes[c.indices.mes.length - 1]}`, fuente: c.meta.fuente });
+    const geo = store.ultimaVersion('clima_geo');
+    c.climatologia_geo = geo?.registro
+      ? { disponible: true, sha256: geo.registro.sha256,
+          descargado_en: geo.registro.descargado_en,
+          fuente: geo.registro.fuente, capas: Object.keys(geo.cuerpo?.datos?.capas || {}) }
+      : null;
     res.json({ success: true, ...c });
   } catch (err) {
     try {
@@ -312,6 +318,18 @@ router.post('/climate/refresh', validateJwt, async (req, res) => {
     const reg = store.guardarVersion('clima_indices', { indices: c.indices },
       { cobertura: `${c.indices.mes[0]}..${c.indices.mes[c.indices.mes.length - 1]}`, fuente: c.meta.fuente });
     res.json({ success: true, version: reg, stale: c.stale });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+// --- Mapa de calor de Narino A5 (blob ~100-500 KB: endpoint dedicado) -----
+// /context solo expone hash/disponibilidad en climatologia_geo (liviano).
+router.get('/climate/geo', validateJwt, async (req, res) => {
+  try {
+    const store = require('../services/climateStoreService');
+    const ult = store.ultimaVersion('clima_geo');
+    if (!ult?.cuerpo) {
+      return res.status(503).json({ success: false, message: 'Sin mapa de calor: genera con optimization/climate/build_clima_geo.py' });
+    }
+    res.json({ success: true, meta: ult.registro, geo: ult.cuerpo.datos });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

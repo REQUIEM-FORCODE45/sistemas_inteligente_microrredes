@@ -3,12 +3,14 @@ import GridAPI from '../api/grid-api';
 import OniChart from './OniChart';
 import IndicesPanel from './IndicesPanel';
 import ClimaInsights from './ClimaInsights';
+import ZoneMap from './ZoneMap';
 
 // Pagina /clima — modulo de primer nivel (§3.7): pagina completa, una columna
 // fluida, secciones de ancho completo. NO modal, NO widget del diagrama.
 // Criterio §7.6: sin backend -> "sin datos", nunca grafico vacio ni throw.
 export default function ClimatePage() {
   const [context, setContext] = useState(null);
+  const [geo, setGeo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -20,6 +22,10 @@ export default function ClimatePage() {
       const r = await GridAPI.get('/front/climate/context');
       setContext(r.data);
       setError(null);
+      try {
+        const g = await GridAPI.get('/front/climate/geo');
+        setGeo(g.data.geo);
+      } catch { setGeo(null); }
     } catch (e) {
       setError(e.response?.status === 503 ? 'sin datos' : (e.message || 'sin datos'));
       setContext(null);
@@ -74,12 +80,24 @@ export default function ClimatePage() {
         </div>
       </section>
 
+      <section aria-label="Donde">
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">◆ ¿Dónde?</h2>
+        {geo ? (
+          <ZoneMap geo={geo} sitio={context.sitio} />
+        ) : (
+          <div className="bg-card border rounded-xl p-6 shadow-sm">
+            <p className="font-semibold">Mapa de calor en generación</p>
+            <p className="text-sm text-muted-foreground mt-1">El artefacto A5 aún no existe: genera con <code>python3 -m climate.build_clima_geo</code> (desde <code>optimization/</code>).</p>
+          </div>
+        )}
+      </section>
+
       <section aria-label="Que sabemos">
         <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-3">● ¿Qué sabemos?</h2>
         <ClimaInsights context={context} />
       </section>
 
-      <p className="text-[11px] text-muted-foreground">Figuras vivas desde el endpoint · hash {context.meta?.sha256} · mapas (A5/A6) en fase 2</p>
+      <p className="text-[11px] text-muted-foreground">Figuras vivas desde el endpoint · hash {context.meta?.sha256} · mapa literal (A6) en fase 2</p>
     </div>
   );
 }

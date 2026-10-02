@@ -69,3 +69,5 @@ venv/
 
 # --- CLIMA 05.6 (almacen append-only regenerable: se siembra de reference/) ---
 data/clima/
+# --- CLIMA A5 (cache del precomputo offline: respuestas ERA5 crudas) ---
+optimization/climate/.cache_clima_geo/
