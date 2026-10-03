@@ -60,6 +60,9 @@ USE_DOCKER_REDIS="no"        # yes | no  (no = redis nativo con apt, recomendado
 ENABLE_NGROK="yes"           # yes | no  (activado: túnel remoto para ver la paginita fuera de la Udenar)
 NGROK_TARGET_PORT="3000"     # puerto del backend que expone ngrok (3000)
 NGROK_FRONTEND_PORT="8080"   # puerto del frontend que tambien se expone (la paginita)
+NGROK_API="http://localhost:4040"
+# Authtoken: si lo dejas vacio se lee de ~/.config/ngrok/ngrok.yml (ngrok config add-authtoken)
+NGROK_AUTHTOKEN=""
 
 # --- Swap para Pi 2GB (solo si necesitas PatchTST en modelo pequeño) ---
 SETUP_SWAP_2GB="no"          # yes | no  (no si ya tienes 4GB+)
@@ -220,24 +223,80 @@ stage_pm2(){
   echo "  pm2 save"
 }
 
+ngrok_tunnel_url(){
+  local url="" names="$*"
+  for _ in $(seq 1 30); do
+    url=$(curl -s "$NGROK_API/api/tunnels" 2>/dev/null \
+      | python3 -c "
+import sys, json
+want = sys.argv[1].split(',')
+ts = json.load(sys.stdin).get('tunnels', [])
+print(next((t['public_url'] for t in ts if t.get('name') in want), ''))
+" "$names" 2>/dev/null)
+    if [[ -n "$url" ]]; then echo "$url"; return 0; fi
+    sleep 1
+  done
+  echo ""
+}
+
 stage_ngrok(){
   if [[ "$ENABLE_NGROK" != "yes" ]]; then
     warn "Etapa 7 (ngrok) omitida (ENABLE_NGROK=no). Actívala si quieres túnel remoto."
     return
   fi
-  log "Etapa 7: ngrok túneles -> backend ($NGROK_TARGET_PORT) + frontend ($NGROK_FRONTEND_PORT)"
   command -v ngrok >/dev/null 2>&1 || die "ngrok no instalado"
-  # Túnel del backend (API + Socket.IO)
-  pm2 start "ngrok http $NGROK_TARGET_PORT --log stdout" --name "ngrok-backend"
-  # Túnel del frontend (la paginita, accesible desde fuera)
-  pm2 start "ngrok http $NGROK_FRONTEND_PORT --log stdout" --name "ngrok-frontend"
-  pm2 save
-  sleep 4
-  log "URLs públicas (cambian en cada reinicio de la Pi):"
-  curl -s http://localhost:4040/api/tunnels 2>/dev/null \
-    | python3 -c "import sys,json; [print('  ',t['name'],'->',t['public_url']) for t in json.load(sys.stdin).get('tunnels',[])]" \
-    2>/dev/null || warn "no se pudo leer URL ngrok"
-  warn "Como el frontend apunta a la IP LAN, para acceso remoto real debes reconstruirlo con VITE_API_URL/SOCKET_URL = la URL de ngrok-backend (ver Etapa 7.1 de la guía)."
+
+  local token="$NGROK_AUTHTOKEN"
+  if [[ -z "$token" && -f "$HOME/.config/ngrok/ngrok.yml" ]]; then
+    token=$(awk '/authtoken:/{print $2; exit}' "$HOME/.config/ngrok/ngrok.yml")
+  fi
+  [[ -n "$token" ]] || die "falta authtoken: ngrok config add-authtoken <TOKEN> o export NGROK_AUTHTOKEN=<TOKEN>"
+
+  local cfg="$HOME/.ngrok-deploy.yml"
+  cat > "$cfg" <<EOF
+version: "3"
+authtoken: $token
+tunnels:
+  ngrok-backend:
+    proto: http
+    addr: $NGROK_TARGET_PORT
+  ngrok-frontend:
+    proto: http
+    addr: $NGROK_FRONTEND_PORT
+EOF
+  chmod 600 "$cfg"
+
+  pm2 delete ngrok-tunnels >/dev/null 2>&1 || true
+  log "Etapa 7: ngrok (1 agente, 2 tuneles -> backend:$NGROK_TARGET_PORT + frontend:$NGROK_FRONTEND_PORT)"
+  pm2 start ngrok --name ngrok-tunnels --interpreter none -- start --config "$cfg" --all --log stdout
+
+  local nb nf
+  nb=$(ngrok_tunnel_url "ngrok-backend,command_line")
+  nf=$(ngrok_tunnel_url "ngrok-frontend")
+  pm2 save >/dev/null 2>&1 || true
+
+  if [[ -z "$nb" ]]; then
+    pm2 logs ngrok-tunnels --lines 30 --nostream || true
+    die "ngrok no expuso el tunel ngrok-backend (mira 'pm2 logs ngrok-tunnels')"
+  fi
+  ok "ngrok-backend  -> $nb"
+  if [[ -n "$nf" ]]; then ok "ngrok-frontend -> $nf"; else warn "tunel ngrok-frontend aun no listo"; fi
+  echo "$nb" > "$CLONE_DIR/.ngrok-backend-url"
+
+  local envf="$CLONE_DIR/Backend/.env"
+  if [[ -f "$envf" ]]; then
+    local add="$nb"
+    [[ -n "$nf" ]] && add="$nb,$nf"
+    if grep -q '^CORS_ORIGINS=' "$envf"; then
+      sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=$CORS_ORIGINS,$add|" "$envf"
+    else
+      echo "CORS_ORIGINS=$CORS_ORIGINS,$add" >> "$envf"
+    fi
+    pm2 restart sige-backend --update-env >/dev/null 2>&1 && ok "CORS_ORIGINS actualizado con las URLs ngrok" || warn "no se pudo reiniciar sige-backend (hazlo manual: pm2 restart sige-backend --update-env)"
+  else
+    warn "Backend/.env no encontrado; anade las URLs ngrok a CORS_ORIGINS a mano"
+  fi
+  warn "URLs cambian en cada reinicio de la Pi. El frontend aun apunta a la IP LAN; la etapa 8 lo reconstruye contra ngrok-backend."
 }
 
 stage_rebuild_remote(){
@@ -247,9 +306,9 @@ stage_rebuild_remote(){
     return
   fi
   # Obtener la URL pública del túnel del backend
-  local NG=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null \
-    | python3 -c "import sys,json; ts=json.load(sys.stdin).get('tunnels',[]); print(next((t['public_url'] for t in ts if t.get('name')=='ngrok-backend'),''))" 2>/dev/null)
+  local NG=$(ngrok_tunnel_url "ngrok-backend,command_line")
   if [[ -z "$NG" ]]; then
+    pm2 logs ngrok-tunnels --lines 30 --nostream 2>/dev/null || true
     die "No se encontró el túnel ngrok-backend. Ejecuta la etapa 7 (ngrok) primero y espera a que esté listo."
   fi
   ok "ngrok-backend URL = $NG"
@@ -280,7 +339,10 @@ stage_verify(){
   echo "--- frontend ---"
   curl -s -o /dev/null -w "frontend HTTP %{http_code}\n" http://localhost:8080
   echo "--- ngrok tunnels ---"
-  curl -s http://localhost:4040/api/tunnels 2>/dev/null | head -c 300 || true
+  local vb vf
+  vb=$(ngrok_tunnel_url "ngrok-backend,command_line"); vf=$(ngrok_tunnel_url "ngrok-frontend")
+  echo "  ngrok-backend  -> ${vb:-NO}"
+  echo "  ngrok-frontend -> ${vf:-NO}"
 }
 
 # ============================================================
