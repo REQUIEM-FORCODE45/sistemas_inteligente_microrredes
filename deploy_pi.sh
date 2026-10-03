@@ -35,12 +35,12 @@ REPO_URL="https://github.com/REQUIEM-FORCODE45/sistemas_inteligente_microrredes.
 CLONE_DIR="$HOME/sistema_inteligente_microrredes"
 
 # --- Secretos / entorno backend (Backend/.env) ---
-MONGO_URL="mongodb+srv://<user>:***@clusterinteligente.qnejnxi.mongodb.net/"   # <- CAMBIA
+MONGO_URL="mongodb+srv://root:SISTEMA2025qwer@clusterinteligente.qnejnxi.mongodb.net/"   # <- CAMBIA
 MONGO_DB_NAME="sistema_inteligente_db"
-SECRET_JWT_SEED="CAMBIA_ESTO_por_un_string_largo_y_aleatorio"   # <- CAMBIA (p.ej. openssl rand -hex 32)
+SECRET_JWT_SEED="SIMULADOR2024_SECRET_PASSWORD"   # <- CAMBIA (p.ej. openssl rand -hex 32)
 PORT="3000"
 REDIS_URL="redis://localhost:6379"
-CORS_ORIGINS="http://localhost:8080"            # añade http://<IP_PI>:8080,https://<ngrok>.ngrok-free.app
+CORS_ORIGINS="http://10.14.0.3:8080"            # añade http://<IP_PI>:8080,https://<ngrok>.ngrok-free.app
 PREDICTION_API_URL="http://localhost:8000"
 MPC_INTERVAL_MINUTES="15"
 FORECASTER="patchtst"                            # openmeteo | patchtst | timesfm
@@ -52,8 +52,8 @@ MQTT_BROKER="34.69.148.115"                      # broker MQTT externo de la gu�
 
 # --- Frontend (Frontend/GestionFront/.env.production) ---
 # Usa IP LAN de la Pi para no reconstruir cada vez que cambia ngrok:
-VITE_API_URL="http://<IP_PI>:3000/api"           # <- pon la IP real de la Pi
-VITE_SOCKET_URL="http://<IP_PI>:3000"             # <- pon la IP real de la Pi
+VITE_API_URL="http://10.14.0.3:3000/api"           # <- pon la IP real de la Pi
+VITE_SOCKET_URL="http://10.14.0.3:3000"             # <- pon la IP real de la Pi
 
 # --- Opciones de despliegue ---
 USE_DOCKER_REDIS="no"        # yes | no  (no = redis nativo con apt, recomendado en Pi)
