@@ -267,10 +267,10 @@ agent:
 endpoints:
   - name: ngrok-backend
     upstream:
-      url: $NGROK_TARGET_PORT
+      url: http://127.0.0.1:$NGROK_TARGET_PORT
   - name: ngrok-frontend
     upstream:
-      url: $NGROK_FRONTEND_PORT
+      url: http://127.0.0.1:$NGROK_FRONTEND_PORT
 EOF
   chmod 600 "$cfg"
 
