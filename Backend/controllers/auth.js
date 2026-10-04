@@ -5,7 +5,7 @@ const { GeneratorJWT }  = require('../helpers/jwt');
 
 
 const createUser = async (req, res = express.response) => {
-    const {email, password, role} = req.body;
+    const {email, password} = req.body;
 
     try{
 
@@ -17,12 +17,12 @@ const createUser = async (req, res = express.response) => {
             })
         }
 
-        usuario = new Usuario( req.body );
-        
-        const validRoles = ['user', 'admin', 'operator'];
-        if (!validRoles.includes(role)) {
-            usuario.role = 'user';
-        }
+        // El rol SIEMPRE es 'user' en el registro. Antes se tomaba del body y
+        // solo se degradaba si el valor no estaba en la lista, asi que un
+        // POST con {"role":"admin"} devolvia un JWT de admin (escalada de
+        // privilegios). El rol se otorgan por fuera, nunca desde el cliente.
+        usuario = new Usuario( { ...req.body, role: 'user' } );
+        usuario.role = 'user';
 
         const salt = bcrypt.genSaltSync();
         usuario.password = bcrypt.hashSync( password, salt );

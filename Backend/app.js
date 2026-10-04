@@ -20,8 +20,37 @@ const { setIO } = require('./services/ioBus');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+// Las URLs de ngrok gratis rotan en cada reinicio de la Pi, asi que fijar la
+// URL exacta se rompe solo. Una entrada que empieza por '.' se trata como
+// sufijo y cubre cualquier subdominio: '.ngrok-free.app' -> cualquier
+// https://<algo>.ngrok-free.app.
+function isOriginAllowed(origin) {
+    // Sin cabecera Origin: curl, MQTT, Node, el scheduler. No es una peticion
+    // de navegador, asi que CORS no aplica. Negarlo romperia los servicios.
+    if (!origin) return true;
+    // Fail-closed: sin lista de origenes no se acepta nada desde el navegador.
+    if (allowedOrigins.length === 0) return false;
+    return allowedOrigins.some((entry) => {
+        if (entry.startsWith('.')) {
+            return origin.endsWith(entry);
+        }
+        return origin === entry || origin.startsWith(entry);
+    });
+}
+
 const corsOptions = {
-    origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
+    origin: (origin, callback) => {
+        if (isOriginAllowed(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`Origen no permitido por CORS: ${origin}`));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-token']
 };
@@ -32,12 +61,11 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: (origin, callback) => {
-          const allowed = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',');
-          if (!origin || allowed.some((o) => origin.startsWith(o.trim())) || origin.startsWith('http://localhost:')) {
-            callback(null, true);
-          } else {
-            callback(new Error(`Origen no permitido por CORS: ${origin}`));
-          }
+            if (isOriginAllowed(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error(`Origen no permitido por CORS: ${origin}`));
+            }
         },
         methods: ['GET', 'POST'],
         allowedHeaders: ['Content-Type', 'Authorization', 'x-token'],

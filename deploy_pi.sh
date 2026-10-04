@@ -42,6 +42,7 @@ SECRET_JWT_SEED="SIMULADOR2024_SECRET_PASSWORD"   # <- CAMBIA (p.ej. openssl ran
 PORT="3000"
 REDIS_URL="redis://localhost:6379"
 CORS_ORIGINS="http://10.14.0.3:8080"            # añade http://<IP_PI>:8080,https://<ngrok>.ngrok-free.app
+CORS_ALLOW_NGROK="yes"                          # "no" para pinear las URLs exactas en su lugar
 PREDICTION_API_URL="http://localhost:8000"
 MPC_INTERVAL_MINUTES="15"
 FORECASTER="patchtst"                            # openmeteo | patchtst | timesfm
@@ -314,10 +315,18 @@ EOF
   if [[ -f "$envf" ]]; then
     local add="$nb"
     [[ -n "$nf" ]] && add="$nb,$nf"
+    # Las URLs de ngrok gratis rotan en cada reinicio: pinearlas se rompe solo.
+    # Con CORS_ALLOW_NGROK registramos el sufijo una vez y app.js acepta
+    # cualquier subdominio .ngrok-free.app (ver isOriginAllowed en app.js).
+    local suffix=""
+    if [[ "$CORS_ALLOW_NGROK" == "yes" ]]; then
+      suffix=",.ngrok-free.app,.ngrok.io"
+      ok "CORS con comodin: .ngrok-free.app,.ngrok.io"
+    fi
     if grep -q '^CORS_ORIGINS=' "$envf"; then
-      sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=$CORS_ORIGINS,$add|" "$envf"
+      sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=$CORS_ORIGINS,$add$suffix|" "$envf"
     else
-      echo "CORS_ORIGINS=$CORS_ORIGINS,$add" >> "$envf"
+      echo "CORS_ORIGINS=$CORS_ORIGINS,$add$suffix" >> "$envf"
     fi
     pm2 restart sige-backend --update-env >/dev/null 2>&1 && ok "CORS_ORIGINS actualizado con las URLs ngrok" || warn "no se pudo reiniciar sige-backend (hazlo manual: pm2 restart sige-backend --update-env)"
   else
