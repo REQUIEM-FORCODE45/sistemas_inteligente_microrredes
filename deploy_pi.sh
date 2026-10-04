@@ -103,6 +103,20 @@ stage_preflight(){
   echo "node: $(node -v 2>/dev/null) | yarn: $(yarn -v 2>/dev/null) | python3: $(python3 --version 2>&1)"
 }
 
+wait_http(){
+  local label="$1" url="$2" i code
+  for i in $(seq 1 30); do
+    code=$(curl -s -o /dev/null -m 3 -w '%{http_code}' "$url" 2>/dev/null)
+    if [[ -n "$code" && "$code" != "000" ]]; then
+      ok "$label responde HTTP $code en $url"
+      return 0
+    fi
+    sleep 2
+  done
+  warn "$label NO responde en $url tras 60 s"
+  return 1
+}
+
 stage_clone(){
   log "Etapa 1: clonar repo"
   if [[ -d "$LEGACY_CLONE_DIR/.git" && ! -d "$CLONE_DIR/.git" ]]; then
@@ -198,7 +212,9 @@ stage_prediction(){
     --update-env || warn "pm2 prediccion no arrancó (revisa más abajo)"
   pm2 save
   sleep 3
-  curl -s http://localhost:8000/predict/health || warn "health predict no responde aún"
+  curl -s http://localhost:8000/predict/health >/dev/null 2>&1 \
+    && ok "health predict responde" \
+    || warn "health predict no responde: pm2 logs sige-prediccion"
 }
 
 stage_frontend(){
@@ -225,6 +241,7 @@ stage_pm2(){
   pm2 save
   log "Estado pm2:"
   pm2 status
+  wait_http "backend" "http://127.0.0.1:$PORT/api/front/sensors" || true
   log "Para que arranque solo al encender la Pi, ejecuta UNA vez:"
   echo "  $SUDO env PATH=\"\$PATH:/$(command -v node | sed 's#/node##')\" pm2 startup systemd -u $USER --hp $HOME"
   echo "  pm2 save"
