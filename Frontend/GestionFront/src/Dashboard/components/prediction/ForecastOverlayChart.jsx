@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 import { CONTENDER_COLORS } from './forecastColors';
 
 // Overlay temporal: real vs cada contendiente (variable elegida).

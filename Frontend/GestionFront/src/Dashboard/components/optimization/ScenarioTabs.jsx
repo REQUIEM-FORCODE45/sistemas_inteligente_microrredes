@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 
 export const ScenarioTabs = ({ scenarioResults }) => {
   const chartRef = useRef(null);

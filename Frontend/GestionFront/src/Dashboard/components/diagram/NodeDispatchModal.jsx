@@ -4,7 +4,7 @@ import { X, Activity, GripHorizontal, LineChart as LineChartIcon } from 'lucide-
 import { closeDispatchModal } from '@/Dashboard/store/diagram/diagramSlice';
 import NodeDispatchSparkline from './components/NodeDispatchSparkline';
 import GridAPI from '@/api/grid-api';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 import ErrorBoundary from '@/Dashboard/components/ErrorBoundary';
 import { DEVICE_DEFINITIONS, getDeviceDispatchTypes } from './constants/deviceTypes';
 

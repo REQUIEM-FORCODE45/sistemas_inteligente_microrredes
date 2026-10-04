@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 
 // Mini-grafica Plotly reutilizable (dashboard).
 // REGLA DE ORO: un solo grafico por div -> antes de cada dibujo se hace

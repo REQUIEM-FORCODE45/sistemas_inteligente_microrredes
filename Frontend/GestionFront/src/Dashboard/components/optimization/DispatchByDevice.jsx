@@ -1,6 +1,6 @@
 import { useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 import { DEVICE_DEFINITIONS, getDispatchChartInfo } from '@/Dashboard/components/diagram/constants/deviceTypes';
 
 const EXTRA_COLORS = {

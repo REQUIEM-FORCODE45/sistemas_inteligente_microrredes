@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const KEY_LABELS = {

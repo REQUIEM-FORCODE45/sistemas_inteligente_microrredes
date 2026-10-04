@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 
 // Grafica climatica a tamano completo (C3).
 // De PlotlyMini reutiliza SOLO el patron purge -> newPlot -> resize.

@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 
 export const ExperimentTraceChart = ({ traces, height = 320 }) => {
   const [strat, setStrat] = useState('smpc');

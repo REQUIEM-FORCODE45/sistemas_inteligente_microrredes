@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 import { getDispatchChartInfo } from '@/Dashboard/components/diagram/constants/deviceTypes';
 
 export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) => {

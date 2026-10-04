@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import Plotly from '@/lib/plotly';
 import { getDispatchChartInfo } from '@/Dashboard/components/diagram/constants/deviceTypes';
 
 export default function NodeDispatchSparkline({ dispatchPlan, nodeId, totalHours = 24, scenario = '' }) {
