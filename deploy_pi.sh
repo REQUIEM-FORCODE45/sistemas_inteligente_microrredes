@@ -13,7 +13,7 @@
 #
 # Etapas:
 #   0 preflight  -> comprueba node/yarn/python3/pip/pm2/ngrok/redis
-#   1 clone      -> clona el repo en ~/sistema_inteligente_microrredes
+#   1 clone      -> clona el repo en ~/sistemas_inteligente_microrredes
 #   2 backend    -> crea Backend/.env + ecosystem.config.js + yarn install
 #   3 redis      -> levanta Redis (nativo por defecto; docker opcional)
 #   4 prediction -> venv + torch CPU + requirements + app pm2
@@ -32,7 +32,8 @@ set -uo pipefail
 # >>>>>  CONFIG — RELLENA ESTO ANTES DE EJECUTAR  <<<<<
 # ============================================================
 REPO_URL="https://github.com/REQUIEM-FORCODE45/sistemas_inteligente_microrredes.git"
-CLONE_DIR="$HOME/sistema_inteligente_microrredes"
+CLONE_DIR="$HOME/sistemas_inteligente_microrredes"
+LEGACY_CLONE_DIR="$HOME/sistema_inteligente_microrredes"
 
 # --- Secretos / entorno backend (Backend/.env) ---
 MONGO_URL="mongodb+srv://root:SISTEMA2025qwer@clusterinteligente.qnejnxi.mongodb.net/"   # <- CAMBIA
@@ -104,6 +105,10 @@ stage_preflight(){
 
 stage_clone(){
   log "Etapa 1: clonar repo"
+  if [[ -d "$LEGACY_CLONE_DIR/.git" && ! -d "$CLONE_DIR/.git" ]]; then
+    warn "Migrando $LEGACY_CLONE_DIR -> $CLONE_DIR (conserva .venv y node_modules)"
+    mv "$LEGACY_CLONE_DIR" "$CLONE_DIR" || die "no se pudo renombrar el directorio"
+  fi
   if [[ -d "$CLONE_DIR/.git" ]]; then
     warn "$CLONE_DIR ya existe. Haciendo git pull en la rama actual..."
     ( cd "$CLONE_DIR" && git pull --ff-only )
