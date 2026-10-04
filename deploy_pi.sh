@@ -156,6 +156,7 @@ module.exports = {
   apps: [{
     name: "sige-backend",
     script: "app.js",
+    cwd: __dirname,
     exec_mode: "fork",
     instances: 1,
     autorestart: true,
@@ -348,10 +349,16 @@ EOF
   yarn install --frozen-lockfile >/dev/null 2>&1 || true
   yarn build || die "fallo yarn build (rebuild remoto)"
   ok "frontend reconstruido"
-  pm2 restart gestion-front --update-env 2>/dev/null || pm2 serve Frontend/GestionFront/dist 8080 --name gestion-front --spa
+  pm2 restart gestion-front --update-env 2>/dev/null || pm2 serve "$CLONE_DIR/Frontend/GestionFront/dist" 8080 --name gestion-front --spa
   pm2 save
-  log "Ahora abre en tu navegador (fuera de la Udenar):"
-  echo "  $NG  <- esta es la API; la paginita queda en su túnel ngrok-frontend (mira 'pm2 logs ngrok-frontend')"
+  log "Abre esto en tu navegador (fuera de la Udenar):"
+  local NF2=$(ngrok_tunnel_url "ngrok-frontend")
+  if [[ -n "$NF2" ]]; then
+    echo "  $NF2   <- la paginita (abre esta)"
+  else
+    echo "  (frontend sin tunnel: pm2 logs ngrok-tunnels)"
+  fi
+  echo "  $NG/api   <- la API"
 }
 
 stage_verify(){
