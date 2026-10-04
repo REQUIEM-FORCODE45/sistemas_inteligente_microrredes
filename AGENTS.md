@@ -132,7 +132,8 @@ Verificación de correcciones: `VERIFICACION_CORRECCIONES_MPC.md` + hist. correc
 ## Frontend architecture
 
 ### Stack
-- **Bundle**: rolldown-vite 7.2.5, `@` alias → `./src`
+- **Bundle**: rolldown-vite 7.2.11 (NO bajar de 7.2.6), `@` alias → `./src`
+  - En 7.2.5 / rolldown 1.0.0-beta.50 el build de cliente **no sintetiza `default` para módulos CJS**: los imports nombrados se compilan a `x.default` con `x.default === undefined`. Rompía con `TypeError: v.default is undefined` al avaliar el módulo (app en blanco) vía `react` (CJS) usado por react-redux, y vía `plotly.js-dist-min` (UMD). Corregido en rolldown 1.0.0-beta.53.
 - **Styling**: Tailwind CSS v4 (no `tailwind.config.js` — theme in `src/index.css` via `@theme inline` + CSS vars), shadcn/ui "new-york" neutral
 - **State**: Redux Toolkit, store at `src/Authentication/store/store.js`, `serializableCheck: false` (sockets are stored)
 - **Routing**: React Router v7, AppRouter in `src/router/AppRouter.jsx`, auth-gated
