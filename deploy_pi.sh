@@ -187,6 +187,7 @@ stage_prediction(){
   pip install -r optimization/requirements.txt || die "fallo requirements"
   ok "entorno python listo"
   # Lanzar con pm2 (cwd importante)
+  pm2 delete sige-prediccion >/dev/null 2>&1 || true
   pm2 start "python3 -m uvicorn prediction.main:app --host 0.0.0.0 --port 8000 --workers 1" \
     --name sige-prediccion --cwd ./optimization --interpreter ./.venv/bin/python \
     --update-env || warn "pm2 prediccion no arrancó (revisa más abajo)"
@@ -214,6 +215,7 @@ stage_pm2(){
   # Backend
   pm2 start Backend/ecosystem.config.js --update-env
   # Frontend (servir SPA)
+  pm2 delete gestion-front >/dev/null 2>&1 || true
   pm2 serve Frontend/GestionFront/dist 8080 --name gestion-front --spa
   pm2 save
   log "Estado pm2:"
@@ -254,21 +256,23 @@ stage_ngrok(){
 
   local cfg="$HOME/.ngrok-deploy.yml"
   cat > "$cfg" <<EOF
-version: "3"
-authtoken: $token
-tunnels:
-  ngrok-backend:
-    proto: http
-    addr: $NGROK_TARGET_PORT
-  ngrok-frontend:
-    proto: http
-    addr: $NGROK_FRONTEND_PORT
+version: 3
+agent:
+  authtoken: $token
+endpoints:
+  - name: ngrok-backend
+    upstream:
+      url: $NGROK_TARGET_PORT
+  - name: ngrok-frontend
+    upstream:
+      url: $NGROK_FRONTEND_PORT
 EOF
   chmod 600 "$cfg"
 
-  pm2 delete ngrok-tunnels >/dev/null 2>&1 || true
-  log "Etapa 7: ngrok (1 agente, 2 tuneles -> backend:$NGROK_TARGET_PORT + frontend:$NGROK_FRONTEND_PORT)"
-  pm2 start ngrok --name ngrok-tunnels --interpreter none -- start --config "$cfg" --all --log stdout
+  pm2 delete ngrok-tunnels ngrok-backend ngrok-frontend >/dev/null 2>&1 || true
+  sleep 1
+  log "Etapa 7: ngrok (1 agente, 2 endpoints -> backend:$NGROK_TARGET_PORT + frontend:$NGROK_FRONTEND_PORT)"
+  pm2 start ngrok --name ngrok-tunnels --interpreter none -- start --config "$cfg" --all
 
   local nb nf
   nb=$(ngrok_tunnel_url "ngrok-backend,command_line")
@@ -330,6 +334,9 @@ EOF
 
 stage_verify(){
   log "Etapa 9: verificación end-to-end"
+  for s in sige-backend sige-prediccion gestion-front; do
+    pm2 describe "$s" >/dev/null 2>&1 || warn "FALTA el proceso pm2 '$s' -> ejecuta la etapa que lo lanza (2/4/6)"
+  done
   pm2 status
   redis-cli ping
   echo "--- backend health (requiere JWT en x-token) ---"
