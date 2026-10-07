@@ -9,6 +9,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // plotly.js-dist-min (UMD) rompe el build de produccion si entra por el
+      // bundler; se carga como script global y aqui solo exponemos window.Plotly.
+      "plotly.js-dist-min": path.resolve(__dirname, "./src/lib/plotly-global.js"),
     },
   },
   optimizeDeps: {
