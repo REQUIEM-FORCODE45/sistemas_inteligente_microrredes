@@ -1,0 +1,12 @@
+{
+ "sensor_id": "pasto_solar_pv",
+ "type": "solar",
+ "k": 0.8253886971229859,
+ "params": {
+  "losses_pct": 25.602970846249455,
+  "inverter_eta": 0.8802699870412173,
+  "temp_coeff_pct_per_c": -0.10000000000000016
+ },
+ "conformal_radius_kw": 1.404251317753145,
+ "provider": "physics+ML"
+}

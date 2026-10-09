@@ -18,6 +18,7 @@ y se planifica **antes** de crearse.
 | **03** | `cambio_03_mos_visible_dashboard/` | **Ver el MOS en el Dashboard**: añadirlo al selector de providers + avisos de credibilidad (N/A en la tabla, datos previos al fix) | ✅ **3.1–3.6 implementado y verificado** (`f3abca8`) · 🟢 3.7 (reproducibilidad) → `VERIFICACION.md` |
 | **04** | `cambio_04_comparativa_corta/` | **Sustituir la comparativa de 12 meses por una corta (4 meses)**: la de 12 quedó pre-fix y su fila del MOS no es interpretable | ✅ **Cerrado** (`e4e10a8` + banner `8c4d9a5`): 7/7 criterios, fila del MOS **válida**, defecto del banner **resuelto** → `VERIFICACION.md` |
 | **05** | `cambio_05_contexto_climatico_visual/` | **Contexto climático visual**: índices ENSO (ONI/RONI), mapa literal + superficie continua de Nariño, IA visible, almacén append-only + página `/clima` | 🟡 Plan v1.1 + `reference/` verificado (C1–C4) · MVP 05.1+05.6+05.7 en curso → `VERIFICACION_MVP.md` |
+| **06** | `cambio_06_banda_conformal/` | **Banda de incertidumbre del MPC**: split disjunto + cuantiles del predictor final + banda asimétrica — la banda que alimenta los escenarios del S-MPC | 🟡 Spec v1 + `reference/` (protocolo de medición) · sin implementar |
 
 **PASO 2 — cerrado con una comparativa CORTA y VÁLIDA** (cambio 04; ventana 2026-05-08 → 09-06):
 
