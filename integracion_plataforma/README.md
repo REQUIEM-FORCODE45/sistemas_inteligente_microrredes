@@ -22,6 +22,7 @@ y se planifica **antes** de crearse.
 | **07** | *(sin carpeta)* | **Formulación documentada ↔ código**: `informe.md` §5.1/§5.2 + anexo (escenarios 60/30/10 con factores de irradiancia) frente a `scenarios.py` (20/60/20 con cuantiles), balance `≥` vs `==`, variables no declaradas, big-M del diésel; y reportar en el dispatch la banda que el solver usó por escenario | ⏸️ **Diferido** a la redacción del capítulo (es documentación, cero riesgo de código) · **sin carpeta por regla dura 7** |
 | **08** | `cambio_08_modelo_mpc_fisica/` | **Física del MPC de producción**: rampa del diésel, no-simultaneidad import/export, cargo fijo de red y contrato de exportación | 🟡 Spec v1 · sin implementar |
 | **09** | `cambio_09_ciclo_calibracion/` | **Ciclo de vida de la calibración**: drift cableado (hoy código huérfano), antigüedad + `stale` del artefacto, política de refresco y proveedor declarado | 🟡 Spec v1 · sin implementar |
+| **10** | `cambio_10_ui_parametros_configurables/` | **Parámetros operativos configurables desde la UI**: rampa del diésel, λ de degradación de la batería, tarifas de red (+ToU horario), política de frescura y unidades explícitas (5 de ellos hoy hardcodeados en el mapper) | 🟡 Spec v1 · sin implementar · **depende del 08** |
 
 **PASO 2 — cerrado con una comparativa CORTA y VÁLIDA** (cambio 04; ventana 2026-05-08 → 09-06):
 
