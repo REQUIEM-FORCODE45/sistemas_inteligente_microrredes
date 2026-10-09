@@ -19,6 +19,9 @@ y se planifica **antes** de crearse.
 | **04** | `cambio_04_comparativa_corta/` | **Sustituir la comparativa de 12 meses por una corta (4 meses)**: la de 12 quedó pre-fix y su fila del MOS no es interpretable | ✅ **Cerrado** (`e4e10a8` + banner `8c4d9a5`): 7/7 criterios, fila del MOS **válida**, defecto del banner **resuelto** → `VERIFICACION.md` |
 | **05** | `cambio_05_contexto_climatico_visual/` | **Contexto climático visual**: índices ENSO (ONI/RONI), mapa literal + superficie continua de Nariño, IA visible, almacén append-only + página `/clima` | 🟡 Plan v1.1 + `reference/` verificado (C1–C4) · MVP 05.1+05.6+05.7 en curso → `VERIFICACION_MVP.md` |
 | **06** | `cambio_06_banda_conformal/` | **Banda de incertidumbre del MPC**: split disjunto + cuantiles del predictor final + banda asimétrica — la banda que alimenta los escenarios del S-MPC | 🟡 Spec v1 + `reference/` (protocolo de medición) · sin implementar |
+| **07** | *(sin carpeta)* | **Formulación documentada ↔ código**: `informe.md` §5.1/§5.2 + anexo (escenarios 60/30/10 con factores de irradiancia) frente a `scenarios.py` (20/60/20 con cuantiles), balance `≥` vs `==`, variables no declaradas, big-M del diésel; y reportar en el dispatch la banda que el solver usó por escenario | ⏸️ **Diferido** a la redacción del capítulo (es documentación, cero riesgo de código) · **sin carpeta por regla dura 7** |
+| **08** | `cambio_08_modelo_mpc_fisica/` | **Física del MPC de producción**: rampa del diésel, no-simultaneidad import/export, cargo fijo de red y contrato de exportación | 🟡 Spec v1 · sin implementar |
+| **09** | `cambio_09_ciclo_calibracion/` | **Ciclo de vida de la calibración**: drift cableado (hoy código huérfano), antigüedad + `stale` del artefacto, política de refresco y proveedor declarado | 🟡 Spec v1 · sin implementar |
 
 **PASO 2 — cerrado con una comparativa CORTA y VÁLIDA** (cambio 04; ventana 2026-05-08 → 09-06):
 
