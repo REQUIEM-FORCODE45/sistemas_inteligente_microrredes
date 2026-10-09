@@ -150,6 +150,8 @@ export const DEVICE_DEFINITIONS = {
       costB: 0.5,
       costC: 0.5,
       fuelCost: 100,
+      // Cambio 10.1: null = NO declarada (nunca 0 silencioso).
+      rampKwPerH: null,
     },
     dimension: { width: 195, height: 115 },
     solverCategory: SOLVER_CATEGORY.SOURCES,
@@ -186,6 +188,14 @@ export const DEVICE_DEFINITIONS = {
     defaultParams: {
       maxCapacity: 100000,
       voltage: 220,
+      // Cambio 10.3: null en ToU = sin declarar (escalar costVariable).
+      costFixed: 40,
+      costVariable: 60,
+      tariffMode: 'hora',
+      maxExportKw: null,
+      touValley: null,
+      touMedia: null,
+      touPeak: null,
     },
     dimension: { width: 180, height: 110 },
     solverCategory: SOLVER_CATEGORY.GRID,
@@ -221,6 +231,8 @@ export const DEVICE_DEFINITIONS = {
       capacity: 10000,
       chargeLevel: 80,
       voltage: 48,
+      // Cambio 10.2: default 30 = valor actual (tesis sugiere ~200, solo nota).
+      degradationCost: 30,
     },
     dimension: { width: 190, height: 115 },
     solverCategory: SOLVER_CATEGORY.STORAGE,

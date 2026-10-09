@@ -165,3 +165,92 @@ def test_solve_sin_fuentes_ignora_predicciones():
     wind_entries = [d for d in out["dispatch_plan"] if d["device_type"] == "wind"]
     assert len(solar_entries) == 0, "no debe emitir solar sin dispositivos"
     assert len(wind_entries) == 0, "no debe emitir wind sin dispositivos"
+
+
+# --------------------------------------------------------------------------- #
+# Cambio 08 — fisica del MPC de produccion
+# --------------------------------------------------------------------------- #
+
+def _diesel_series(out, scenario="Soleado"):
+    return [d["power_kw"] for d in out["dispatch_plan"]
+            if d["device_type"] == "diesel" and d["scenario"] == scenario]
+
+
+def test_08_rampa_respeta_limite():
+    """Con rampa declarada, el diesel no salta mas de ramp_kw_per_h."""
+    import copy
+    job = copy.deepcopy(BASE_JOB)
+    job["sources"][1]["ramp_kw_per_h"] = 25
+    # demanda con salto que exigiria 0->300 sin rampa
+    job["predictions_load_total"] = [10.0] * 4 + [400.0] * 4
+    out = build_and_solve(job)
+    assert out["status"] == "optimal"
+    seq = _diesel_series(out)
+    print("P_diesel:", [round(v, 1) for v in seq])
+    # convencion: 0 -> minimo tecnico permitido (arranque); la rampa se exige
+    # entre dos periodos encendidos (ambos > 0).
+    salta = [abs(seq[t] - seq[t - 1]) for t in range(1, len(seq))
+             if seq[t] > 0.001 and seq[t - 1] > 0.001]
+    assert max(salta) <= 25.0 + 1e-3, f"salto maximo {max(salta)} > rampa 25"
+    assert all("rampa" not in w for w in out["warnings"])
+
+
+def test_08_rampa_no_declarada_warning():
+    out = build_and_solve(dict(BASE_JOB))
+    assert out["status"] == "optimal"
+    assert any("rampa no declarada" in w for w in out["warnings"])
+
+
+def test_08_exclusion_con_tarifa():
+    """Con export_tariff > 0, ninguna hora importa Y exporta a la vez."""
+    import copy
+    job = copy.deepcopy(BASE_JOB)
+    job["grid"] = dict(BASE_JOB["grid"], export_tariff=50.0)
+    out = build_and_solve(job)
+    assert out["status"] == "optimal"
+    by_hour = {}
+    for d in out["dispatch_plan"]:
+        if d["scenario"] != "Soleado":
+            continue
+        by_hour.setdefault(d["hour"], {})[d["device_type"]] = d["power_kw"]
+    for h, v in by_hour.items():
+        assert not (v.get("grid_import", 0) > 0.01
+                    and v.get("grid_export", 0) > 0.01), f"hora {h}: coexisten"
+
+
+def test_08_sin_tarifa_sin_ugrid():
+    import copy
+    out = build_and_solve(dict(BASE_JOB))
+    assert out["status"] == "optimal"
+    # BASE_JOB declara max_export_kw: 300 -> precedencia declarada
+    assert out["grid_limits"] == {"max_import": 400.0, "max_export": 300.0,
+                                  "source": "max_export_kw"}
+    # sin max_export_kw -> fallback a -min_import_kw
+    job = copy.deepcopy(BASE_JOB)
+    job["grid"] = {k: v for k, v in BASE_JOB["grid"].items()
+                   if k != "max_export_kw"}
+    out2 = build_and_solve(job)
+    assert out2["status"] == "optimal"
+    assert out2["grid_limits"] == {"max_import": 400.0, "max_export": 300.0,
+                                   "source": "min_import_kw"}
+
+
+def test_08_cargo_fijo_reportado():
+    """cost_fixed=40, horizonte 8h -> 320 COP por escenario, etiquetado."""
+    out = build_and_solve(dict(BASE_JOB))
+    assert out["status"] == "optimal"
+    n_sc = len({d["scenario"] for d in out["dispatch_plan"]})
+    assert out["cost_breakdown"]["fixed_total"] == 40 * 8 * n_sc
+    assert out["cost_breakdown"]["fixed_source"] == "cost_fixed"
+    assert all(e["fixed"] == 40 for e in out["cost_breakdown"]["hourly"])
+    assert out["cost_fixed_applied"] == {"valor_hora": 40.0, "fuente": "cost_fixed"}
+
+
+def test_08_max_export_precedencia():
+    import copy
+    job = copy.deepcopy(BASE_JOB)
+    job["grid"] = dict(BASE_JOB["grid"], max_export_kw=100, min_import_kw=-300)
+    out = build_and_solve(job)
+    assert out["status"] == "optimal"
+    assert out["grid_limits"] == {"max_import": 400.0, "max_export": 100.0,
+                                  "source": "max_export_kw"}

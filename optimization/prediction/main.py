@@ -99,17 +99,56 @@ def predict_calibrate(payload: dict):
 
 @app.get("/predict/calibrated")
 def predict_calibrated(sensor_id: str = Query(...)):
-    """Estado del modelo calibrado del sensor (exists + resumen)."""
+    """Estado del modelo calibrado del sensor (cambio 09: antiguedad + stale)."""
     from optimization.calibration.service import is_calibrated, artifact_path
     if not is_calibrated(sensor_id):
         return {"sensor_id": sensor_id, "exists": False}
     try:
         from optimization.calibration.service import _summary_of, load_calibrated
+        from optimization.monitoring.calibration_lifecycle import (max_age_days,
+                                                                   should_recalibrate)
+        summary = _summary_of(load_calibrated(sensor_id))
         return {"sensor_id": sensor_id, "exists": True,
                 "artifact": artifact_path(sensor_id),
-                "summary": _summary_of(load_calibrated(sensor_id))}
+                "calibrated_at": summary.get("calibrated_at"),
+                "age_days": summary.get("age_days"),
+                "stale": summary.get("stale"),
+                "max_age_days": max_age_days(),
+                "baseline_rmse_kw": summary.get("baseline_rmse_kw"),
+                "recalibracion": should_recalibrate(sensor_id),
+                "summary": summary}
     except Exception as exc:
         return {"sensor_id": sensor_id, "exists": True, "error": str(exc)}
+
+
+@app.get("/predict/calibration/drift")
+def predict_calibration_drift(sensor_id: str = Query(...),
+                              type: str = Query(default="solar"),
+                              site_id: str = Query(default="pasto_narino")):
+    """Cambio 09: deriva del modelo contra mediciones recientes (o null)."""
+    from optimization.monitoring.calibration_lifecycle import evaluate_drift
+    try:
+        return evaluate_drift(site_id, sensor_id, type)
+    except Exception as exc:
+        return {"sensor_id": sensor_id, "drift": None,
+                "reason": f"deriva no calculable: {exc}"}
+
+
+@app.get("/predict/provider")
+def predict_provider(site_id: str = Query(default="pasto_narino")):
+    """Cambio 09.5: proveedor climatico efectivo (para no operar a ciegas).
+
+    Resuelto igual que /predict/weather, para que ambos coincidan.
+    """
+    import os
+    from optimization.config.loader import load_site as _ls
+    from optimization.prediction.forecaster import get_climate_provider
+    cfg = _ls(site_id)
+    prov = get_climate_provider(cfg["site"])
+    name = getattr(prov, "provider_name", None) or getattr(prov, "provider", None)
+    return {"provider": name,
+            "env_FORECASTER": os.environ.get("FORECASTER", "openmeteo"),
+            "fuente": "resuelto como /predict/weather"}
 
 
 @app.get("/predict/sensor")

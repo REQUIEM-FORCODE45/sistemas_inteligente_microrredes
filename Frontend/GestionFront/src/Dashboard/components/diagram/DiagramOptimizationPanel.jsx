@@ -28,16 +28,23 @@ const TOPOLOGY_MAPPERS = {
     efficiency: (params.efficiency || 0.21) * (params.invEfficiency != null ? params.invEfficiency : 0.95),
     cost_a: 0, cost_b: 0, cost_c: 0, fuel_cost: 0,
   }),
-  [DEVICE_TYPE.DIESEL_GENERATOR]: (_node, params) => ({
-    type: 'diesel',
-    max_kw: (params.maxCapacity || 300000) / 1000,
-    min_kw: (params.minCapacity || 50000) / 1000,
-    efficiency: 1.0,
-    cost_a: params.costA != null ? params.costA : 0.001,
-    cost_b: params.costB != null ? params.costB : 0.5,
-    cost_c: params.costC != null ? params.costC : 0.5,
-    fuel_cost: params.fuelCost != null ? params.fuelCost : 100,
-  }),
+  [DEVICE_TYPE.DIESEL_GENERATOR]: (_node, params) => {
+    // Cambio 10.1: rampa SOLO si esta declarada (vacio/null -> sin clave).
+    const out = {
+      type: 'diesel',
+      max_kw: (params.maxCapacity || 300000) / 1000,
+      min_kw: (params.minCapacity || 50000) / 1000,
+      efficiency: 1.0,
+      cost_a: params.costA != null ? params.costA : 0.001,
+      cost_b: params.costB != null ? params.costB : 0.5,
+      cost_c: params.costC != null ? params.costC : 0.5,
+      fuel_cost: params.fuelCost != null ? params.fuelCost : 100,
+    };
+    if (params.rampKwPerH != null && params.rampKwPerH !== '') {
+      out.ramp_kw_per_h = Number(params.rampKwPerH);
+    }
+    return out;
+  },
   [DEVICE_TYPE.WIND_TURBINE]: (_node, params) => ({
     type: 'wind',
     max_kw: (params.maxCapacity || 100000) / 1000,
@@ -45,12 +52,30 @@ const TOPOLOGY_MAPPERS = {
     efficiency: params.efficiency || 0.4,
     cost_a: 0, cost_b: 0, cost_c: 0, fuel_cost: 0,
   }),
-  [DEVICE_TYPE.GRID]: (_node, params) => ({
-    max_import_kw: params.maxCapacity ? params.maxCapacity / 1000 : 400,
-    max_export_kw: params.maxCapacity ? (params.maxCapacity * 0.75) / 1000 : 300,
-    min_import_kw: -(params.maxCapacity ? (params.maxCapacity * 0.75) / 1000 : 300),
-    cost_fixed: 40, cost_variable: 60,
-  }),
+  // Cambio 10.3: perfil ToU validado (experiments/config.py:64-70). Las
+  // franjas NO son editables; solo las 3 tarifas.
+  [DEVICE_TYPE.GRID]: (_node, params) => {
+    const legacyExport = params.maxCapacity ? (params.maxCapacity * 0.75) / 1000 : 300;
+    const out = {
+      max_import_kw: params.maxCapacity ? params.maxCapacity / 1000 : 400,
+      max_export_kw: params.maxExportKw != null && params.maxExportKw !== ''
+        ? Number(params.maxExportKw) : legacyExport,
+      min_import_kw: -(params.maxCapacity ? (params.maxCapacity * 0.75) / 1000 : 300),
+      cost_fixed: params.costFixed != null ? params.costFixed : 40,
+      cost_variable: params.costVariable != null ? params.costVariable : 60,
+    };
+    if (params.tariffMode === 'mes') {
+      out.cost_fixed_month = params.costFixed != null ? params.costFixed : 40;
+    }
+    if (params.touValley != null && params.touMedia != null && params.touPeak != null
+        && params.touValley !== '' && params.touMedia !== '' && params.touPeak !== '') {
+      const v = Number(params.touValley), m = Number(params.touMedia), p = Number(params.touPeak);
+      out.cost_variable = [
+        ...Array(6).fill(v), ...Array(13).fill(m), ...Array(3).fill(p), ...Array(2).fill(m),
+      ];
+    }
+    return out;
+  },
   [DEVICE_TYPE.BATTERY]: (_node, params) => {
     const c = (params.capacity || 10000) / 1000;
     return {
@@ -59,7 +84,7 @@ const TOPOLOGY_MAPPERS = {
       soc_min: 0.2, soc_max: 0.95,
       initial_soc: (params.chargeLevel || 80) / 100,
       charge_efficiency: 0.95, discharge_efficiency: 0.95,
-      degradation_cost_per_kwh: 30.0,
+      degradation_cost_per_kwh: params.degradationCost != null ? params.degradationCost : 30.0,
     };
   },
   [DEVICE_TYPE.LOAD]: (_node, params) => {
@@ -79,6 +104,7 @@ function diagramToOptimization(nodes) {
   const sources = [];
   const storage = [];
   const loads = [];
+  // Cambio 10.3: mismo criterio que el mapper de red (evita el §2.2).
   const gridDefault = { max_import_kw: 400, max_export_kw: 300, min_import_kw: -300, cost_fixed: 40, cost_variable: 60 };
   let grid = null;
 
@@ -426,3 +452,6 @@ export default function DiagramOptimizationPanel({ onClose }) {
     </div>
   );
 }
+
+// Cambio 10: exportado para verificacion de mappers con codigo real (C2-C5).
+export { TOPOLOGY_MAPPERS };

@@ -1,12 +1,30 @@
 {
  "sensor_id": "pasto_solar_pv",
  "type": "solar",
- "k": 0.8253886971229859,
+ "k": 0.8292120023112083,
  "params": {
-  "losses_pct": 25.602970846249455,
-  "inverter_eta": 0.8802699870412173,
-  "temp_coeff_pct_per_c": -0.10000000000000016
+  "losses_pct": 25.721682261070665,
+  "inverter_eta": 0.8794328702080734,
+  "temp_coeff_pct_per_c": -0.10000000000000013
  },
- "conformal_radius_kw": 1.404251317753145,
- "provider": "physics+ML"
+ "conformal_radius_kw": 2.8389233953709536,
+ "band_q": {
+  "q10": -0.050646212546565254,
+  "q90": 4.74591503022668,
+  "n_cal": 72,
+  "split": "disjunto",
+  "coverage_holdout": 0.75,
+  "ancho_medio_kw": 4.796561242773245
+ },
+ "calibrated_at": "2026-10-09T06:05:13.105877+00:00",
+ "age_days": 1.996550925925926e-06,
+ "stale": false,
+ "baseline_rmse_kw": 2.275423345592271,
+ "n_horas": 360,
+ "source_window": {
+  "desde": "2026-07-24 00:00:00-05:00",
+  "hasta": "2026-08-07 23:00:00-05:00"
+ },
+ "provider": "physics+ML",
+ "rmse_calibrado_kw": 1.4103666711112852
 }

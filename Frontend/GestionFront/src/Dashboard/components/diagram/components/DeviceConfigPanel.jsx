@@ -9,16 +9,27 @@ import {
 import { X, Save, Trash2, Pencil, Check } from 'lucide-react';
 import { DEVICE_DEFINITIONS } from '../constants/deviceTypes';
 
-function ParamField({ label, value, onChange, type = 'text', step = 'any' }) {
+// Cambio 10.5: claves opcionales (vacio = no declarado, NUNCA 0). Solo para
+// las claves de OPTIONAL_PARAMS; el resto conserva el comportamiento actual.
+const OPTIONAL_PARAMS = ['rampKwPerH'];
+const OPTIONAL_NUMERIC = ['rampKwPerH', 'maxExportKw', 'touValley', 'touMedia', 'touPeak'];
+
+function ParamField({ label, value, onChange, type = 'text', step = 'any', paramKey = null }) {
+  const optional = paramKey != null && OPTIONAL_PARAMS.includes(paramKey);
   return (
     <div className="space-y-1">
       <label className="text-[10px] font-medium text-muted-foreground">
-        {label}
+        {label}{optional ? ' (opcional)' : ''}
       </label>
       <input
         type={type}
         value={value ?? ''}
+        placeholder={optional ? 'sin declarar' : undefined}
         onChange={(e) => {
+          if (optional && e.target.value === '') {
+            onChange(null);
+            return;
+          }
           const val = type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
           onChange(val);
         }}
@@ -105,6 +116,16 @@ export default function DeviceConfigPanel({ onClose }) {
     consumption: 'Consumo (W)',
     metric: 'Métrica',
     interval: 'Intervalo (ms)',
+    // Cambio 10: etiquetas nuevas SIEMPRE con unidad explicita.
+    rampKwPerH: 'Rampa diésel (kW/h) — dato del fabricante',
+    degradationCost: 'Degradación batería (COP/kWh) — tesis ~200',
+    costFixed: 'Cargo fijo red (COP)',
+    costVariable: 'Tarifa variable (COP/kWh)',
+    tariffMode: "Tarifa fija: 'hora' o 'mes'",
+    maxExportKw: 'Tope exportación (kW)',
+    touValley: 'ToU valle 00–05 (COP/kWh)',
+    touMedia: 'ToU media 06–18/22–23 (COP/kWh)',
+    touPeak: 'ToU pico 19–21 (COP/kWh)',
   };
 
   return (
@@ -209,15 +230,21 @@ export default function DeviceConfigPanel({ onClose }) {
               )}
               {paramKeys
                 .filter((key) => key !== 'loadSource')
-                .map((key) => (
-                  <ParamField
-                    key={key}
-                    label={paramLabels[key] || key}
-                    value={params[key]}
-                    type={typeof nodeDeviceDef.defaultParams[key] === 'number' ? 'number' : 'text'}
-                    onChange={(val) => setParams((prev) => ({ ...prev, [key]: val }))}
-                  />
-                ))}
+                .map((key) => {
+                  const dv = nodeDeviceDef.defaultParams[key];
+                  const numType = typeof dv === 'number'
+                    || (dv == null && OPTIONAL_NUMERIC.includes(key));
+                  return (
+                    <ParamField
+                      key={key}
+                      paramKey={key}
+                      label={paramLabels[key] || key}
+                      value={params[key]}
+                      type={numType ? 'number' : 'text'}
+                      onChange={(val) => setParams((prev) => ({ ...prev, [key]: val }))}
+                    />
+                  );
+                })}
             </div>
           )}
 

@@ -35,13 +35,25 @@ class CalibratedPvPlant:
                  conformal_radius_kw: Optional[float] = None,
                  alpha: float = 0.2,
                  t0: Optional[pd.Timestamp] = None,
-                 meta: Optional[dict] = None):
+                 meta: Optional[dict] = None,
+                 band_q: Optional[dict] = None,
+                 calibrated_at: Optional[str] = None,
+                 baseline_rmse_kw: Optional[float] = None,
+                 n_horas: Optional[int] = None,
+                 source_window: Optional[dict] = None):
         self.plant_calib = build_plant(plant, params)
         self.params = params
         self.k = k
         self.residual_model = residual_model
         self.residual_q = residual_q          # cuantiles empiricos del residuo train
         self.conformal_radius_kw = conformal_radius_kw  # banda conformal (Fase 3)
+        self.band_q = band_q                # cambio 06: {"q10","q90","n_cal",
+                                            # "split","coverage_holdout"}
+        # Cambio 09: memoria del artefacto (artefactos viejos no los tienen).
+        self.calibrated_at = calibrated_at  # ISO-8601 UTC
+        self.baseline_rmse_kw = baseline_rmse_kw
+        self.n_horas = n_horas
+        self.source_window = source_window  # {desde, hasta} de las mediciones
         self.alpha = alpha
         self.t0 = t0
         self.meta = meta or {}
@@ -65,13 +77,19 @@ class CalibratedPvPlant:
         """Franja P10/P50/P90 [kW].
 
         Prioridad de banda:
+          0) cambio 06: cuantiles asimetricos del predictor final en split
+             disjunto (band_q) — P10 = P50 + q10, P90 = P50 + q90.
           1) split-conformal (Fase 3): radio calibrado con garantia de
              cobertura ~1-alpha sobre el holdout.
           2) cuantiles empiricos del residuo train (fallback, HO#3).
         """
         p50 = self.predict_power(climate, use_residual=self.residual_model is not None)
         out = pd.DataFrame({"P50": p50})
-        if self.conformal_radius_kw is not None:
+        band_q = getattr(self, "band_q", None)  # .pkl viejos no lo tienen
+        if band_q is not None:
+            out["P10"] = p50 + float(band_q["q10"])
+            out["P90"] = p50 + float(band_q["q90"])
+        elif self.conformal_radius_kw is not None:
             from optimization.calibration.conformal import conformal_band
             band = conformal_band(p50, self.conformal_radius_kw)
             out["P10"] = band["P10"]

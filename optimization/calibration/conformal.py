@@ -69,3 +69,22 @@ def split_conformal_residual(cal_residual: pd.Series, alpha: float = 0.2,
                              method: str = "absolute") -> float:
     """Wrapper de conformal_radius con nombre explicito (API publica)."""
     return conformal_radius(cal_residual, alpha=alpha, method=method)
+
+
+def conformal_quantiles(residual: pd.Series,
+                        alphas: tuple = (0.1, 0.9)) -> dict:
+    """Cuantiles del residuo de calibracion (cambio 06, defecto 2/3).
+
+    El residuo debe medirse contra el predictor FINAL (fisico + GBR) en un
+    tramo DISJUNTO del ajuste. Devuelve {"q10": float, "q90": float,
+    "n_cal": int} para la banda asimetrica P10 = P50 + q10, P90 = P50 + q90.
+    """
+    r = residual.to_numpy(dtype=float)
+    r = r[np.isfinite(r)]
+    if len(r) == 0:
+        logger.warning("Residuos vacios para cuantiles; banda nula")
+        return {"q10": 0.0, "q90": 0.0, "n_cal": 0}
+    lo, hi = float(alphas[0]), float(alphas[1])
+    return {"q10": float(np.quantile(r, lo)),
+            "q90": float(np.quantile(r, hi)),
+            "n_cal": int(len(r))}

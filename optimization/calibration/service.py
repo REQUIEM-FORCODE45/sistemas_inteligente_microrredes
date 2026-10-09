@@ -105,7 +105,8 @@ def _fit_solar(cfg: dict, sensor_id: str, df: pd.DataFrame) -> dict:
     from optimization.calibration.params import calibrate_params, build_plant
     from optimization.calibration.residual import (residual_features, fit_residual_gbr,
                                                    residual_predict)
-    from optimization.calibration.conformal import conformal_radius, coverage
+    from optimization.calibration.conformal import (conformal_radius, coverage,
+                                                     conformal_quantiles)
     from optimization.calibration.calibrated_plant import CalibratedPvPlant
 
     df = hourly_resample(df)
@@ -122,30 +123,60 @@ def _fit_solar(cfg: dict, sensor_id: str, df: pd.DataFrame) -> dict:
         raise ValueError(f"Solar: datos insuficientes ({len(p_meas)} h)")
 
     nominal = build_nominal_plant(cfg)
-    n_tr = int(0.7 * len(climate))
-    cli_tr, cli_va = climate.iloc[:n_tr], climate.iloc[n_tr:]
-    p_tr, p_va = p_meas.iloc[:n_tr], p_meas.iloc[n_tr:]
+    # Cambio 06: split triple DISJUNTO (60% ajuste | 20% calibracion | 20%
+    # holdout). k/params/GBR se ajustan SOLO con el tramo de ajuste; los
+    # cuantiles se miden contra el predictor FINAL en calibracion; el holdout
+    # solo mide cobertura (nunca calibra nada).
+    n = len(climate)
+    n_fit = int(0.6 * n)
+    n_cal = int(0.2 * n)
+    cli_fit, p_fit = climate.iloc[:n_fit], p_meas.iloc[:n_fit]
+    cli_cal, p_cal = (climate.iloc[n_fit:n_fit + n_cal],
+                      p_meas.iloc[n_fit:n_fit + n_cal])
+    cli_va, p_va = climate.iloc[n_fit + n_cal:], p_meas.iloc[n_fit + n_cal:]
 
-    k = estimate_derating(nominal.ac_power(cli_tr) / 1000.0, p_tr,
+    k = estimate_derating(nominal.ac_power(cli_fit) / 1000.0, p_fit,
                           nominal.capacity_kwp)
-    params = calibrate_params(nominal, cli_tr, p_tr)
+    params = calibrate_params(nominal, cli_fit, p_fit)
     plant_calib = build_plant(nominal, params)
 
-    n_fit = int(0.8 * n_tr)
-    feats_fit = residual_features(cli_tr.iloc[:n_fit], climate.index[0])
-    resid_fit = (p_tr.iloc[:n_fit]
-                 - plant_calib.ac_power(cli_tr.iloc[:n_fit]) / 1000.0)
+    feats_fit = residual_features(cli_fit, climate.index[0])
+    resid_fit = (p_fit
+                 - plant_calib.ac_power(cli_fit) / 1000.0)
     gbr = fit_residual_gbr(feats_fit, resid_fit)
-    cal_resid = resid_fit.iloc[-int(0.2 * n_fit):]
-    radius = conformal_radius(cal_resid, alpha=0.2)
     q = np.quantile(resid_fit.values, [0.10, 0.50, 0.90])
 
+    # Residuo del predictor FINAL (fisico + GBR) en el tramo de calibracion.
+    p50_cal = (apply_derating(plant_calib.ac_power(cli_cal) / 1000.0, k)
+               + residual_predict(gbr, residual_features(cli_cal, climate.index[0])))
+    cal_resid = p_cal - p50_cal
+    radius = conformal_radius(cal_resid, alpha=0.2)
+    bq = conformal_quantiles(cal_resid, alphas=(0.1, 0.9))
+
+    # Cambio 09: memoria del artefacto (fecha, baseline, ventana usada).
+    baseline = rmse(p50_cal, p_cal)
+    ahora_utc = pd.Timestamp.now(tz="UTC").isoformat()
     calibrated = CalibratedPvPlant(plant=nominal, params=params, k=k,
                                    residual_model=gbr, residual_q=q,
                                    conformal_radius_kw=radius, alpha=0.2,
                                    t0=climate.index[0],
-                                   meta={"sensor_id": sensor_id, "type": "solar"})
+                                   meta={"sensor_id": sensor_id, "type": "solar",
+                                         "calib_version": "06.1"},
+                                   band_q={**bq, "split": "disjunto"},
+                                   calibrated_at=ahora_utc,
+                                   baseline_rmse_kw=float(baseline),
+                                   n_horas=len(p_meas),
+                                   source_window={"desde": str(p_meas.index[0]),
+                                                  "hasta": str(p_meas.index[-1])})
     rmse_calib = rmse(plant_calib.ac_power(cli_va) / 1000.0, p_va)
+
+    # Cobertura holdout de la banda asimetrica (solo medicion, criterio C3).
+    p50_va = calibrated.predict_power(cli_va)
+    band_va = pd.DataFrame({"P10": p50_va + bq["q10"], "P50": p50_va,
+                            "P90": p50_va + bq["q90"]})
+    calibrated.band_q["coverage_holdout"] = coverage(p_va, band_va)
+    calibrated.band_q["ancho_medio_kw"] = float(
+        (band_va["P90"] - band_va["P10"]).mean())
     return {"calibrated": calibrated, "rmse_calibrado_kw": rmse_calib,
             "n_horas": len(p_meas), "k": k, "params": params}
 
@@ -273,13 +304,16 @@ def load_calibrated(sensor_id: str) -> Any:
 
 
 def fit_from_sensor(site_id: str, sensor_id: str, activo_type: str,
-                    force: bool = False) -> dict:
+                    force: bool = False, motivo: str = None) -> dict:
     """Ajusta el modelo del activo con los datos medidos del sensor (bucle).
 
     - Si ya existe artefacto y force=False -> devuelve el resumen existente.
     - force=True (boton "Recalibrar") -> reajusta y sobrescribe.
+    - Cambio 09: cada recalibracion real se registra append-only en
+      history/<sensor_id>.jsonl con su motivo (drift|age|manual|missing).
     """
     path = artifact_path(sensor_id)
+    habia = os.path.exists(path)
     if os.path.exists(path) and not force:
         with open(path, "rb") as fh:
             model = pickle.load(fh)
@@ -317,6 +351,17 @@ def fit_from_sensor(site_id: str, sensor_id: str, activo_type: str,
                   fh, default=str, indent=1)
     logger.info("Modelo calibrado %s -> %s (%s)", sensor_id, activo_type, path)
 
+    # Cambio 09: registro append-only del evento (nunca se sobrescribe).
+    motivo_ev = motivo or ("manual" if (force and habia) else "missing")
+    try:
+        from optimization.monitoring.calibration_lifecycle import registrar_evento
+        registrar_evento(sensor_id, motivo_ev,
+                         rmse_antes=None,
+                         rmse_despues=summary.get("rmse_calibrado_kw"),
+                         n_horas=summary.get("n_horas"), artifact_path=path)
+    except Exception as exc:
+        logger.warning("No se pudo registrar recalibracion %s: %s", sensor_id, exc)
+
     return {"status": "ok", "cached": False, "sensor_id": sensor_id,
             "type": activo_type, "artifact": path, "summary": summary}
 
@@ -328,9 +373,27 @@ def _summary_of(model: Any) -> dict:
                 "meta": model.get("meta", {})}
     meta = getattr(model, "meta", {}) or {}
     if hasattr(model, "params") and isinstance(getattr(model, "params", None), dict):
+        # Cambio 09: antiguedad + stale (regla 3: ultima version con aviso).
+        calibrated_at = getattr(model, "calibrated_at", None)
+        age_days, stale = None, None
+        if calibrated_at:
+            try:
+                max_age = float(os.environ.get("CALIBRATION_MAX_AGE_DAYS", "30"))
+                age_days = ((pd.Timestamp.now(tz="UTC")
+                             - pd.Timestamp(calibrated_at)).total_seconds() / 86400.0)
+                stale = bool(age_days > max_age)
+            except (ValueError, TypeError):
+                pass
         return {"k": getattr(model, "k", None),
                 "params": getattr(model, "params", None),
                 "conformal_radius_kw": getattr(model, "conformal_radius_kw", None),
+                "band_q": getattr(model, "band_q", None),
+                "calibrated_at": calibrated_at,
+                "age_days": age_days,
+                "stale": stale,
+                "baseline_rmse_kw": getattr(model, "baseline_rmse_kw", None),
+                "n_horas": getattr(model, "n_horas", None),
+                "source_window": getattr(model, "source_window", None),
                 "provider": "physics+ML"}
     if isinstance(model, dict) and model.get("type") == "load":
         return {"profile": "calibrado", "q10": model.get("q10"),

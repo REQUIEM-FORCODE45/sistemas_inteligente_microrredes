@@ -30,6 +30,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     storage_list = input_data.get("storage", [])
     loads = input_data.get("loads", [])
     grid_raw = input_data.get("grid", {})
+    initial_diesel_kw = input_data.get("initial_diesel_kw", {}) or {}
 
     scenarios = build_scenarios(scenarios_raw)
     num_scenarios = len(scenarios)
@@ -52,6 +53,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             storage_list=storage_list,
             loads=loads,
             grid_raw=grid_raw,
+            initial_diesel_kw=initial_diesel_kw,
         )
     except Exception as e:
         logger.exception("Error construyendo modelo Pyomo")
@@ -115,6 +117,9 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
         "objective_value": round(result.objective, 2) if result.objective else None,
         "dispatch_plan": dispatch_plan,
         "cost_breakdown": cost_breakdown,
+        "warnings": variables.get("warnings", []),
+        "grid_limits": variables.get("grid_limits"),
+        "cost_fixed_applied": variables.get("cost_fixed_applied"),
         "scenario_results": scenario_results,
         "battery_soc_evolution": battery_soc,
         "total_hours": horizon,
@@ -139,6 +144,7 @@ def _build_pyomo_model(
     storage_list: list = None,
     loads: list = None,
     grid_raw: dict = None,
+    initial_diesel_kw: dict = None,
 ) -> tuple[Any, dict]:
 
     model = pyo.ConcreteModel(name="SIGE_Optimization")
@@ -210,8 +216,12 @@ def _build_pyomo_model(
                 "cost_b": src.get("cost_b", 0.5),
                 "cost_c": src.get("cost_c", 0.5),
                 "fuel_cost": src.get("fuel_cost", 100),
+                # Cambio 08.1: dato del equipo (fabricante). Si falta -> None
+                # (sin rampa + warning; nunca un 0 silencioso).
+                "ramp_kw_per_h": src.get("ramp_kw_per_h"),
             })
 
+    warnings = []
     num_diesel = len(diesel_devices)
     grid_max = grid_raw.get("max_import_kw", 400)
     grid_min = grid_raw.get("min_import_kw", -300)
@@ -219,7 +229,15 @@ def _build_pyomo_model(
     ens_penalty = float(grid_raw.get("ens_penalty_cop_kwh", 5000.0))
 
     max_import = float(grid_max)
-    max_export = float(-grid_min) if float(grid_min) < 0 else 0.0
+    # Cambio 08.2 (defecto D): max_export_kw manda; -min_import_kw es fallback.
+    if grid_raw.get("max_export_kw") is not None:
+        max_export = float(grid_raw.get("max_export_kw"))
+        export_source = "max_export_kw"
+    else:
+        max_export = float(-grid_min) if float(grid_min) < 0 else 0.0
+        export_source = "min_import_kw"
+        warnings.append("grid: max_export_kw no declarado, tope de export "
+                        "derivado de min_import_kw")
 
     model.P_diesel = pyo.Var(
         pyo.RangeSet(0, num_diesel - 1) if num_diesel > 0 else pyo.RangeSet(0, 0),
@@ -248,6 +266,48 @@ def _build_pyomo_model(
                     model.add_component(f"diesel_max_{di}_{t}_{s}",
                         pyo.Constraint(expr=model.P_diesel[di, t, s] <= d["max_kw"] * model.U_diesel[di, t, s]))
 
+    # Cambio 08.1 — rampa del diesel, SOLO si ramp_kw_per_h esta declarada.
+    # Convencion: 0 -> minimo tecnico permitido en un periodo (arranque);
+    # la rampa se exige ENTRE dos periodos encendidos (big-M con U).
+    # t=0 usa initial_diesel_kw del job (potencia del periodo anterior).
+    initial_diesel_kw = initial_diesel_kw or {}
+    if num_diesel > 0:
+        for di in range(num_diesel):
+            d = diesel_devices[di]
+            ramp = d.get("ramp_kw_per_h")
+            if ramp is None:
+                warnings.append(f"{d['id']}: rampa no declarada, "
+                                "plan sin limite de rampa")
+                continue
+            ramp = float(ramp)
+            M = float(d["max_kw"])
+            p_prev = initial_diesel_kw.get(d["id"])
+            for s in model.S:
+                if p_prev is not None:
+                    u_prev = 1.0 if float(p_prev) > 0.001 else 0.0
+                    model.add_component(f"ramp_up_{di}_0_{s}",
+                        pyo.Constraint(expr=model.P_diesel[di, 0, s] - float(p_prev)
+                                       <= ramp + M * (1.0 - u_prev + 1.0 - model.U_diesel[di, 0, s])))
+                    model.add_component(f"ramp_dn_{di}_0_{s}",
+                        pyo.Constraint(expr=float(p_prev) - model.P_diesel[di, 0, s]
+                                       <= ramp + M * (1.0 - u_prev + 1.0 - model.U_diesel[di, 0, s])))
+                for t in model.T:
+                    if t == 0:
+                        continue
+                    model.add_component(f"ramp_up_{di}_{t}_{s}",
+                        pyo.Constraint(expr=model.P_diesel[di, t, s] - model.P_diesel[di, t - 1, s]
+                                       <= ramp + M * (2.0 - model.U_diesel[di, t, s] - model.U_diesel[di, t - 1, s])))
+                    model.add_component(f"ramp_dn_{di}_{t}_{s}",
+                        pyo.Constraint(expr=model.P_diesel[di, t - 1, s] - model.P_diesel[di, t, s]
+                                       <= ramp + M * (2.0 - model.U_diesel[di, t, s] - model.U_diesel[di, t - 1, s])))
+
+    # Cambio 08.2 — no-simultaneidad import/export, SOLO si hay tarifa de
+    # inyeccion (export_tariff > 0). Con tarifa 0 se conserva el modelo actual
+    # (menos binarias -> Exp B no se degrada).
+    use_u_grid = export_tariff > 0
+    if use_u_grid:
+        model.U_grid = pyo.Var(model.T, model.S, domain=pyo.Binary)
+
     for t in model.T:
         for s in model.S:
             model.P_import[t, s].setub(max_import if max_import >= 0 else 1e6)
@@ -256,6 +316,11 @@ def _build_pyomo_model(
             else:
                 model.P_export[t, s].setub(0.0)
                 model.P_export[t, s].fix(0.0)
+            if use_u_grid:
+                model.add_component(f"ugrid_imp_{t}_{s}",
+                    pyo.Constraint(expr=model.P_import[t, s] <= max_import * model.U_grid[t, s]))
+                model.add_component(f"ugrid_exp_{t}_{s}",
+                    pyo.Constraint(expr=model.P_export[t, s] <= max_export * (1.0 - model.U_grid[t, s])))
             max_load = max(predictions_load_total) if predictions_load_total else 1000.0
             model.ENS[t, s].setub(max_load * 2)
             model.CURT[t, s].setub(1e6)
@@ -449,12 +514,23 @@ def _build_pyomo_model(
             for s in s_ids[1:]:
                 model.nonant.add(model.P_import[t, s0] == model.P_import[t, s])
                 model.nonant.add(model.P_export[t, s0] == model.P_export[t, s])
+                if use_u_grid:
+                    model.nonant.add(model.U_grid[t, s0] == model.U_grid[t, s])
                 for bi in range(len(storage_list)):
                     model.nonant.add(model.P_charge[bi, t, s0] == model.P_charge[bi, t, s])
                     model.nonant.add(model.P_discharge[bi, t, s0] == model.P_discharge[bi, t, s])
                     model.nonant.add(model.Z[bi, t, s0] == model.Z[bi, t, s])
 
-    grid_d = grid_raw.get("cost_fixed", 40)
+    # Cambio 08.3 — cargo fijo: cost_fixed (COP/hora de conexion, criterio
+    # actual) vs cost_fixed_month (COP/mes, prorrateo a hora: /720). Como no
+    # depende de ninguna variable, NO cambia el plan optimo, solo lo reportado.
+    if grid_raw.get("cost_fixed_month") is not None:
+        grid_d = float(grid_raw.get("cost_fixed_month")) / 720.0
+        fixed_source = "cost_fixed_month"
+    else:
+        grid_d = grid_raw.get("cost_fixed", 40)
+        fixed_source = "cost_fixed"
+    cost_fixed_applied = {"valor_hora": float(grid_d), "fuente": fixed_source}
     grid_e_raw = grid_raw.get("cost_variable", 60)
     if isinstance(grid_e_raw, (list, tuple, np.ndarray)):
         grid_e = {int(t): float(grid_e_raw[t]) if t < len(grid_e_raw)
@@ -515,9 +591,14 @@ def _build_pyomo_model(
         "DIESEL_COST": model.DIESEL_COST if num_diesel > 0 else None,
         "P_import": model.P_import,
         "P_export": model.P_export,
+        "U_grid": model.U_grid if use_u_grid else None,
         "ENS": model.ENS,
         "CURT": model.CURT,
         "P_grid": None,
+        "warnings": warnings,
+        "grid_limits": {"max_import": max_import, "max_export": max_export,
+                        "source": export_source},
+        "cost_fixed_applied": cost_fixed_applied,
         "num_diesel": num_diesel,
         "diesel_devices": diesel_devices,
         "export_tariff": export_tariff,
@@ -756,7 +837,11 @@ def _extract_cost_breakdown(
     grid_raw: dict,
 ) -> dict:
     num_diesel = variables.get("num_diesel", 0)
-    grid_d = grid_raw.get("cost_fixed", 40)
+    # Cambio 08.3: mismo criterio que el modelo (mes prorrateado vs hora).
+    if grid_raw.get("cost_fixed_month") is not None:
+        grid_d = float(grid_raw.get("cost_fixed_month")) / 720.0
+    else:
+        grid_d = grid_raw.get("cost_fixed", 40)
     grid_e_raw = grid_raw.get("cost_variable", 60)
     export_tariff = float(grid_raw.get("export_tariff", 0.0))
     if isinstance(grid_e_raw, (list, tuple, np.ndarray)):
@@ -818,9 +903,13 @@ def _extract_cost_breakdown(
                 "probability": sc["probability"],
                 "cost": round(hour_cost, 2),
                 "weighted_cost": round(hour_cost * sc["probability"], 2),
+                "fixed": round(float(grid_d), 2),
             })
 
-    return {"hourly": cost_per_hour}
+    fixed_total = round(float(grid_d) * horizon * len(s_ids), 2)
+    return {"hourly": cost_per_hour, "fixed_total": fixed_total,
+            "fixed_source": variables.get("cost_fixed_applied", {}).get(
+                "fuente", "cost_fixed")}
 
 
 def _extract_battery_soc(

@@ -20,7 +20,9 @@ let lastSensorMappings = null;
 const DEFAULT_TOPOLOGY = {
   sources: [
     { id: 'solar_1', type: 'solar', max_kw: 50, min_kw: 0, efficiency: 0.85, cost_a: 0, cost_b: 0, cost_c: 0, fuel_cost: 0 },
-    { id: 'diesel_1', type: 'diesel', max_kw: 300, min_kw: 50, efficiency: 1.0, cost_a: 0.001, cost_b: 0.5, cost_c: 0.5, fuel_cost: 100 },
+    // Cambio 08.1: ramp_kw_per_h es dato del fabricante. null = no declarada
+    // (el solver no impone rampa y devuelve warning; nunca un 0 silencioso).
+    { id: 'diesel_1', type: 'diesel', max_kw: 300, min_kw: 50, efficiency: 1.0, cost_a: 0.001, cost_b: 0.5, cost_c: 0.5, fuel_cost: 100, ramp_kw_per_h: null },
   ],
   storage: [
     { id: 'battery_1', type: 'battery', max_kw: 100, min_kw: 0, capacity_kwh: 200, max_charge_kw: 50, max_discharge_kw: 50, soc_min: 0.2, soc_max: 0.95, initial_soc: 0.65, charge_efficiency: 0.95, discharge_efficiency: 0.95 },
@@ -35,8 +37,33 @@ const DEFAULT_TOPOLOGY = {
     min_import_kw: -300,
     cost_fixed: 40,
     cost_variable: 60,
+    // Cambio 08/10: claves declaradas pero SIN valor inventado (null = no
+    // declarado -> el solver aplica su comportamiento + warning).
+    cost_fixed_month: null,
   },
 };
+
+// Cambio 08.1: potencia diesel de la ultima hora del ciclo anterior, por
+// device_id, para el estado inicial de la rampa (t=0). Sin resultado previo
+// -> {} (el solver asume arranque permitido 0->minimo).
+async function getInitialDieselKw() {
+  try {
+    const latest = await getLatestOptimizationResult();
+    const plan = latest?.result?.dispatch_plan || latest?.dispatch_plan || [];
+    if (!Array.isArray(plan) || !plan.length) return {};
+    const hours = plan.map((e) => e.hour).filter(Number.isFinite);
+    const lastHour = Math.max(...hours);
+    const out = {};
+    for (const e of plan) {
+      if (e.device_type === 'diesel' && e.hour === lastHour) {
+        out[e.device_id] = Number(e.power_kw) || 0;
+      }
+    }
+    return out;
+  } catch (e) {
+    return {};
+  }
+}
 
 async function fetchPredictions() {
   try {
@@ -225,7 +252,11 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
     const hasSolar = srcTypes.some((t) => t === 'solar' || t === 'solar_panel_ac');
     const hasWind = srcTypes.some((t) => t === 'wind' || t === 'wind_turbine');
 
+    // Cambio 08.1: estado inicial del diesel para la rampa (t=0).
+    const initialDieselKw = await getInitialDieselKw();
+
     const optimizationInput = {
+      initial_diesel_kw: initialDieselKw,
       sources: topology.sources || [],
       storage: storageWithSoc,
       converters: topology.converters || [],
