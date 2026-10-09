@@ -206,3 +206,92 @@ por vía independiente** el C1 de los cambios 06 y 09.
 **Ninguna de estas acciones invalida el trabajo**: el código de los cuatro cambios está bien
 construido y respeta las reglas duras (compatibilidad hacia atrás, null declarado, append-only,
 3 sitios coherentes, protocolo único idéntico). La corrección es de **criterio y trazabilidad**.
+
+---
+
+# 7. SEGUNDA RONDA — verificación de las correcciones (`8e7c03a`)
+
+El implementador respondió punto por punto (`RESPUESTA_AUDITORIA_06_08_09_10.md`) y **todas las
+acciones se ejecutaron**. Verificación:
+
+| # | Acción de la 1ª ronda | Resultado | Veredicto |
+|---|---|---|---|
+| 1 | Medir la variante **C** | medida en **2 splits**, JSON versionados (`cobertura_06_2026-10-09_w30_s602020.json`, `..._s503020.json`) | ✅ **confirma la hipótesis** (§7.1) |
+| 2 | Versionar el JSON del protocolo | 2 JSON junto al `VERIFICACION.md`, enlazados | ✅ regla dura 2 cumplida |
+| 3 | C3 marcado como no alcanzado | `[ ]` con el número real (69.44 %) | ✅ |
+| 4 | Poblar `rmse_antes` | **3er evento** con `rmse_antes: 1.4104` + `rmse_antes_causa` para distinguir las 2 causas de `null` | ✅ verificado en el `.jsonl` |
+| 5 | Rampa eludible (08-A) | **08.4 con continuas** (`S`,`D`), sin binarias nuevas, `c_start/c_stop` dato del equipo, warning si falta | ✅ mi propuesta, implementada |
+| 6 | Aclarar la discrepancia del Exp B | **causa raíz medida**: 2094 vars / 2036 constr > **límite 2000 de la licencia size-limited** → HiGHS; `solver_usado` ahora se reporta | ✅ explicación cerrada |
+| 7 | Probar la preexistencia de los 2 fallos | `evidencia_fallos_preexistentes.txt` con **`git worktree` de `8e8e2d3`**: mismos 2 fallos, 13 passed | ✅ aceptado |
+| 8 | `tariffMode` como selector | `<select>` + captura + build/lint | ✅ |
+
+## 7.1 La variante C confirma el diagnóstico
+
+| split | A (criterio anterior, con fuga) | B (implementado) | **C (propuesta)** |
+|---|---|---|---|
+| 60/20/20 (n_cal=72) | 90.28 % · **4.57 kW** | 69.44 % · 4.62 kW | **87.50 % · 4.26 kW** |
+| 50/30/20 (n_cal=108) | 90.28 % · 4.57 kW | 69.44 % · 4.62 kW | **88.89 % · 4.63 kW** |
+
+**Conclusiones**:
+1. **C domina a B en ambas configuraciones**: +18 pp de cobertura con ancho igual o **menor**
+   (en 60/20/20 C es más estrecha: 4.26 vs 4.62 kW). El problema **no era el split disjunto** — era
+   la **forma asimétrica** con cuantiles empíricos ruidosos (q10≈0, q90≈+4.6). ✓ hipótesis validada.
+2. **C ≈ A en cobertura** (87.5–88.9 % vs 90.3 %), pero **sin la fuga in-sample**: es el método
+   correcto según conformal, y en 60/20/20 es **más eficiente** que A.
+
+## 7.2 🔎 Hallazgo nuevo (2ª ronda) — hay **sobrecobertura sistemática**: 87–90 % con nominal 80 %
+
+**Ninguno** de los tres métodos se acerca a la nominal: todos **sobrecubren 7–10 pp**. Como el ancho
+es lo que le cuesta dinero al MPC (banda ancha → más reserva preventiva → más diésel), esto significa
+que **la banda es más ancha de lo necesario para el 80 %** que se declara.
+
+**Hipótesis a probar** (no asumida): el ancho está calibrado con un **cuantil global** sobre un error
+que es **heterocedástico** (crece con la irradiancia), lo que fuerza un ancho único que en las horas
+de poco sol es excesivo. La vía natural son los **cuantiles condicionales por estrato** (descartados
+en el 06.3b por `n_cal=72`; con el split **50/30/20** ya son `n_cal=108` → 3 estratos de 36, todavía
+ruidoso, pero medible en **más ventanas**).
+
+**Criterio correcto para decidir** (no "cobertura máxima"): **cobertura ≈ nominal (80 %) al menor
+ancho**, más el **efecto en el despacho**. Una banda con 90 % de cobertura puede ser peor que una con
+80 % si cuesta más diésel.
+
+## 7.3 Corrección de esta auditoría a sí misma
+
+En el §2.4 de la 1ª ronda afirmé que la penalización de arranque con variables continuas tendría
+**"coste computacional nulo"**. Medido: **falso en la práctica**.
+
+| escenario | p50 |
+|---|---|
+| estructura sola (sin `c_start` declarado) | 4.43 s (≈ línea base 4.19 s) |
+| **penalización activa** | **9.63 s** (×2.2) |
+
+Sin binarias nuevas ✓ (correcto), pero la penalización **activa** sí encarece el solve: cambia el
+paisaje del MILP y HiGHS explora más. **Margen restante vs el ciclo de 15 min: 90×** → sigue siendo
+aceptable, pero la afirmación "coste nulo" era incorrecta y queda corregida aquí.
+
+## 7.4 Verificación ejecutada por esta auditoría (2ª ronda)
+
+| verificación | resultado |
+|---|---|
+| `test_conformal` + `test_calibration` + `test_drift` | **18/21 PASS**, 3 SKIP declarados (exigen fixtures `tmp_path`/`monkeypatch`) |
+| `optimization/tests/medir_cobertura_banda.py` vs `reference/` | difiere **solo** en `--split` y el bloque C, **declarado en la `nota` del JSON** ✓ |
+| `reference/` congelado | ✅ sin cambios desde `d8983af` (el implementador **no** tocó el paquete de referencia) |
+| `solvers.py` | `solver_usado` reporta `gurobi` / `appsi_highs` ✓ |
+
+**Sigue fuera de alcance de esta máquina**: `test_solver.py` y `test_complementarity_scenarios.py`
+(sin `pyomo`). La preexistencia de sus 2 fallos queda cubierta por la evidencia del worktree del
+implementador, que **acepto como válida** (metodológicamente correcta: mismo commit, misma ejecución).
+
+## 7.5 Decisión pendiente del autor
+
+**¿Se adopta la variante C como banda de producción del MPC?**
+
+- **A favor**: B (lo que hoy consume el MPC, tras la recalibración `force=true`) **subcubre**
+  (69.44 % → el MPC ve menos incertidumbre de la que existe); C es metodológicamente correcta,
+  supera el criterio y **domina a B con ancho igual o menor**.
+- **En contra de hacerlo automático**: el cambio altera la banda que usa el MPC; conviene medir
+  antes el **efecto en el despacho** (costo y ENS con C vs B en un caso de lazo cerrado).
+
+**Recomendación**: adoptar **C**, en un paso propio con re-verificación de C2/C3/C5/C6 y medición del
+efecto en el despacho — y **no** cerrar el capítulo de la banda hasta probar la vía del §7.2
+(sobrecobertura).
