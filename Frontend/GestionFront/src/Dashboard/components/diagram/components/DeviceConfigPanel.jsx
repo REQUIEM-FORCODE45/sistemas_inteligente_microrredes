@@ -11,8 +11,8 @@ import { DEVICE_DEFINITIONS } from '../constants/deviceTypes';
 
 // Cambio 10.5: claves opcionales (vacio = no declarado, NUNCA 0). Solo para
 // las claves de OPTIONAL_PARAMS; el resto conserva el comportamiento actual.
-const OPTIONAL_PARAMS = ['rampKwPerH'];
-const OPTIONAL_NUMERIC = ['rampKwPerH', 'maxExportKw', 'touValley', 'touMedia', 'touPeak'];
+const OPTIONAL_PARAMS = ['rampKwPerH', 'startCostCop', 'stopCostCop'];
+const OPTIONAL_NUMERIC = ['rampKwPerH', 'startCostCop', 'stopCostCop', 'maxExportKw', 'touValley', 'touMedia', 'touPeak'];
 
 function ParamField({ label, value, onChange, type = 'text', step = 'any', paramKey = null }) {
   const optional = paramKey != null && OPTIONAL_PARAMS.includes(paramKey);
@@ -118,6 +118,8 @@ export default function DeviceConfigPanel({ onClose }) {
     interval: 'Intervalo (ms)',
     // Cambio 10: etiquetas nuevas SIEMPRE con unidad explicita.
     rampKwPerH: 'Rampa diésel (kW/h) — dato del fabricante',
+    startCostCop: 'Arranque diésel (COP/evento) — dato del equipo',
+    stopCostCop: 'Parada diésel (COP/evento) — dato del equipo',
     degradationCost: 'Degradación batería (COP/kWh) — tesis ~200',
     costFixed: 'Cargo fijo red (COP)',
     costVariable: 'Tarifa variable (COP/kWh)',
@@ -228,8 +230,26 @@ export default function DeviceConfigPanel({ onClose }) {
                   </select>
                 </div>
               )}
+              {paramKeys.includes('tariffMode') && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-medium text-muted-foreground">
+                    {paramLabels.tariffMode}
+                  </label>
+                  <select
+                    value={params.tariffMode === 'mes' ? 'mes' : 'hora'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setParams((prev) => ({ ...prev, tariffMode: val }));
+                    }}
+                    className="w-full px-2 py-1.5 text-[11px] rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring/40"
+                  >
+                    <option value="hora">Hora (COP/h de conexión)</option>
+                    <option value="mes">Mes (COP/mes prorrateado)</option>
+                  </select>
+                </div>
+              )}
               {paramKeys
-                .filter((key) => key !== 'loadSource')
+                .filter((key) => key !== 'loadSource' && key !== 'tariffMode')
                 .map((key) => {
                   const dv = nodeDeviceDef.defaultParams[key];
                   const numType = typeof dv === 'number'

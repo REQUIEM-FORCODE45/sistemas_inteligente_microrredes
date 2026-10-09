@@ -22,7 +22,8 @@ const DEFAULT_TOPOLOGY = {
     { id: 'solar_1', type: 'solar', max_kw: 50, min_kw: 0, efficiency: 0.85, cost_a: 0, cost_b: 0, cost_c: 0, fuel_cost: 0 },
     // Cambio 08.1: ramp_kw_per_h es dato del fabricante. null = no declarada
     // (el solver no impone rampa y devuelve warning; nunca un 0 silencioso).
-    { id: 'diesel_1', type: 'diesel', max_kw: 300, min_kw: 50, efficiency: 1.0, cost_a: 0.001, cost_b: 0.5, cost_c: 0.5, fuel_cost: 100, ramp_kw_per_h: null },
+    // Cambio 08.4: start_cost/stop_cost (COP por evento), mismo criterio.
+    { id: 'diesel_1', type: 'diesel', max_kw: 300, min_kw: 50, efficiency: 1.0, cost_a: 0.001, cost_b: 0.5, cost_c: 0.5, fuel_cost: 100, ramp_kw_per_h: null, start_cost: null, stop_cost: null },
   ],
   storage: [
     { id: 'battery_1', type: 'battery', max_kw: 100, min_kw: 0, capacity_kwh: 200, max_charge_kw: 50, max_discharge_kw: 50, soc_min: 0.2, soc_max: 0.95, initial_soc: 0.65, charge_efficiency: 0.95, discharge_efficiency: 0.95 },

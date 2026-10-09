@@ -24,6 +24,13 @@ Evidencia **medida ejecutando** (mappers reales vía harness + captura). Fecha: 
 - [x] **C6** — `grep cost_fixed`: mapper (:64), `gridDefault` (:108) y backend (:38) con el mismo `40`; `cost_fixed_month` en mapper (:68), backend (:42) y solver (2 sitios). Sin duplicados divergentes.
 - [x] **C7** — `/predict/calibrated` devuelve `max_age_days: 30.0` (verificado en el cambio 09); `CALIBRATION_MAX_AGE_DAYS` lo gobierna.
 
-## Nota
+## Auditoría item 8 (resuelto)
 
-`tariffMode` es input de texto (`'hora'`/`'mes'`); el mapper solo activa mes con el valor exacto `'mes'`, cualquier otro → hora (comportamiento de hoy).
+`tariffMode` pasó a **`<select>`** (hora/mes) — verificado con captura: opciones
+`hora`/`mes`, valor `hora`; mapper: `mes` → `cost_fixed_month: 40`, `hora` → sin clave.
+Build ✓, lint 0.
+
+## Nota 08.4
+
+El diésel expone además `startCostCop`/`stopCostCop` (COP/evento, opcionales, con unidad)
+que el mapper propaga **solo si declarados** (mismo patrón que la rampa).

@@ -74,6 +74,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             "job_id": job_id,
             "status": result.status,
             "error": result.error or f"Solver finalizo: {result.termination}",
+            "solver_usado": getattr(result, "solver_usado", None),
             "timing_s": {"t_build": t_build, "t_solve": t_solve,
                          "t_total": t_build + t_solve},
         }
@@ -117,6 +118,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
         "objective_value": round(result.objective, 2) if result.objective else None,
         "dispatch_plan": dispatch_plan,
         "cost_breakdown": cost_breakdown,
+        "solver_usado": getattr(result, "solver_usado", None),
         "warnings": variables.get("warnings", []),
         "grid_limits": variables.get("grid_limits"),
         "cost_fixed_applied": variables.get("cost_fixed_applied"),
@@ -219,6 +221,10 @@ def _build_pyomo_model(
                 # Cambio 08.1: dato del equipo (fabricante). Si falta -> None
                 # (sin rampa + warning; nunca un 0 silencioso).
                 "ramp_kw_per_h": src.get("ramp_kw_per_h"),
+                # Cambio 08.4: costo de arranque/parada (COP por evento, dato
+                # del equipo). Si falta -> None (sin penalizacion + warning).
+                "start_cost": src.get("start_cost"),
+                "stop_cost": src.get("stop_cost"),
             })
 
     warnings = []
@@ -265,6 +271,39 @@ def _build_pyomo_model(
                         pyo.Constraint(expr=model.P_diesel[di, t, s] >= d["min_kw"] * model.U_diesel[di, t, s]))
                     model.add_component(f"diesel_max_{di}_{t}_{s}",
                         pyo.Constraint(expr=model.P_diesel[di, t, s] <= d["max_kw"] * model.U_diesel[di, t, s]))
+
+    # Cambio 08.4 — arranque/parada con CONTINUAS (cero binarias nuevas).
+    # S[t] >= U[t]-U[t-1], D[t] >= U[t-1]-U[t]; objetivo += c_start*S (+c_stop*D).
+    # Si no se declara -> sin penalizacion + warning (nunca valor inventado).
+    penalize_start = [bool(d.get("start_cost") is not None) for d in diesel_devices]
+    penalize_stop = [bool(d.get("stop_cost") is not None) for d in diesel_devices]
+    if num_diesel > 0 and (any(penalize_start) or any(penalize_stop)):
+        model.diesel_start = pyo.Var(
+            pyo.RangeSet(0, num_diesel - 1), model.T, model.S,
+            domain=pyo.NonNegativeReals)
+        model.diesel_stop = pyo.Var(
+            pyo.RangeSet(0, num_diesel - 1), model.T, model.S,
+            domain=pyo.NonNegativeReals)
+        for di in range(num_diesel):
+            d = diesel_devices[di]
+            p_prev = (initial_diesel_kw or {}).get(d["id"])
+            u_prev = 1.0 if p_prev is not None and float(p_prev) > 0.001 else 0.0
+            for s in model.S:
+                model.add_component(f"dstart_0_{di}_{s}",
+                    pyo.Constraint(expr=model.diesel_start[di, 0, s] >= model.U_diesel[di, 0, s] - u_prev))
+                model.add_component(f"dstop_0_{di}_{s}",
+                    pyo.Constraint(expr=model.diesel_stop[di, 0, s] >= u_prev - model.U_diesel[di, 0, s]))
+                for t in model.T:
+                    if t == 0:
+                        continue
+                    model.add_component(f"dstart_{di}_{t}_{s}",
+                        pyo.Constraint(expr=model.diesel_start[di, t, s] >= model.U_diesel[di, t, s] - model.U_diesel[di, t - 1, s]))
+                    model.add_component(f"dstop_{di}_{t}_{s}",
+                        pyo.Constraint(expr=model.diesel_stop[di, t, s] >= model.U_diesel[di, t - 1, s] - model.U_diesel[di, t, s]))
+    for di, d in enumerate(diesel_devices):
+        if not penalize_start[di]:
+            warnings.append(f"{d['id']}: start_cost no declarado, "
+                            "arranques sin penalizar")
 
     # Cambio 08.1 — rampa del diesel, SOLO si ramp_kw_per_h esta declarada.
     # Convencion: 0 -> minimo tecnico permitido en un periodo (arranque);
@@ -564,6 +603,11 @@ def _build_pyomo_model(
                     for di in range(num_diesel):
                         total += prob * m.DIESEL_COST[di, t, s_idx]
                         total += prob * diesel_devices[di]["cost_c"] * diesel_devices[di]["fuel_cost"] * m.U_diesel[di, t, s_idx]
+                        # Cambio 08.4: penalizacion de transitorios (continuas).
+                        if penalize_start[di]:
+                            total += prob * float(diesel_devices[di]["start_cost"]) * m.diesel_start[di, t, s_idx]
+                        if penalize_stop[di]:
+                            total += prob * float(diesel_devices[di]["stop_cost"]) * m.diesel_stop[di, t, s_idx]
                 total += prob * (grid_d + grid_e[int(t)] * m.P_import[t, s_idx] - export_tariff * m.P_export[t, s_idx])
                 total += prob * ens_penalty * m.ENS[t, s_idx]
                 for bi, _ in enumerate(storage_list):
@@ -592,6 +636,7 @@ def _build_pyomo_model(
         "P_import": model.P_import,
         "P_export": model.P_export,
         "U_grid": model.U_grid if use_u_grid else None,
+        "diesel_start": model.diesel_start if (num_diesel > 0 and (any(penalize_start) or any(penalize_stop))) else None,
         "ENS": model.ENS,
         "CURT": model.CURT,
         "P_grid": None,

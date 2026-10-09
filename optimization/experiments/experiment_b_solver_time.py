@@ -91,10 +91,12 @@ def hardware_report() -> dict:
         "pyomo": pyomo.__version__ if hasattr(pyomo, "__version__")
                  else getattr(pyomo, "version", "?"),
         "gurobipy": ".".join(map(str, gurobipy.gurobi.version())),
-        "gurobi_license": "pip comunity (expira 2027-11-29)",
+        "gurobi_license": "pip community/size-limited (2000 vars, expira 2027-11-29)",
         "highs": "1.15.1 (fallback)",
         "model_class": "MILP (diesel linealizado por tramos + complementariedad "
                        "big-M: 648+ binarias)",
+        # Auditoria item 6: el solver EFECTIVO se mide por corrida (abajo).
+        "solver_efectivo": None,
     }
     return out
 
@@ -108,6 +110,7 @@ def main() -> int:
 
     build_t, solve_t, total_t = [], [], []
     statuses = []
+    solvers_used = []
     for i in range(n):
         t0 = time.time()
         out = build_and_solve(JOB)
@@ -115,6 +118,7 @@ def main() -> int:
         build_t.append(out.get("timing_s", {}).get("t_build", float("nan")))
         solve_t.append(out.get("timing_s", {}).get("t_solve", float("nan")))
         statuses.append(out.get("status"))
+        solvers_used.append(out.get("solver_usado"))
         if (i + 1) % 20 == 0:
             print(f"  ciclo {i + 1}/{n}: {out.get('status')} "
                   f"t_total={total_t[-1]:.3f}s", flush=True)
@@ -140,6 +144,9 @@ def main() -> int:
                               "p99": 900.0 / _q(total_t, 99),
                               "max": 900.0 / max(total_t)}
     hw = hardware_report()
+    from collections import Counter
+    hw["solver_efectivo"] = Counter(solvers_used).most_common(1)[0][0] \
+        if solvers_used else None
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     df = pd.DataFrame(rows)

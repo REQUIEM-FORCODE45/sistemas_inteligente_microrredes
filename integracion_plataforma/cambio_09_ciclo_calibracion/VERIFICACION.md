@@ -19,7 +19,17 @@ Evidencia **medida ejecutando**. Fecha: 2026-10-09.
 - [x] **C3** — `/predict/calibrated?sensor_id=pasto_solar_pv` → `calibrated_at` real, `age_days≈0`, `stale:false`, `baseline_rmse_kw=2.275`, `max_age_days=30`.
   Nota: el artefacto quedó recién recalibrado, por eso `stale:false`; la línea base de la spec (`stale:true` en artefactos de agosto) se verificó con `_summary_of` de 60 días → `stale:true`.
 - [x] **C4** — `/predict/calibration/drift` con datos reales: `{rmse:2.059, baseline:2.275, ratio:0.90, drift:false, n:193}`.
-- [x] **C5** — `history/pasto_solar_pv.jsonl` con **2 líneas**, motivos `manual`/`age` y `artifact_sha256` distintos (`b8b0c257…`/`db1416d5…`); nada sobrescrito.
+- [x] **C5** — `history/pasto_solar_pv.jsonl` con **3 líneas**; nada sobrescrito:
+  `manual/null/null`, `age/null/null`, `manual/1.4104→1.4104` (shas distintos).
+  **Auditoría item 4 (resuelto)**: las 2 primeras conservan `rmse_antes: null` porque es
+  **NO RECONSTRUIBLE** (el artefacto previo no persistía `baseline_rmse_kw`: ese era el
+  defecto del cambio 09); null declarado, nunca 0 ni inferido. Hacia adelante el registro
+  distingue la causa (`sin_artefacto_previo` vs `artefacto_previo_sin_baseline`).
+  El **tercer evento** demuestra el arreglo: `rmse_antes=1.4104` poblado desde el JSON previo
+  y comparable con `rmse_despues=1.4104` (misma ventana de datos: la recalibración no cambió
+  el error — primera comparación útil del registro).
+  Aclaración pedida: la entrada `motivo:"age"` fue una **prueba manual etiquetada**
+  (`fit_from_sensor(..., motivo="age")`), NO un disparo automático (sigue sin activarse).
 - [x] **C6** — `/predict/provider` → `openmeteo_nwp`, idéntico a `/predict/weather`.
 
 ## Decisiones

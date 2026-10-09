@@ -43,6 +43,13 @@ const TOPOLOGY_MAPPERS = {
     if (params.rampKwPerH != null && params.rampKwPerH !== '') {
       out.ramp_kw_per_h = Number(params.rampKwPerH);
     }
+    // Cambio 08.4: solo si declarados (vacio/null -> sin clave).
+    if (params.startCostCop != null && params.startCostCop !== '') {
+      out.start_cost = Number(params.startCostCop);
+    }
+    if (params.stopCostCop != null && params.stopCostCop !== '') {
+      out.stop_cost = Number(params.stopCostCop);
+    }
     return out;
   },
   [DEVICE_TYPE.WIND_TURBINE]: (_node, params) => ({

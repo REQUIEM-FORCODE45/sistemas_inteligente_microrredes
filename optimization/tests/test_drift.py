@@ -102,3 +102,35 @@ def test_should_recalibrate_missing():
     from optimization.monitoring.calibration_lifecycle import should_recalibrate
     r = should_recalibrate("sensor_inexistente_xyz")
     assert r["recalibrar"] is True and r["motivo"] == "missing"
+
+
+def test_registro_rmse_antes_poblado(tmp_path, monkeypatch):
+    """Auditoria item 4: cuando habia baseline, rmse_antes NO es null."""
+    import json
+    import optimization.monitoring.calibration_lifecycle as lc
+    monkeypatch.setattr(lc, "HISTORY_DIR", str(tmp_path))
+    ev = lc.registrar_evento("s2", "manual", rmse_antes=1.41,
+                             rmse_antes_causa=None, rmse_despues=1.20,
+                             n_horas=360, artifact_path=None)
+    assert ev["rmse_antes"] == 1.41
+    assert ev["rmse_antes_causa"] is None
+    assert ev["rmse_despues"] == 1.20
+    line = json.loads((tmp_path / "s2.jsonl").read_text().strip())
+    assert line["rmse_antes"] == 1.41
+
+
+def test_registro_rmse_antes_causa(tmp_path, monkeypatch):
+    """Las dos causas de null quedan distinguidas en el propio registro."""
+    import json
+    import optimization.monitoring.calibration_lifecycle as lc
+    monkeypatch.setattr(lc, "HISTORY_DIR", str(tmp_path))
+    lc.registrar_evento("s3", "missing", rmse_antes=None,
+                        rmse_antes_causa="sin_artefacto_previo",
+                        rmse_despues=1.5, n_horas=360, artifact_path=None)
+    lc.registrar_evento("s3", "manual", rmse_antes=None,
+                        rmse_antes_causa="artefacto_previo_sin_baseline",
+                        rmse_despues=1.4, n_horas=360, artifact_path=None)
+    lines = [json.loads(l) for l in
+             (tmp_path / "s3.jsonl").read_text().strip().split("\n")]
+    assert [l["rmse_antes_causa"] for l in lines] == [
+        "sin_artefacto_previo", "artefacto_previo_sin_baseline"]

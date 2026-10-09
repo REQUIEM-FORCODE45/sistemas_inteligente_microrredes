@@ -1,2 +1,3 @@
 {"ts": "2026-10-09T06:03:20.360922+00:00", "motivo": "manual", "rmse_antes": null, "rmse_despues": 1.4103666711112852, "n_horas": 360, "artifact_sha256": "b8b0c2575c3ad547"}
 {"ts": "2026-10-09T06:05:13.288898+00:00", "motivo": "age", "rmse_antes": null, "rmse_despues": 1.4103666711112852, "n_horas": 360, "artifact_sha256": "db1416d5a81f56a3"}
+{"ts": "2026-10-09T12:22:13.875718+00:00", "motivo": "manual", "rmse_antes": 1.4103666711112852, "rmse_antes_causa": null, "rmse_despues": 1.4103666711112852, "n_horas": 360, "artifact_sha256": "8806e95905dd9b8e"}

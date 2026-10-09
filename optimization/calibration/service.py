@@ -337,6 +337,23 @@ def fit_from_sensor(site_id: str, sensor_id: str, activo_type: str,
     if df.empty:
         raise ValueError(f"Sensor {sensor_id} sin datos; ejecuta el backfill")
 
+    # Cambio 09 (auditoria item 4): rmse previo ANTES de sobrescribir.
+    # Causas de null (distintas, documentadas): (a) sin artefacto previo,
+    # (b) artefacto previo sin baseline (anteriores al cambio 09).
+    rmse_antes, rmse_antes_causa = None, None
+    if habia:
+        try:
+            prev_json = os.path.join(ARTIFACT_DIR, f"{sensor_id}.json")
+            if os.path.exists(prev_json):
+                with open(prev_json) as fh:
+                    rmse_antes = json.load(fh).get("rmse_calibrado_kw")
+            if rmse_antes is None:
+                rmse_antes_causa = "artefacto_previo_sin_baseline"
+        except (OSError, ValueError):
+            rmse_antes_causa = "artefacto_previo_sin_baseline"
+    else:
+        rmse_antes_causa = "sin_artefacto_previo"
+
     fit = FITTERS[activo_type](cfg, sensor_id, df)
     model = fit.pop("calibrated")
 
@@ -356,7 +373,8 @@ def fit_from_sensor(site_id: str, sensor_id: str, activo_type: str,
     try:
         from optimization.monitoring.calibration_lifecycle import registrar_evento
         registrar_evento(sensor_id, motivo_ev,
-                         rmse_antes=None,
+                         rmse_antes=rmse_antes,
+                         rmse_antes_causa=rmse_antes_causa,
                          rmse_despues=summary.get("rmse_calibrado_kw"),
                          n_horas=summary.get("n_horas"), artifact_path=path)
     except Exception as exc:

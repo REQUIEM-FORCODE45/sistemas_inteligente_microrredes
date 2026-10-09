@@ -33,10 +33,15 @@ def max_age_days() -> float:
 
 def registrar_evento(sensor_id: str, motivo: str,
                      rmse_antes: Optional[float] = None,
+                     rmse_antes_causa: Optional[str] = None,
                      rmse_despues: Optional[float] = None,
                      n_horas: Optional[int] = None,
                      artifact_path: Optional[str] = None) -> dict:
-    """Registra una recalibracion append-only (una linea JSON por evento)."""
+    """Registra una recalibracion append-only (una linea JSON por evento).
+
+    rmse_antes_causa distingue los null: "sin_artefacto_previo" (primer ajuste)
+    vs "artefacto_previo_sin_baseline" (anteriores al cambio 09, NO reconstruible).
+    """
     os.makedirs(HISTORY_DIR, exist_ok=True)
     sha = None
     if artifact_path and os.path.exists(artifact_path):
@@ -46,7 +51,8 @@ def registrar_evento(sensor_id: str, motivo: str,
                 h.update(chunk)
         sha = h.hexdigest()[:16]
     ev = {"ts": datetime.now(timezone.utc).isoformat(), "motivo": motivo,
-          "rmse_antes": rmse_antes, "rmse_despues": rmse_despues,
+          "rmse_antes": rmse_antes, "rmse_antes_causa": rmse_antes_causa,
+          "rmse_despues": rmse_despues,
           "n_horas": n_horas, "artifact_sha256": sha}
     with open(os.path.join(HISTORY_DIR, f"{sensor_id}.jsonl"), "a") as fh:
         fh.write(json.dumps(ev, default=str) + "\n")

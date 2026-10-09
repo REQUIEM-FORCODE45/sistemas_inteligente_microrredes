@@ -152,6 +152,9 @@ export const DEVICE_DEFINITIONS = {
       fuelCost: 100,
       // Cambio 10.1: null = NO declarada (nunca 0 silencioso).
       rampKwPerH: null,
+      // Cambio 08.4: costo de arranque/parada (COP por evento), mismo criterio.
+      startCostCop: null,
+      stopCostCop: null,
     },
     dimension: { width: 195, height: 115 },
     solverCategory: SOLVER_CATEGORY.SOURCES,

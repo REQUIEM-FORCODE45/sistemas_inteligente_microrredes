@@ -20,11 +20,14 @@ class SolverResult:
     """Resultado de la ejecucion del solver."""
 
     def __init__(self, status: str, objective: float | None = None,
-                 termination: str = "", error: str = ""):
+                 termination: str = "", error: str = "",
+                 solver_usado: str = None):
         self.status = status  # optimal, infeasible, error
         self.objective = objective
         self.termination = termination
         self.error = error
+        # Auditoria item 6: que resuelve DE VERDAD (no el preferido).
+        self.solver_usado = solver_usado
 
 
 def _try_gurobi(model: Any) -> SolverResult:
@@ -89,10 +92,12 @@ def solve(model: Any, preferred: str = "gurobi") -> SolverResult:
     if preferred == "gurobi":
         result = _try_gurobi(model)
         if result.status == "optimal":
+            result.solver_usado = "gurobi"
             return result
 
     result = _try_highs(model)
     if result.status == "optimal":
+        result.solver_usado = "appsi_highs"
         return result
 
     return result

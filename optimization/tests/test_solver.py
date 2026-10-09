@@ -254,3 +254,60 @@ def test_08_max_export_precedencia():
     assert out["status"] == "optimal"
     assert out["grid_limits"] == {"max_import": 400.0, "max_export": 100.0,
                                   "source": "max_export_kw"}
+
+
+# --------------------------------------------------------------------------- #
+# Cambio 08.4 — transitorios del generador (continuas, cero binarias nuevas)
+# --------------------------------------------------------------------------- #
+
+def _starts(out, scenario="Soleado"):
+    seq = [d["power_kw"] for d in out["dispatch_plan"]
+           if d["device_type"] == "diesel" and d["scenario"] == scenario]
+    return sum(1 for i in range(1, len(seq))
+               if seq[i] > 0.001 and seq[i - 1] <= 0.001)
+
+
+def test_084_sin_declarar_warning_y_sin_limite():
+    out = build_and_solve(dict(BASE_JOB))
+    assert out["status"] == "optimal"
+    assert any("start_cost no declarado" in w for w in out["warnings"])
+
+
+def test_084_penalizacion_reduce_arranques():
+    """Con start_cost alto el solver evita ciclar (4 -> 0 arranques)."""
+    import copy
+    base = copy.deepcopy(BASE_JOB)
+    base["predictions_load_total"] = [10.0, 300.0] * 4
+    o0 = build_and_solve(copy.deepcopy(base))
+    assert o0["status"] == "optimal"
+    hi = copy.deepcopy(base)
+    hi["sources"][1]["start_cost"] = 1e7
+    o1 = build_and_solve(hi)
+    assert o1["status"] == "optimal"
+    assert _starts(o1) <= _starts(o0)
+    assert _starts(o0) >= 2  # el caso base cicla de verdad
+    assert all("start_cost" not in w for w in o1["warnings"])
+    print(f"arranques: { _starts(o0)} -> {_starts(o1)}")
+
+
+def test_084_sin_binarias_nuevas():
+    """S/D son continuas: el conteo de binarias no crece al penalizar."""
+    import copy
+    from optimization.solver.model_builder import _build_pyomo_model, build_scenarios
+    import pyomo.environ as pyo
+    base = copy.deepcopy(BASE_JOB)
+    kw = dict(horizon=8, time_step=60, predictions_solar=base["predictions_solar"],
+              predictions_load_total=base["predictions_load_total"],
+              sources=base["sources"], storage_list=base["storage"],
+              loads=base["loads"], grid_raw=base["grid"])
+    sc = build_scenarios(None)
+    m0, _ = _build_pyomo_model(scenarios=sc, s_ids=list(range(len(sc))), **kw)
+    n0 = sum(1 for _ in m0.component_data_objects(pyo.Var, active=True)
+             if _.is_binary())
+    kw["sources"] = copy.deepcopy(base["sources"])
+    kw["sources"][1]["start_cost"] = 5000
+    m1, _ = _build_pyomo_model(scenarios=sc, s_ids=list(range(len(sc))), **kw)
+    n1 = sum(1 for _ in m1.component_data_objects(pyo.Var, active=True)
+             if _.is_binary())
+    assert n1 == n0, f"binarias {n0} -> {n1}: la penalizacion no debe anadir"
+    assert m1.find_component("diesel_start") is not None

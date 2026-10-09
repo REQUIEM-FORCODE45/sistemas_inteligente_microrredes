@@ -15,12 +15,23 @@ Evidencia **medida ejecutando**. Fecha: 2026-10-09.
 - [x] **C1** — `pytest tests/test_conformal.py tests/test_calibration.py -q` → **11 passed**.
 - [x] **C2** — `POST /predict/calibrate {solar, force:true}` → `status:ok, cached:false`,
   `band_q={q10:-0.051, q90:4.746, n_cal:72, split:disjunto, coverage_holdout:0.75, ancho_medio:4.80 kW}`.
-- [x] **C3** — protocolo único, ventana 2026-07-24→08-07 (360 h generación):
-  A (actual) 90.28% / ancho 4.57 kW · B (corregido) **69.44%** / ancho 4.68 kW,
-  q10=−0.087, q90=+4.589, n_cal=72 (<100 → aviso de cuantiles ruidosos).
-  El artefacto recalibrado midió en su propio holdout **75%** (≥0.72).
-  **No se ajusta ningún número para pasar**: se reportan ambos.
-  **06.3b NO aplicado**: con n_cal=72 los 3 estratos tendrían ~24 muestras (ruido); documentado, no intuido.
+- [ ] **C3 — NO ALCANZADO en producción** (auditoría §2; corrección aplicada abajo).
+  Protocolo único, ventana 2026-07-24→08-07 (360 h generación), JSONs versionados:
+  `cobertura_06_2026-10-09_w30_s602020.json` y `..._w30_s503020.json` (esta carpeta).
+  Dos ventanas (splits) × tres métodos, mismo holdout:
+
+  | split | A (anterior, simétrica in-sample) | B (producción, asimétrica) | C (radio final + simétrica) |
+  |---|---|---|---|
+  | 60/20/20 (n_cal=72) | **90.28%** / 4.57 kW | **69.44%** / 4.68 kW | **87.50%** / 4.26 kW |
+  | 50/30/20 (n_cal=108, sin avisos) | **90.28%** / 4.57 kW | **69.44%** / 4.62 kW | **88.89%** / 4.63 kW |
+
+  B queda mal centrada (q10≈−0.05/−0.09, q90≈+4.6/+4.7: banda casi toda sobre el P50);
+  C conserva la forma que funcionaba sin la fuga y **sí supera 0.72 en ambas ventanas**.
+  El artefacto recalibrado midió en su propio holdout 75%.
+  **No se ajusta ningún número para pasar.**
+  **06.3b NO aplicado**: con n_cal=72 los 3 estratos tendrían ~24 muestras (ruido).
+  **Decisión pendiente del autor**: 0.72 es criterio de cierre, no orden de cambiar producción;
+  C se adopta solo con aprobación explícita (cambiaría la banda que usa el MPC).
 - [ ] **C4** — ⏸️ **DIFERIDO** al bloque final de validación (decisión del autor).
 - [x] **C5** — `.pkl` viejo (sin `band_q`): `max|ΔP10| = 0.00e+00`, `max|dP90| = 0.00e+00` vs criterio actual.
 - [x] **C6** — `results/pasto_narino/calibrated/pasto_solar_pv.json` incluye `band_q` y `coverage_holdout`.

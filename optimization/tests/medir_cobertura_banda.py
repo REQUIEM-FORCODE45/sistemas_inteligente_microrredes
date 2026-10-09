@@ -130,8 +130,15 @@ def main() -> int:
     ap.add_argument("--max-days", type=float, default=30.0)
     ap.add_argument("--min-cal", type=int, default=100,
                     help="minimo de horas de calibracion para reportar")
+    ap.add_argument("--split", default="60/20/20",
+                    help="reparto ajuste/calibracion/holdout: 60/20/20 o 50/30/20")
     ap.add_argument("--out", default=None, help="ruta JSON de salida (opcional)")
     args = ap.parse_args()
+    try:
+        f_aj, f_cal, _f_ho = [int(x) / 100.0 for x in args.split.split("/")]
+    except (ValueError, AttributeError):
+        print(json.dumps({"error": f"split invalido: {args.split}"}))
+        return 1
 
     from optimization.calibration.experiments import build_nominal_plant
     from optimization.calibration.conformal import (conformal_radius,
@@ -184,7 +191,7 @@ def main() -> int:
     ancho_a = float((band_a["P90"] - band_a["P10"]).mean())
 
     # ---- 4. METODO B — corregido (split triple disjunto) ------------------- #
-    n_aj = int(round(0.60 * n))
+    n_aj = int(round(f_aj * n))
     n_cal = n - n_hold - n_aj
     aj_idx = p_meas.index[:n_aj]
     cal_idx = p_meas.index[n_aj:n_aj + n_cal]
@@ -206,6 +213,14 @@ def main() -> int:
     cov_b = coverage(p_meas.loc[hold_idx], band_b)
     ancho_b = float((band_b["P90"] - band_b["P10"]).mean())
 
+    # ---- 4b. METODO C — radio conformal del predictor FINAL + SIMETRICA --- #
+    # Conserva la forma que daba 90% sin la fuga in-sample: es el metodo
+    # correcto segun split-conformal clasico (auditoria §2.4).
+    radius_c = conformal_radius(resid_final_cal, alpha=args.alpha)
+    band_c = conformal_band(p50_hold_b, radius_c)
+    cov_c = coverage(p_meas.loc[hold_idx], band_c)
+    ancho_c = float((band_c["P90"] - band_c["P10"]).mean())
+
     # ---- 5. reporte -------------------------------------------------------- #
     nominal_cov = 1.0 - args.alpha
     out = {
@@ -214,6 +229,7 @@ def main() -> int:
         "alpha": args.alpha,
         "nominal": nominal_cov,
         "n_generacion": int(n),
+        "split": args.split,
         "tramos": {"ajuste": int(n_aj), "calibracion": int(n_cal),
                    "holdout": int(n_hold)},
         "ventana": {"desde": str(p_meas.index[0]), "hasta": str(p_meas.index[-1])},
@@ -229,12 +245,21 @@ def main() -> int:
             "cobertura_holdout": round(float(cov_b), 4),
             "ancho_medio_kw": round(ancho_b, 4),
         },
+        "metodo_c": {
+            "descripcion": "radio conformal del predictor FINAL en calibracion + banda simetrica",
+            "radio_kw": round(float(radius_c), 4),
+            "cobertura_holdout": round(float(cov_c), 4),
+            "ancho_medio_kw": round(ancho_c, 4),
+        },
         "delta_cobertura": round(float(cov_b - cov_a), 4),
         "criterio_cierre": {"objetivo": 0.72, "cumple": bool(cov_b >= 0.72)},
+        "criterio_cierre_c": {"objetivo": 0.72, "cumple": bool(cov_c >= 0.72)},
         "avisos": [],
         "nota": ("El metodo A reproduce el CRITERIO del codigo actual "
                  "(in-sample, radio del fisico, banda simetrica) sobre el mismo "
-                 "holdout; no es replicacion bit-exacta del split original."),
+                 "holdout; no es replicacion bit-exacta del split original. "
+                 "El reference/ congelado solo define A y B; C y --split son "
+                 "extension documentada de la auditoria 06/08/09/10 §2.4."),
     }
     if n_cal < args.min_cal:
         out["avisos"].append(
