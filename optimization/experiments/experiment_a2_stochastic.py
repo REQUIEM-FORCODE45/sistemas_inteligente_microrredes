@@ -408,6 +408,10 @@ def main() -> int:
                          "(planta calibrada sobre ERA5 uniforme en la ventana; "
                          "precedente: validación ExpA-3d. Necesario para "
                          "ventanas >15 días sin cobertura Mongo).")
+    ap.add_argument("--band-mode", type=str, default=None,
+                    choices=["conformal_disjunto", "cuantiles_asimetricos"],
+                    help="Banda del forecast S-MPC sin tocar el artefacto "
+                         "(cambio 06, Tarea 2). Default None = la del artefacto.")
     args = ap.parse_args()
 
     days = _window(args.days, args.start_date)
@@ -428,7 +432,7 @@ def main() -> int:
                 load_real.sum() / len(days), pv_real.sum() / len(days),
                 args.initial_soc)
 
-    provider = ClosedLoopForecastProvider()
+    provider = ClosedLoopForecastProvider(band_mode=args.band_mode)
     mpc_pi_provider = OracleForecastProvider()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 

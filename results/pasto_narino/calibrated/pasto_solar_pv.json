@@ -16,8 +16,14 @@
   "coverage_holdout": 0.75,
   "ancho_medio_kw": 4.796561242773245
  },
- "calibrated_at": "2026-10-09T12:22:13.717129+00:00",
- "age_days": 1.694837962962963e-06,
+ "band_mode": "conformal_disjunto",
+ "band_c": {
+  "coverage_holdout": 0.875,
+  "ancho_medio_kw": 4.259114825421109,
+  "radio_kw": 2.8389233953709536
+ },
+ "calibrated_at": "2026-10-09T15:42:13.676185+00:00",
+ "age_days": 2.201875e-06,
  "stale": false,
  "baseline_rmse_kw": 2.275423345592271,
  "n_horas": 360,

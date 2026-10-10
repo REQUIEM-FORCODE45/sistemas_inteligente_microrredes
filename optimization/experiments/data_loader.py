@@ -142,10 +142,13 @@ class ClosedLoopForecastProvider:
     cada hora del dia tenga 24 h de lookahead.
     """
 
-    def __init__(self, forecaster=None):
+    def __init__(self, forecaster=None, band_mode: str = None):
+        # Mecanismo declarado (cambio 06, Tarea 2): selecciona la banda sin
+        # tocar el artefacto. Default None = la del artefacto (hoy C).
         self.site = _site_cfg()
         self.plant = load_pv_plant()
         self.load_model = load_load_profile()
+        self.band_mode = band_mode
         if forecaster is None:
             from optimization.prediction.forecaster import get_climate_provider
             forecaster = get_climate_provider(self.site, name="patchtst")
@@ -164,7 +167,7 @@ class ClosedLoopForecastProvider:
             return self._cache[anchor]
         fc = self.forecaster.forecast(days=hours / 24.0, anchor=anchor)
         climate = fc.data
-        band = self.plant.predict_band(climate)
+        band = self.plant.predict_band(climate, band_mode=self.band_mode)
         night = climate["shortwave_radiation"] < 5.0
         band.loc[night, ["P10", "P50", "P90"]] = 0.0
         load = pd.Series(

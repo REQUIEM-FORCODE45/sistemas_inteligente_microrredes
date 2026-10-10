@@ -29,6 +29,15 @@ Evidencia **medida ejecutando**. Fecha: 2026-10-09.
   `solver_usado` y `hardware_report()` el **solver efectivo** (antes decía "highs: fallback"
   de forma estática). Margen real vs ciclo 15 min: **185×** (conclusión intacta).
 
+## Hallazgo abierto (b): Gurobi vs HiGHS — para el cambio 07 (no cerrar)
+
+Con la licencia size-limited (límite 2000), el modelo de producción de 24 h
+(**2094 vars / 2036 constr**, medido en esta máquina) **NO puede usar Gurobi** →
+corre en HiGHS. La documentación dice "Gurobi principal, HiGHS respaldo" y en la
+práctica es al revés para el job operativo. Cuantificado: Exp B p50 **0.45 s**
+(Gurobi, publicado) vs **4.19 s** (HiGHS, medido). Al alinear lo declarado con lo
+efectivo en el **cambio 07** (documentación).
+
 ## Evidencia de fallos preexistentes (auditoría item 7)
 
 `evidencia_fallos_preexistentes.txt` (esta carpeta): `git worktree` de `8e8e2d3` (anterior a

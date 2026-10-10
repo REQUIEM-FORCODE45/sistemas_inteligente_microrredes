@@ -137,6 +137,15 @@ número medido, no por intuición).
 Un script único mide la cobertura holdout **con el mismo protocolo antes y después**, y publica el
 resultado como artefacto versionado (regla dura 2: ninguna cifra a mano).
 
+### 3.5 — `06.5` Adopción C + mecanismo `band_mode` (auditoría 2ª ronda §7.5)
+
+La banda de producción es la **simétrica conformal disjunta** (`meta.band_mode =
+"conformal_disjunto"`). Para alternar bandas **sin tocar el artefacto** existe el parámetro
+declarado `band_mode` (default = la del artefacto, hoy C):
+`CalibratedPvPlant.predict_band(climate, band_mode="conformal_disjunto" | "cuantiles_asimetricos")`,
+propagado por `ClosedLoopForecastProvider(band_mode=...)` y `--band-mode` de
+`experiment_a2_stochastic.py`. `band_q` (B) se conserva como fallback/informativo.
+
 ---
 
 ## 4. Contrato de datos

@@ -73,27 +73,28 @@ class CalibratedPvPlant:
 
     # ------------------------------------------------------------------ #
     def predict_band(self, climate: pd.DataFrame,
-                     quantiles=QUANTILES) -> pd.DataFrame:
+                     quantiles=QUANTILES, band_mode: str = None) -> pd.DataFrame:
         """Franja P10/P50/P90 [kW].
 
-        Prioridad de banda:
-          0) cambio 06: cuantiles asimetricos del predictor final en split
-             disjunto (band_q) — P10 = P50 + q10, P90 = P50 + q90.
-          1) split-conformal (Fase 3): radio calibrado con garantia de
-             cobertura ~1-alpha sobre el holdout.
-          2) cuantiles empiricos del residuo train (fallback, HO#3).
+        Adopcion C (auditoria 2a ronda §7.5): gana el radio CONFORMAL simetrico
+        (medido sobre el predictor final en split disjunto). band_q queda como
+        ultimo fallback/informativo. `band_mode` fuerza el metodo:
+        "conformal_disjunto" (C, default) | "cuantiles_asimetricos" (B).
         """
         p50 = self.predict_power(climate, use_residual=self.residual_model is not None)
         out = pd.DataFrame({"P50": p50})
         band_q = getattr(self, "band_q", None)  # .pkl viejos no lo tienen
-        if band_q is not None:
-            out["P10"] = p50 + float(band_q["q10"])
-            out["P90"] = p50 + float(band_q["q90"])
-        elif self.conformal_radius_kw is not None:
+        use_asym = (band_mode == "cuantiles_asimetricos") or (
+            band_mode is None and self.conformal_radius_kw is None
+            and band_q is not None)
+        if not use_asym and self.conformal_radius_kw is not None:
             from optimization.calibration.conformal import conformal_band
             band = conformal_band(p50, self.conformal_radius_kw)
             out["P10"] = band["P10"]
             out["P90"] = band["P90"]
+        elif band_q is not None:
+            out["P10"] = p50 + float(band_q["q10"])
+            out["P90"] = p50 + float(band_q["q90"])
         elif self.residual_q is not None:
             out["P10"] = p50 + self.residual_q[0]
             out["P90"] = p50 + self.residual_q[2]

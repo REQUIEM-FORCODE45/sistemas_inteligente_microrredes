@@ -161,7 +161,8 @@ def _fit_solar(cfg: dict, sensor_id: str, df: pd.DataFrame) -> dict:
                                    conformal_radius_kw=radius, alpha=0.2,
                                    t0=climate.index[0],
                                    meta={"sensor_id": sensor_id, "type": "solar",
-                                         "calib_version": "06.1"},
+                                         "calib_version": "06.1",
+                                         "band_mode": "conformal_disjunto"},
                                    band_q={**bq, "split": "disjunto"},
                                    calibrated_at=ahora_utc,
                                    baseline_rmse_kw=float(baseline),
@@ -170,13 +171,20 @@ def _fit_solar(cfg: dict, sensor_id: str, df: pd.DataFrame) -> dict:
                                                   "hasta": str(p_meas.index[-1])})
     rmse_calib = rmse(plant_calib.ac_power(cli_va) / 1000.0, p_va)
 
-    # Cobertura holdout de la banda asimetrica (solo medicion, criterio C3).
+    # Cobertura holdout de la banda asimetrica (informativa, criterio C3 v1).
     p50_va = calibrated.predict_power(cli_va)
     band_va = pd.DataFrame({"P10": p50_va + bq["q10"], "P50": p50_va,
                             "P90": p50_va + bq["q90"]})
     calibrated.band_q["coverage_holdout"] = coverage(p_va, band_va)
     calibrated.band_q["ancho_medio_kw"] = float(
         (band_va["P90"] - band_va["P10"]).mean())
+    # Adopcion C: cobertura holdout de la banda SIMETRICA activa (C3 con C).
+    from optimization.calibration.conformal import conformal_band
+    band_vc = conformal_band(p50_va, radius)
+    calibrated.meta["band_c"] = {
+        "coverage_holdout": coverage(p_va, band_vc),
+        "ancho_medio_kw": float((band_vc["P90"] - band_vc["P10"]).mean()),
+        "radio_kw": float(radius)}
     return {"calibrated": calibrated, "rmse_calibrado_kw": rmse_calib,
             "n_horas": len(p_meas), "k": k, "params": params}
 
@@ -402,10 +410,17 @@ def _summary_of(model: Any) -> dict:
                 stale = bool(age_days > max_age)
             except (ValueError, TypeError):
                 pass
+        # Adopcion C: artefactos sin band_mode usaron radio in-sample del
+        # fisico (A, legacy). Se declara, no se recalcula.
+        band_mode = meta.get("band_mode") or (
+            "conformal_in_sample_legacy"
+            if getattr(model, "conformal_radius_kw", None) is not None else None)
         return {"k": getattr(model, "k", None),
                 "params": getattr(model, "params", None),
                 "conformal_radius_kw": getattr(model, "conformal_radius_kw", None),
                 "band_q": getattr(model, "band_q", None),
+                "band_mode": band_mode,
+                "band_c": meta.get("band_c"),
                 "calibrated_at": calibrated_at,
                 "age_days": age_days,
                 "stale": stale,
