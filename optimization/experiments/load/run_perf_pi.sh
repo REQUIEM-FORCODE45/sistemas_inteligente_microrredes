@@ -31,6 +31,10 @@ LOAD_DIR="optimization/experiments/load"
 MOD="optimization.experiments.load"
 RESULTS_DIR="results/pasto_narino/experiments"
 
+# Python del venv de predicción (tiene pandas/psutil); fallback al del sistema.
+PY="$ROOT/.venv/bin/python"
+[[ -x "$PY" ]] || PY="$(command -v python3)"
+
 # --- Flags ------------------------------------------------------------------
 REST_DURATION=30
 CONCURRENT=50
@@ -82,7 +86,7 @@ HW_ARCH=$(uname -m)
 HW_CPU=$(nproc)
 HW_RAM=$(free -h | awk '/^Mem:/{print $2}')
 NODE_V=$(node -v 2>/dev/null || echo "n/a")
-PY_V=$(python3 --version 2>&1 | awk '{print $2}')
+PY_V=$("$PY" --version 2>&1 | awk '{print $2}')
 LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 NGINX_CODE=$(http_code http://127.0.0.1/)
 pm2 status 2>/dev/null | grep -E 'sige-(backend|prediccion)' || warn "pm2 no muestra sige-backend/prediccion"
@@ -162,11 +166,11 @@ done
 if [[ $SKIP_MQTT -eq 0 ]]; then
   log "Test 4/6 + 5/6: MQTT (${MQTT_RATE} msg/s, ${MQTT_DURATION}s) + recursos + WS push"
   perf_reset
-  python3 -m "$MOD".sample_resources --duration "$MQTT_DURATION" --interval 5 --out "$RES_SRC" > "$TMPD/resources.log" 2>&1 &
+  "$PY" -m "$MOD".sample_resources --duration "$MQTT_DURATION" --interval 5 --out "$RES_SRC" > "$TMPD/resources.log" 2>&1 &
   RES_PID=$!
   timeout "$((MQTT_DURATION + 120))" node "$LOAD_DIR/load_ws.js" "$TOKEN" --url http://127.0.0.1 --cycles "$WS_CYCLES" > "$WS_OUT" 2> "$WS_OUT.err" &
   WS_PID=$!
-  python3 -m "$MOD".load_mqtt --rate "$MQTT_RATE" --duration "$MQTT_DURATION" 2>&1 | tail -n3
+  "$PY" -m "$MOD".load_mqtt --rate "$MQTT_RATE" --duration "$MQTT_DURATION" 2>&1 | tail -n3
   wait "$RES_PID" 2>/dev/null
   wait "$WS_PID" 2>/dev/null
   ok "carga MQTT + muestreo + WS finalizados"
