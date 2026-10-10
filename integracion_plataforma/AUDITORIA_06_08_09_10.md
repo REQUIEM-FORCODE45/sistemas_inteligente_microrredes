@@ -295,3 +295,92 @@ implementador, que **acepto como válida** (metodológicamente correcta: mismo c
 **Recomendación**: adoptar **C**, en un paso propio con re-verificación de C2/C3/C5/C6 y medición del
 efecto en el despacho — y **no** cerrar el capítulo de la banda hasta probar la vía del §7.2
 (sobrecobertura).
+
+---
+
+# 8. TERCERA RONDA — adopción de C verificada + 2 hallazgos nuevos (`e0aa52f`)
+
+## 8.1 Lo verificado y aceptado
+
+| Ítem | Resultado |
+|---|---|
+| Adopción de **C** | `predict_band` invertida correctamente: `conformal_radius_kw` gana; `band_mode` (`conformal_disjunto` default \| `cuantiles_asimetricos`) permite forzar ✓ |
+| `band_mode` declarado y propagado | `service.py:165` (`meta.band_mode`), `service.py:413-422` (artefactos viejos → `conformal_in_sample_legacy` = **A**, declarado), `ClosedLoopForecastProvider`, `--band-mode` del A2 ✓ |
+| **Protocolo v2** | `reference/scripts/medir_cobertura_banda_v2.py` **nueva** (v1 intacta) + tabla de versiones en `reference/README.md` ✓ — exactamente la opción 2 recomendada |
+| Test del invariante | `test_protocolo_version.py`: **`test_protocolo_v2_identico`** (reference vs tests por sha256 normalizado) y **`test_protocolo_v1_congelada`** (falla si alguien sobrescribe la v1) → **ambos PASAN** ✓ (era el objetivo que perseguía la opción descartada, sin romper append-only) |
+| Hallazgo (b) Gurobi/HiGHS | registrado en `VERIFICACION_08` §"Hallazgo abierto (b)" con el número (2094 vars > 2000) ✓ |
+| Hallazgo (a) sobrecobertura | registrado en `VERIFICACION_06` como línea abierta ✓ |
+| Historial append-only | 4.º evento, `rmse_antes` poblado ✓ |
+| Tests ejecutados aquí | **20/24 PASS**, 4 SKIP declarados (fixtures), 2 import-fail (`pyomo` ausente) |
+
+---
+
+## 8.2 🔴 HALLAZGO NUEVO — el contraste C vs B **no es concluyente**: el signo lo decide un día
+
+La tabla del `VERIFICACION_06` informa el **agregado** de 3 días. Desagregando el CSV
+(`expA2_daily_bandB.csv` vs `expA2_daily_bandC.csv`):
+
+| día | B (COP) | C (COP) | Δ (C−B) | ENS de B |
+|---|---|---|---|---|
+| 24-jul | 60,945.0 | 61,798.5 | **+853.5** (C más caro) | 0 |
+| 25-jul | 61,089.2 | 61,576.7 | **+487.6** (C más caro) | 0 |
+| 26-jul | 66,497.7 | 61,858.4 | **−4,639.2** (C más barato) | **1.0899 kWh (2 h)** |
+| **total** | **188,531.9** | **185,233.6** | **−3,298.2** | 1.0899 |
+
+**Dos de los tres días C es MÁS CARO.** El resultado agregado lo decide **el tercer día**, y dentro
+de él **un solo evento**: `1.0899 kWh × 5,000 COP/kWh = 5,449 COP` de penalización de ENS ≈ el 117 %
+del ahorro de ese día. Es decir:
+
+> **El "−1.7 %" no es un resultado sobre el despacho: es el precio de un ENS de 1.09 kWh en 2 horas de
+> una ventana de 3 días.**
+
+**Consecuencia para el cierre**: la adopción de **C se justifica por su corrección metodológica y su
+cobertura (87.5 % sin fuga)**, que es sólida; **NO** por el ahorro de 1.7 %, que no está demostrado
+con 3 días. No debe citarse como evidencia económica.
+
+**Recomendación**: (a) reportar el contraste **por día**, no solo agregado; (b) ampliar a **más
+ventanas** (14 días o varias de 3 días) antes de afirmar nada económico; (c) registrar el "−1.7 %" en
+la tabla **con su n=3 y el día que lo determina**, como se hizo con el p=0.206 del A2.
+
+---
+
+## 8.3 🔴 HALLAZGO NUEVO (grave) — la economía del diésel no corresponde al sitio
+
+Los CSV muestran ~61,000 COP/día con ~520 L de diésel → **~117 COP/L efectivos**. Verificado en el
+código: el experimento y la producción usan `fuel_cost = 100` con la curva paramétrica
+`(0.5 + 0.5·P + 0.001·P²)` (`experiments/config.py:45-53`, `DEFAULT_TOPOLOGY`, `deviceTypes.js`).
+
+Comparación con la calibración de la **tesis** (Willans `a0=1.8`, `a1=0.24`, `a2=0.0012`, fuel
+**4,500 COP/L**):
+
+| P | costo repo | costo tesis | **ENS ÷ diésel (repo)** | ENS ÷ diésel (tesis) |
+|---|---|---|---|---|
+| 50 kW | **56.0 COP/kWh** | 1,512 COP/kWh | **89.3×** | 3.3× |
+| 100 kW | 60.5 | 1,701 | 82.6× | 2.9× |
+| 300 kW | 80.2 | 2,727 | 62.4× | 1.8× |
+
+**Tres consecuencias, en orden de gravedad**:
+
+1. **El régimen económico de comparación no es el del sitio.** Con ENS penalizado a 5,000 COP/kWh y
+   diésel a **56 COP/kWh**, el ENS cuesta **89× más que generar con diésel** (en la tesis: 3.3×). El
+   optimizador está configurado para **eliminar ENS a cualquier costo** → explica que el ENS observado
+   sea minúsculo (0–10 kWh) y que las estrategias quemen diésel profusamente. Las comparaciones
+   **entre** estrategias siguen siendo justas (todas usan el mismo precio), pero el **régimen** no
+   representa al sitio.
+2. **El MPC de producción decide con ese precio.** `DEFAULT_TOPOLOGY` y el nodo diésel del diagrama
+   traen `fuel_cost: 100` → el plan del bucle valora el diésel ~27× por debajo del real y **arranca el
+   generador más de lo económicamente óptimo**. *(Es editable en el panel —`fuelCost` está en
+   `defaultParams`— pero el **default** es irreal y nada lo advierte.)*
+3. **La plataforma y la tesis no están calibradas igual**, así que sus resultados económicos **no son
+   comparables** entre sí (mismo ENS a 5,000, diésel 56 vs 1,512 COP/kWh).
+
+**Además, la curva también difiere**: a 50 kW el repo consume **28 L/h** frente a **16.8 L/h** de la
+Willans de la tesis.
+
+**Recomendación** (no es un bug de código: es una **calibración paramétrica no declarada en los
+resultados**):
+1. Reportar en el informe la **relación ENS/diésel del régimen** usado (89×), para que el lector juzgue.
+2. Corregir el **default** del diésel en producción (precio real + curva Willans) o declarar por qué
+   es paramétrico, con un aviso visible en el panel mientras no esté calibrado.
+3. Alinear la plataforma con la tesis (o documentar la diferencia explícitamente) en el cambio 07.
+4. Registrar como línea abierta — **no** cerrar aquí.
