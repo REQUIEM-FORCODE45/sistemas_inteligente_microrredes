@@ -19,6 +19,7 @@
 #   ./run_perf_pi.sh
 #   ./run_perf_pi.sh --skip-mqtt --skip-tunnel
 #   ./run_perf_pi.sh --mqtt-duration 300 --rest-duration 20
+#   ./run_perf_pi.sh --mqtt-broker 34.69.148.115
 #
 set -uo pipefail
 
@@ -40,6 +41,7 @@ REST_DURATION=30
 CONCURRENT=50
 MQTT_DURATION=600
 MQTT_RATE=10
+MQTT_BROKER="34.69.148.115"   # broker MQTT externo usado por el backend (sin esquema)
 WS_CYCLES=200
 SPA_SAMPLES=20
 SKIP_MQTT=0
@@ -52,6 +54,7 @@ while [[ $# -gt 0 ]]; do
     --concurrent)    CONCURRENT="$2"; shift 2 ;;
     --mqtt-duration) MQTT_DURATION="$2"; shift 2 ;;
     --mqtt-rate)     MQTT_RATE="$2"; shift 2 ;;
+    --mqtt-broker)   MQTT_BROKER="$2"; shift 2 ;;
     --ws-cycles)     WS_CYCLES="$2"; shift 2 ;;
     --spa-samples)   SPA_SAMPLES="$2"; shift 2 ;;
     --skip-mqtt)     SKIP_MQTT=1; shift ;;
@@ -165,12 +168,15 @@ done
 # --- Test 4/5: MQTT + recursos + WS (paralelo) ------------------------------
 if [[ $SKIP_MQTT -eq 0 ]]; then
   log "Test 4/6 + 5/6: MQTT (${MQTT_RATE} msg/s, ${MQTT_DURATION}s) + recursos + WS push"
+  MQTT_BROKER_URL="$MQTT_BROKER"
+  [[ "$MQTT_BROKER_URL" == *"://"* ]] || MQTT_BROKER_URL="mqtt://$MQTT_BROKER_URL"
+  echo "  broker: $MQTT_BROKER_URL"
   perf_reset
   "$PY" -m "$MOD".sample_resources --duration "$MQTT_DURATION" --interval 5 --out "$RES_SRC" > "$TMPD/resources.log" 2>&1 &
   RES_PID=$!
   timeout "$((MQTT_DURATION + 120))" node "$LOAD_DIR/load_ws.js" "$TOKEN" --url http://127.0.0.1 --cycles "$WS_CYCLES" > "$WS_OUT" 2> "$WS_OUT.err" &
   WS_PID=$!
-  "$PY" -m "$MOD".load_mqtt --rate "$MQTT_RATE" --duration "$MQTT_DURATION" 2>&1 | tail -n3
+  "$PY" -m "$MOD".load_mqtt --rate "$MQTT_RATE" --duration "$MQTT_DURATION" --broker "$MQTT_BROKER_URL" 2>&1 | tail -n3
   wait "$RES_PID" 2>/dev/null
   wait "$WS_PID" 2>/dev/null
   ok "carga MQTT + muestreo + WS finalizados"
@@ -300,6 +306,7 @@ cat > "$OUT" <<MD
 | REST conc. | $CONCURRENT |
 | REST duración | ${REST_DURATION}s |
 | MQTT | ${MQTT_RATE} msg/s x ${MQTT_DURATION}s |
+| Broker MQTT | \`${MQTT_BROKER:-34.69.148.115}\` |
 
 ## Test 1 — REST backend puro (localhost:3000)
 

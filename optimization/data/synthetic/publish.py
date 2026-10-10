@@ -39,7 +39,12 @@ KEYS = ["weather", "solar_pv", "load", "bess", "wind"]
 
 
 def broker_url(env: Dict[str, str]) -> str:
-    return env.get("MQTT_BROKER") or os.environ.get("MQTT_BROKER") or "mqtt://localhost:1883"
+    raw = env.get("MQTT_BROKER") or os.environ.get("MQTT_BROKER") or "mqtt://localhost:1883"
+    # `deploy_pi.sh` escribe el host sin esquema (p. ej. "34.69.148.115");
+    # urlparse() de un host desnudo no da hostname -> cae a localhost. Normalizar.
+    if "://" not in raw:
+        raw = "mqtt://" + raw
+    return raw
 
 
 def parse_env_file(path: str) -> Dict[str, str]:

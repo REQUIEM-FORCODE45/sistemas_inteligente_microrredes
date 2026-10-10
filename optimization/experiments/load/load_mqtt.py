@@ -67,7 +67,12 @@ def main() -> int:
         connected = rc == 0
 
     client.on_connect = _on_connect
-    client.connect(host, port)
+    try:
+        client.connect(host, port)
+    except OSError as exc:
+        logger.error("Broker %s inaccesible (%s). Usa --broker mqtt://<host> "
+                     "o define MQTT_BROKER en el entorno.", broker, exc)
+        return 1
     client.loop_start()
     t0 = time.time()
     deadline = t0 + args.duration
