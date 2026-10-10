@@ -23,6 +23,7 @@ pvlib>=0.10.0            # modelos fisicos PV (POA, temp celda, DC/AC)
 
 # --- Calibracion (Fase 4) y ML de residuos ---
 scikit-learn>=1.3.0      # GradientBoostingRegressor
+lightgbm>=4.0.0          # MOS (forecast provider): corrector sobre NWP ECMWF
 
 # --- Acceso a sensores sinteticos/real (Fase 1b/1c) ---
 pymongo>=4.6.0
