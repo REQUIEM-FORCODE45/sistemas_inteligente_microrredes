@@ -44,7 +44,12 @@ def load_site(site_id: str) -> Dict:
         raw = yaml.safe_load(fh)
     cfg = {"site": raw.get("site", {}),
            "weather_variables": raw.get("weather_variables", []),
-           "synthetic": raw.get("synthetic", {})}
+           "synthetic": raw.get("synthetic", {}),
+           # Cambio 11: precio del combustible (dato del sitio con vigencia).
+           "fuel": dict({"price_cop_per_l": 2782, "galon_cop": 10529,
+                         "ciudad": "Pasto", "vigencia": "2026-10",
+                         "fuente": "Portal CREG"},
+                        **(raw.get("fuel", {}) or {}))}
     # defaults aplicados a cada seccion (no reemplaza lo presente)
     for section, default in _DEFAULTS.items():
         merged = dict(default)

@@ -8,14 +8,20 @@ Tarifas de red (perfil ToU horario, documentado — reemplaza las fijas 40/60):
   - costo fijo de conexion: 40 [COP/h] (igual que en produccion)
 
 El costo del diesel usa la formula cuadratica real (c + b*P + a*P^2)*C_comb
-con C_comb = 100 [unidades de combustible] y a=0.001, b=0.5, c=0.5.
+con la WILLANS CALIBRADA DE LA TESIS (cambio 11):
+  c <-> a0 = 1.8 [L/h], b <-> a1 = 0.24 [L/h/kW], a <-> a2 = 0.0012 [L/h/kW^2].
+C_comb = precio del sitio (fuel.price_cop_per_l del YAML, Pasto 2,782 COP/L,
+Portal CREG oct-2026) — fuente unica de verdad, nunca copiado a mano.
 """
 from __future__ import annotations
 
 import pandas as pd
 
+from optimization.config.loader import load_site
+
 TZ = "America/Bogota"
 SITE_ID = "pasto_narino"
+_SITE_FUEL = load_site(SITE_ID)["fuel"]
 
 # --------------------------------------------------------------------------- #
 # Microred (mismos valores que el diagrama de produccion + artefactos calibrados)
@@ -46,10 +52,11 @@ MICROGRID = {
         "id": "diesel_1",
         "min_kw": 50.0,
         "max_kw": 300.0,
-        "cost_a": 0.001,
-        "cost_b": 0.5,
-        "cost_c": 0.5,
-        "fuel_cost": 100.0,
+        # Cambio 11: Willans de la tesis (a2/a1/a0) + precio del sitio.
+        "cost_a": 0.0012,
+        "cost_b": 0.24,
+        "cost_c": 1.8,
+        "fuel_cost": float(_SITE_FUEL["price_cop_per_l"]),
     },
     "grid": {
         "max_import_kw": 30.0,

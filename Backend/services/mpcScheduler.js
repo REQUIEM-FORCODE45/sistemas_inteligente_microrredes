@@ -23,7 +23,9 @@ const DEFAULT_TOPOLOGY = {
     // Cambio 08.1: ramp_kw_per_h es dato del fabricante. null = no declarada
     // (el solver no impone rampa y devuelve warning; nunca un 0 silencioso).
     // Cambio 08.4: start_cost/stop_cost (COP por evento), mismo criterio.
-    { id: 'diesel_1', type: 'diesel', max_kw: 300, min_kw: 50, efficiency: 1.0, cost_a: 0.001, cost_b: 0.5, cost_c: 0.5, fuel_cost: 100, ramp_kw_per_h: null, start_cost: null, stop_cost: null },
+    // Cambio 11: Willans de la tesis (a2/a1/a0); fuel_cost lo resuelve el
+    // solver desde el sitio (Pasto) salvo edicion del operador en el nodo.
+    { id: 'diesel_1', type: 'diesel', max_kw: 300, min_kw: 50, efficiency: 1.0, cost_a: 0.0012, cost_b: 0.24, cost_c: 1.8, fuel_cost: null, ramp_kw_per_h: null, start_cost: null, stop_cost: null },
   ],
   storage: [
     { id: 'battery_1', type: 'battery', max_kw: 100, min_kw: 0, capacity_kwh: 200, max_charge_kw: 50, max_discharge_kw: 50, soc_min: 0.2, soc_max: 0.95, initial_soc: 0.65, charge_efficiency: 0.95, discharge_efficiency: 0.95 },
@@ -257,6 +259,9 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
     const initialDieselKw = await getInitialDieselKw();
 
     const optimizationInput = {
+      // Cambio 11: el solver carga fuel del sitio con este id y resuelve
+      // la precedencia nodo > sitio > default (fuel_price_applied).
+      site_id: process.env.OPTIMIZATION_SITE_ID || 'pasto_narino',
       initial_diesel_kw: initialDieselKw,
       sources: topology.sources || [],
       storage: storageWithSoc,

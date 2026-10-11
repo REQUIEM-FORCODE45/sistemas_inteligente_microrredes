@@ -30,16 +30,20 @@ const TOPOLOGY_MAPPERS = {
   }),
   [DEVICE_TYPE.DIESEL_GENERATOR]: (_node, params) => {
     // Cambio 10.1: rampa SOLO si esta declarada (vacio/null -> sin clave).
+    // Cambio 11: fuel_cost SOLO si el operador lo edita; si no, el solver
+    // aplica el precio del sitio (Pasto). Coeffs Willans por default.
     const out = {
       type: 'diesel',
       max_kw: (params.maxCapacity || 300000) / 1000,
       min_kw: (params.minCapacity || 50000) / 1000,
       efficiency: 1.0,
-      cost_a: params.costA != null ? params.costA : 0.001,
-      cost_b: params.costB != null ? params.costB : 0.5,
-      cost_c: params.costC != null ? params.costC : 0.5,
-      fuel_cost: params.fuelCost != null ? params.fuelCost : 100,
+      cost_a: params.costA != null ? params.costA : 0.0012,
+      cost_b: params.costB != null ? params.costB : 0.24,
+      cost_c: params.costC != null ? params.costC : 1.8,
     };
+    if (params.fuelCost != null && params.fuelCost !== '') {
+      out.fuel_cost = Number(params.fuelCost);
+    }
     if (params.rampKwPerH != null && params.rampKwPerH !== '') {
       out.ramp_kw_per_h = Number(params.rampKwPerH);
     }

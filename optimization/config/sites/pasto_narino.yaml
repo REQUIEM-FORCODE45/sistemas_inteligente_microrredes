@@ -83,6 +83,18 @@ load:
   evening_peak_h: 19
 
 # ============================================================
+# Combustible (cambio 11) — FUENTE UNICA de verdad del precio (produccion y
+# experimentos). Dato del sitio con vigencia: Portal CREG, oct-2026, Pasto.
+# $10,529/galon / 3.785 L = $2,782/L. Nunca se copia a mano en codigo/informes.
+# ============================================================
+fuel:
+  price_cop_per_l: 2782        # Portal CREG, oct-2026, Pasto
+  galon_cop: 10529
+  ciudad: "Pasto"
+  vigencia: "2026-10"
+  fuente: "Portal CREG"
+
+# ============================================================
 # Sensores virtuales / Sinteticos (Fase 1b/1c)
 # ============================================================
 synthetic:

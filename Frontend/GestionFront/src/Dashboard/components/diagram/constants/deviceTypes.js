@@ -146,10 +146,12 @@ export const DEVICE_DEFINITIONS = {
     defaultParams: {
       maxCapacity: 300000,
       minCapacity: 50000,
-      costA: 0.001,
-      costB: 0.5,
-      costC: 0.5,
-      fuelCost: 100,
+      // Cambio 11: Willans de la tesis (a2/a1/a0). fuelCost null = del sitio
+      // (Pasto 2,782 COP/L, CREG 2026-10); solo se envia si el operador lo edita.
+      costA: 0.0012,
+      costB: 0.24,
+      costC: 1.8,
+      fuelCost: null,
       // Cambio 10.1: null = NO declarada (nunca 0 silencioso).
       rampKwPerH: null,
       // Cambio 08.4: costo de arranque/parada (COP por evento), mismo criterio.

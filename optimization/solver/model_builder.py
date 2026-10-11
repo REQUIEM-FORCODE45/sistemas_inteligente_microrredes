@@ -31,6 +31,15 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     loads = input_data.get("loads", [])
     grid_raw = input_data.get("grid", {})
     initial_diesel_kw = input_data.get("initial_diesel_kw", {}) or {}
+    # Cambio 11: bloque fuel del sitio (fuente unica YAML). Si el job no lo
+    # trae, se carga por site_id (produccion via run_once lo inyecta).
+    site_fuel = input_data.get("fuel")
+    if site_fuel is None and input_data.get("site_id"):
+        try:
+            from optimization.config.loader import load_site
+            site_fuel = load_site(input_data["site_id"])["fuel"]
+        except Exception:
+            site_fuel = None
 
     scenarios = build_scenarios(scenarios_raw)
     num_scenarios = len(scenarios)
@@ -54,6 +63,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             loads=loads,
             grid_raw=grid_raw,
             initial_diesel_kw=initial_diesel_kw,
+            site_fuel=site_fuel,
         )
     except Exception as e:
         logger.exception("Error construyendo modelo Pyomo")
@@ -122,6 +132,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
         "warnings": variables.get("warnings", []),
         "grid_limits": variables.get("grid_limits"),
         "cost_fixed_applied": variables.get("cost_fixed_applied"),
+        "fuel_price_applied": variables.get("fuel_price_applied"),
         "scenario_results": scenario_results,
         "battery_soc_evolution": battery_soc,
         "total_hours": horizon,
@@ -147,6 +158,7 @@ def _build_pyomo_model(
     loads: list = None,
     grid_raw: dict = None,
     initial_diesel_kw: dict = None,
+    site_fuel: dict = None,
 ) -> tuple[Any, dict]:
 
     model = pyo.ConcreteModel(name="SIGE_Optimization")
@@ -207,17 +219,46 @@ def _build_pyomo_model(
             })
     total_wind_kw = sum(d["weight"] for d in wind_devices) or 1.0
 
+    # Cambio 11: precedencia nodo > sitio > default + normalizacion legacy.
+    # Willans de la tesis (a2/a1/a0); legacy = defaults adimensionales viejos.
+    WILLANS = {"cost_a": 0.0012, "cost_b": 0.24, "cost_c": 1.8}
+    LEGACY = {"cost_a": 0.001, "cost_b": 0.5, "cost_c": 0.5, "fuel_cost": 100}
+    fuel_price_applied = None
     diesel_devices = []
     for src in sources:
         if src.get("type") == "diesel":
+            # Sin site_fuel (tests/experimentos viejos): comportamiento actual.
+            ca = src.get("cost_a", 0.001)
+            cb = src.get("cost_b", 0.5)
+            cc = src.get("cost_c", 0.5)
+            nf = src.get("fuel_cost")
+            if site_fuel is not None:
+                if (ca, cb, cc) == (LEGACY["cost_a"], LEGACY["cost_b"],
+                                    LEGACY["cost_c"]):
+                    ca, cb, cc = (WILLANS["cost_a"], WILLANS["cost_b"],
+                                  WILLANS["cost_c"])
+                if nf is None or nf == LEGACY["fuel_cost"]:
+                    fval = float(site_fuel["price_cop_per_l"])
+                    origen = "sitio"
+                else:
+                    fval, origen = float(nf), "nodo"
+            elif nf is not None:
+                fval, origen = float(nf), "nodo"
+            else:
+                fval, origen = 100.0, "default"
+            if fuel_price_applied is None:
+                fuel_price_applied = {
+                    "valor": fval, "origen": origen,
+                    "vigencia": site_fuel.get("vigencia") if site_fuel else None,
+                    "fuente": site_fuel.get("fuente") if site_fuel else None}
             diesel_devices.append({
                 "id": src.get("id", "gen_unknown"),
                 "max_kw": src.get("max_kw", 300),
                 "min_kw": src.get("min_kw", 50),
-                "cost_a": src.get("cost_a", 0.001),
-                "cost_b": src.get("cost_b", 0.5),
-                "cost_c": src.get("cost_c", 0.5),
-                "fuel_cost": src.get("fuel_cost", 100),
+                "cost_a": ca,
+                "cost_b": cb,
+                "cost_c": cc,
+                "fuel_cost": fval,
                 # Cambio 08.1: dato del equipo (fabricante). Si falta -> None
                 # (sin rampa + warning; nunca un 0 silencioso).
                 "ramp_kw_per_h": src.get("ramp_kw_per_h"),
@@ -644,6 +685,7 @@ def _build_pyomo_model(
         "grid_limits": {"max_import": max_import, "max_export": max_export,
                         "source": export_source},
         "cost_fixed_applied": cost_fixed_applied,
+        "fuel_price_applied": fuel_price_applied,
         "num_diesel": num_diesel,
         "diesel_devices": diesel_devices,
         "export_tariff": export_tariff,
@@ -911,14 +953,13 @@ def _extract_cost_breakdown(
                     u = float(pyo.value(variables["U_diesel"][di, t, s_idx])) if variables.get("U_diesel") is not None else (1.0 if p > 0.001 else 0.0)
                 except (ValueError, KeyError, TypeError):
                     u = 0.0
+                # Cambio 11: usa los valores RESUELTOS (Willans/sitio), no los
+                # crudos del job, para que el desglose cuadre con el modelo.
                 a = 0.001
                 b = 0.5
                 c = 0.5
                 fuel = 100
-                diesel_devs = []
-                for src in sources:
-                    if src.get("type") == "diesel":
-                        diesel_devs.append(src)
+                diesel_devs = variables.get("diesel_devices", [])
                 if di < len(diesel_devs):
                     dd = diesel_devs[di]
                     a = dd.get("cost_a", 0.001)

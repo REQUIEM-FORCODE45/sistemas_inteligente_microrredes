@@ -45,6 +45,15 @@ def main():
     job_data = json.loads(raw_job)
     job_id = job_data.get("job_id", "unknown")
 
+    # Cambio 11: el job lleva el bloque fuel del sitio (fuente unica YAML).
+    # Si el job no lo trae, se inyecta aqui desde site_id (produccion).
+    if job_data.get("fuel") is None and job_data.get("site_id"):
+        try:
+            from optimization.config.loader import load_site
+            job_data["fuel"] = load_site(job_data["site_id"])["fuel"]
+        except Exception as exc:
+            logger.warning(f"Sin fuel del sitio ({exc}); el solver usara defaults")
+
     logger.info(f"Procesando job {job_id}")
 
     r.set(f"{PROGRESS_PREFIX}{job_id}", "running")

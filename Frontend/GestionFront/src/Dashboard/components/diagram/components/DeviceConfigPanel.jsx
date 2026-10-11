@@ -11,8 +11,8 @@ import { DEVICE_DEFINITIONS } from '../constants/deviceTypes';
 
 // Cambio 10.5: claves opcionales (vacio = no declarado, NUNCA 0). Solo para
 // las claves de OPTIONAL_PARAMS; el resto conserva el comportamiento actual.
-const OPTIONAL_PARAMS = ['rampKwPerH', 'startCostCop', 'stopCostCop'];
-const OPTIONAL_NUMERIC = ['rampKwPerH', 'startCostCop', 'stopCostCop', 'maxExportKw', 'touValley', 'touMedia', 'touPeak'];
+const OPTIONAL_PARAMS = ['rampKwPerH', 'startCostCop', 'stopCostCop', 'fuelCost'];
+const OPTIONAL_NUMERIC = ['rampKwPerH', 'startCostCop', 'stopCostCop', 'fuelCost', 'maxExportKw', 'touValley', 'touMedia', 'touPeak'];
 
 function ParamField({ label, value, onChange, type = 'text', step = 'any', paramKey = null }) {
   const optional = paramKey != null && OPTIONAL_PARAMS.includes(paramKey);
@@ -117,6 +117,11 @@ export default function DeviceConfigPanel({ onClose }) {
     metric: 'Métrica',
     interval: 'Intervalo (ms)',
     // Cambio 10: etiquetas nuevas SIEMPRE con unidad explicita.
+    // Cambio 11: Willans (L/h...) + precio con procedencia del sitio.
+    costA: 'Curvatura a2 (L/h·kW²) — Willans tesis',
+    costB: 'Pendiente a1 (L/h·kW) — Willans tesis',
+    costC: 'Consumo en vacío a0 (L/h) — Willans tesis',
+    fuelCost: 'Precio combustible (COP/L) — sitio: Pasto CREG 2026-10',
     rampKwPerH: 'Rampa diésel (kW/h) — dato del fabricante',
     startCostCop: 'Arranque diésel (COP/evento) — dato del equipo',
     stopCostCop: 'Parada diésel (COP/evento) — dato del equipo',
