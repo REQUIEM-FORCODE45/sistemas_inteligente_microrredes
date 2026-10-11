@@ -1,0 +1,21 @@
+{
+  "fuente": "tesis-microrred/reports/fase2/resultados_fase2.json",
+  "bloque": "diesel",
+  "valor": {
+    "a0": 1.7999999999999758,
+    "a1": 0.2399999999999998,
+    "a2": 0.0012000000000000055,
+    "mae": 2.4540473616831384e-14
+  },
+  "nota": "Willans CALIBRADA de la tesis (fase 2). El repo debe usar estos a0/a1/a2 como cost_c/cost_b/cost_a. El mae=2.5e-14 indica ajuste exacto contra la planta simulada.",
+  "equivalencia_repo": {
+    "cost_c": "a0 [L/h]",
+    "cost_b": "a1 [L/h per kW]",
+    "cost_a": "a2 [L/h per kW^2]"
+  },
+  "consumo_calculado_L_por_MWh": {
+    "50kW": 336,
+    "100kW": 378,
+    "300kW": 606
+  }
+}
