@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 140" width="1000" height="140"
+     role="img" aria-label="Simbolos del unifilar (variante B)">
+  <style>:root{--pv:#10b981;--grid:#f59e0b;--die:#64748b;--off:#94a3b8;--bat:#3b82f6;
+  --load:#8b5cf6;--trafo:#6366f1;--ok:#10b981;--warn:#f59e0b;--bad:#ef4444}
+svg{--card:#ffffff;--border:#e2e8f0;--foreground:#0f172a;--muted-foreground:#64748b;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){svg{--card:#111827;--border:#334155;
+  --foreground:#e8eaed;--muted-foreground:#94a3b8}}
+.card-txt{font-size:10.5px;fill:var(--foreground)}
+.card-sub{font-size:9.5px;fill:var(--muted-foreground)}
+.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.bus-lbl{font-size:10px;font-weight:700;letter-spacing:.06em;fill:var(--muted-foreground)}
+@keyframes flujo{to{stroke-dashoffset:-18}}
+.flow{stroke-dasharray:9 9;animation:flujo 1.15s linear infinite}
+@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
+  <defs>
+<symbol id="s-grid" viewBox="0 0 24 24">
+      <path d="M2 8h20M2 16h20M7 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-pv" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M9 4v13M15 4v13M3 10.5h18" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".75"/>
+      <path d="M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-die" viewBox="0 0 24 24">
+      <circle cx="11" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M8.5 8.5v7M8.5 12h4M12.5 8.5v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M20 7h2v4h-2" fill="none" stroke="currentColor" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="s-inv" viewBox="0 0 24 24">
+      <path d="M3 6h9l-4.5 5L12 16H3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M13 18h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M13 6h8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".6"/>
+    </symbol>
+    <symbol id="s-trafo" viewBox="0 0 24 24">
+      <circle cx="12" cy="8.5" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <circle cx="12" cy="15.5" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    </symbol>
+    <symbol id="s-batt" viewBox="0 0 24 24">
+      <path d="M4 5h11M4 9h6M4 13h11M4 17h6M18 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-load" viewBox="0 0 24 24">
+      <path d="M3 5h18L12 20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="s-sw-c" viewBox="0 0 24 24">
+      <path d="M6 12h12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <rect x="4.5" y="9.5" width="15" height="5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="s-sw-o" viewBox="0 0 24 24">
+      <path d="M6 16l10-8.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <circle cx="6" cy="16" r="1.8" fill="currentColor"/><circle cx="16.5" cy="7.5" r="1.8" fill="currentColor"/>
+      <rect x="4.5" y="9.5" width="15" height="5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/>
+    </symbol>
+  </defs>
+  <g transform="translate(30,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-grid" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">red electrica</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-grid</text>
+  </g>
+  <g transform="translate(135,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-pv" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">panel solar</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-pv</text>
+  </g>
+  <g transform="translate(240,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-die" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">generador diesel</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-die</text>
+  </g>
+  <g transform="translate(345,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-inv" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">inversor DC/AC</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-inv</text>
+  </g>
+  <g transform="translate(450,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-trafo" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">transformador</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-trafo</text>
+  </g>
+  <g transform="translate(555,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-batt" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">bateria</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-batt</text>
+  </g>
+  <g transform="translate(660,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-load" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">carga</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-load</text>
+  </g>
+  <g transform="translate(765,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-sw-c" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">seccionador cerrado</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-sw-c</text>
+  </g>
+  <g transform="translate(870,0)">
+    <rect x="12" y="30" width="56" height="56" rx="10" fill="var(--card)" stroke="var(--border)"/>
+    <use href="#s-sw-o" x="28" y="46" width="24" height="24" style="color:var(--foreground)"/>
+    <text x="40" y="104" class="card-sub" text-anchor="middle">seccionador abierto</text>
+    <text x="40" y="117" class="card-sub mono" text-anchor="middle" fill="var(--pv)">#s-sw-o</text>
+  </g>
+</svg>

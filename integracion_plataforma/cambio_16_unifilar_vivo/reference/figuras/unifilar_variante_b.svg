@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 430" width="1000" height="430"
+     role="img" aria-label="Unifilar variante B: bus AC con red, solar, diesel, inversor, bus DC, bateria, transformador y carga">
+  <!-- Unifilar moderno — VARIANTE B (elegida por el autor, 2026-10-11).
+       Referencia visual para los cambios 12 (barra + simbolos) y 16 (flujo + vista dual).
+       Autocontenido: define sus variables con fallback claro/oscuro.
+       Flujo: campos "baseline" tenues + un campo con class="flow" por rama (grosor ~ kW). -->
+  <style>:root{--pv:#10b981;--grid:#f59e0b;--die:#64748b;--off:#94a3b8;--bat:#3b82f6;
+  --load:#8b5cf6;--trafo:#6366f1;--ok:#10b981;--warn:#f59e0b;--bad:#ef4444}
+svg{--card:#ffffff;--border:#e2e8f0;--foreground:#0f172a;--muted-foreground:#64748b;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){svg{--card:#111827;--border:#334155;
+  --foreground:#e8eaed;--muted-foreground:#94a3b8}}
+.card-txt{font-size:10.5px;fill:var(--foreground)}
+.card-sub{font-size:9.5px;fill:var(--muted-foreground)}
+.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.bus-lbl{font-size:10px;font-weight:700;letter-spacing:.06em;fill:var(--muted-foreground)}
+@keyframes flujo{to{stroke-dashoffset:-18}}
+.flow{stroke-dasharray:9 9;animation:flujo 1.15s linear infinite}
+@media (prefers-reduced-motion:reduce){.flow{animation:none}}</style>
+  <defs>
+<symbol id="s-grid" viewBox="0 0 24 24">
+      <path d="M2 8h20M2 16h20M7 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-pv" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M9 4v13M15 4v13M3 10.5h18" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".75"/>
+      <path d="M12 17v4M9 21h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-die" viewBox="0 0 24 24">
+      <circle cx="11" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7"/>
+      <path d="M8.5 8.5v7M8.5 12h4M12.5 8.5v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M20 7h2v4h-2" fill="none" stroke="currentColor" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="s-inv" viewBox="0 0 24 24">
+      <path d="M3 6h9l-4.5 5L12 16H3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M13 18h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M13 6h8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".6"/>
+    </symbol>
+    <symbol id="s-trafo" viewBox="0 0 24 24">
+      <circle cx="12" cy="8.5" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <circle cx="12" cy="15.5" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+    </symbol>
+    <symbol id="s-batt" viewBox="0 0 24 24">
+      <path d="M4 5h11M4 9h6M4 13h11M4 17h6M18 3v18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="s-load" viewBox="0 0 24 24">
+      <path d="M3 5h18L12 20z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="s-sw-c" viewBox="0 0 24 24">
+      <path d="M6 12h12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <rect x="4.5" y="9.5" width="15" height="5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/>
+    </symbol>
+    <symbol id="s-sw-o" viewBox="0 0 24 24">
+      <path d="M6 16l10-8.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+      <circle cx="6" cy="16" r="1.8" fill="currentColor"/><circle cx="16.5" cy="7.5" r="1.8" fill="currentColor"/>
+      <rect x="4.5" y="9.5" width="15" height="5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/>
+    </symbol>
+  </defs>
+<!-- tarjetas superiores con barra de estado -->
+  <g>
+    <rect x="104" y="10" width="156" height="70" rx="14" fill="var(--card)" stroke="var(--border)"/>
+    <rect x="104" y="10" width="156" height="4" rx="2" fill="var(--grid)"/>
+    <use href="#s-grid" x="116" y="24" width="24" height="24" style="color:var(--grid)"/>
+    <text x="146" y="40" class="card-txt" font-weight="600" font-size="11.5">Red eléctrica</text>
+    <text x="116" y="58" class="card-sub mono">100 kW · 220 V</text>
+    <rect x="116" y="63" width="60" height="13" rx="6.5" fill="var(--ok)" opacity=".16"/>
+    <text x="146" y="73" class="card-sub" style="fill:var(--ok)" text-anchor="middle" font-weight="700">● conectada</text>
+  </g>
+  <g>
+    <rect x="344" y="10" width="156" height="70" rx="14" fill="var(--card)" stroke="var(--border)"/>
+    <rect x="344" y="10" width="156" height="4" rx="2" fill="var(--pv)"/>
+    <use href="#s-pv" x="356" y="24" width="24" height="24" style="color:var(--pv)"/>
+    <text x="386" y="40" class="card-txt" font-weight="600" font-size="11.5">Panel solar AC</text>
+    <text x="356" y="58" class="card-sub mono">5.0 kWp · η 20 %</text>
+    <rect x="356" y="63" width="76" height="13" rx="6.5" fill="var(--pv)" opacity=".16"/>
+    <text x="394" y="73" class="card-sub" style="fill:var(--pv)" text-anchor="middle" font-weight="700">▲ generando</text>
+  </g>
+  <g>
+    <rect x="584" y="10" width="156" height="70" rx="14" fill="var(--card)" stroke="var(--border)"/>
+    <rect x="584" y="10" width="156" height="4" rx="2" fill="var(--off)" opacity=".6"/>
+    <use href="#s-die" x="596" y="24" width="24" height="24" style="color:var(--off)"/>
+    <text x="626" y="40" class="card-txt" font-weight="600" font-size="11.5">Generador diésel</text>
+    <text x="596" y="58" class="card-sub mono">300 / 50 kW · 2 782 COP/L</text>
+    <rect x="596" y="63" width="60" height="13" rx="6.5" fill="var(--off)" opacity=".2"/>
+    <text x="626" y="73" class="card-sub" style="fill:var(--off)" text-anchor="middle" font-weight="700">○ apagado</text>
+  </g>
+
+  <!-- ramas con flujo animado -->
+  <line x1="182" y1="80" x2="182" y2="126" stroke="var(--grid)" opacity=".32" stroke-width="6" stroke-linecap="round"/>
+  <line x1="182" y1="80" x2="182" y2="126" stroke="var(--grid)" stroke-width="6" class="flow"/>
+  <use href="#s-sw-c" x="168" y="128" width="28" height="28" style="color:var(--ok)"/>
+  <line x1="182" y1="156" x2="182" y2="256" stroke="var(--grid)" opacity=".32" stroke-width="6" stroke-linecap="round"/>
+  <line x1="182" y1="156" x2="182" y2="256" stroke="var(--grid)" stroke-width="6" class="flow"/>
+
+  <line x1="422" y1="80" x2="422" y2="256" stroke="var(--pv)" opacity=".32" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="422" y1="80" x2="422" y2="256" stroke="var(--pv)" stroke-width="3.5" class="flow"/>
+
+  <line x1="662" y1="80" x2="662" y2="126" stroke="var(--off)" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+  <use href="#s-sw-o" x="648" y="128" width="28" height="28" style="color:var(--off)"/>
+  <line x1="662" y1="156" x2="662" y2="256" stroke="var(--off)" stroke-width="2" stroke-dasharray="5 7" stroke-linecap="round" opacity=".4"/>
+  <circle cx="662" cy="206" r="9" fill="var(--card)" stroke="var(--off)"/>
+  <text x="662" y="210" class="card-sub" text-anchor="middle" font-weight="700" style="fill:var(--off)">s=0</text>
+
+  <!-- barra con gradiente -->
+  <defs>
+    <linearGradient id="busg" x1="0" x2="1">
+      <stop offset="0" stop-color="var(--grid)" stop-opacity=".55"/>
+      <stop offset=".35" stop-color="var(--pv)" stop-opacity=".55"/>
+      <stop offset=".7" stop-color="var(--bat)" stop-opacity=".55"/>
+      <stop offset="1" stop-color="var(--load)" stop-opacity=".55"/>
+    </linearGradient>
+  </defs>
+  <rect x="60" y="252" width="880" height="10" rx="5" fill="url(#busg)"/>
+  <rect x="60" y="256" width="880" height="2" rx="1" fill="var(--foreground)" opacity=".35"/>
+  <text x="60" y="243" class="bus-lbl">BUS AC · 220 V · 60 Hz</text>
+
+  <!-- badges grandes de potencia -->
+  <g class="mono">
+    <rect x="140" y="270" width="86" height="21" rx="10.5" fill="var(--card)" stroke="var(--grid)"/>
+    <text x="183" y="285" class="card-sub" style="fill:var(--grid)" text-anchor="middle" font-weight="700" font-size="10.5">▲ 10.0 kW</text>
+    <rect x="380" y="270" width="84" height="21" rx="10.5" fill="var(--card)" stroke="var(--pv)"/>
+    <text x="422" y="285" class="card-sub" style="fill:var(--pv)" text-anchor="middle" font-weight="700" font-size="10.5">▲ 4.0 kW</text>
+    <rect x="618" y="270" width="88" height="21" rx="10.5" fill="var(--card)" stroke="var(--off)"/>
+    <text x="662" y="285" class="card-sub" style="fill:var(--off)" text-anchor="middle" font-weight="700" font-size="10.5">0.0 kW</text>
+    <rect x="742" y="270" width="120" height="21" rx="10.5" fill="var(--card)" stroke="var(--load)"/>
+    <text x="802" y="285" class="card-sub" style="fill:var(--load)" text-anchor="middle" font-weight="700" font-size="10.5">▼ 15.5 kW</text>
+  </g>
+
+  <!-- inversor / bus DC / batería (tarjetas) -->
+  <line x1="302" y1="262" x2="302" y2="298" stroke="var(--bat)" opacity=".32" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="302" y1="262" x2="302" y2="298" stroke="var(--bat)" stroke-width="2.5" class="flow"/>
+  <rect x="262" y="298" width="80" height="40" rx="10" fill="var(--card)" stroke="var(--border)"/>
+  <use href="#s-inv" x="270" y="306" width="22" height="22" style="color:var(--bat)"/>
+  <text x="318" y="315" class="card-sub mono">η .97</text>
+  <text x="318" y="328" class="card-sub mono">1.50 AC</text>
+  <line x1="302" y1="338" x2="302" y2="362" stroke="var(--bat)" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="244" y="362" width="116" height="9" rx="4.5" fill="var(--bat)" opacity=".5"/>
+  <text x="246" y="386" class="bus-lbl" style="fill:var(--bat)">BUS DC · 48 V · 1.55 kW</text>
+  <line x1="302" y1="371" x2="302" y2="394" stroke="var(--bat)" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="246" y="394" width="112" height="34" rx="10" fill="var(--card)" stroke="var(--border)"/>
+  <use href="#s-batt" x="254" y="400" width="20" height="20" style="color:var(--bat)"/>
+  <text x="280" y="409" class="card-sub mono">Batería 200 kWh</text>
+  <text x="280" y="421" class="card-sub mono">SoC 65 % · descargando</text>
+
+  <!-- trafo / carga (tarjetas) -->
+  <line x1="700" y1="262" x2="700" y2="296" stroke="var(--trafo)" opacity=".32" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="700" y1="262" x2="700" y2="296" stroke="var(--trafo)" stroke-width="6.5" class="flow"/>
+  <rect x="652" y="296" width="96" height="46" rx="10" fill="var(--card)" stroke="var(--trafo)"/>
+  <use href="#s-trafo" x="660" y="305" width="20" height="20" style="color:var(--trafo)"/>
+  <text x="686" y="314" class="card-sub mono">100 kVA · pf Ø</text>
+  <text x="660" y="334" class="card-sub mono" style="fill:var(--warn)">pérdidas no declaradas</text>
+  <line x1="700" y1="342" x2="700" y2="368" stroke="var(--trafo)" opacity=".32" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="700" y1="342" x2="700" y2="368" stroke="var(--trafo)" stroke-width="6.5" class="flow"/>
+  <rect x="628" y="368" width="144" height="40" rx="10" fill="var(--card)" stroke="var(--border)"/>
+  <use href="#s-load" x="638" y="376" width="22" height="22" style="color:var(--load)"/>
+  <text x="666" y="386" class="card-txt" font-weight="600">Carga / Edificio</text>
+  <text x="666" y="399" class="card-sub mono">15.5 kW · Consumo.mat</text>
+</svg>

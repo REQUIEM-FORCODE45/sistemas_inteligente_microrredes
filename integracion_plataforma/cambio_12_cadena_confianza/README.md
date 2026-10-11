@@ -47,7 +47,7 @@ Tras este cambio, esas cuatro cosas son **imposibles sin que el sistema lo diga*
 | **12.1** | **Esquema de topología** | `optimization/solver/topology_schema.json`: por tipo → params aceptados, obligatorios, y qué hace el solver si falta. Fuente única para validar en las dos capas |
 | **12.2** | **Cobertura del mapper + pre-flight** | test invariante (todo param de `defaultParams` tiene camino al job o está en `PARAMS_SOLO_UI` con motivo) + validación **en el lienzo** antes de enviar (marca el nodo y el motivo) |
 | **12.3** | **Error atribuido + `device_echo`** | el solver valida contra el esquema; el resultado trae `device_echo` por dispositivo (`modelado`/`ignorado`/`error` + motivo + **parámetros efectivos**) y la UI **señala el nodo** |
-| **12.4** | **Arreglo del `100` + unifilar base** | migración de params guardados (legacy→Willans/sitio) + valor **efectivo** visible + **barra AC** + **símbolos SVG** (F6.1/F6.2) con la fluidez medida |
+| **12.4** | **Arreglo del `100` + unifilar base** | migración de params guardados (legacy→Willans/sitio) + valor **efectivo** visible + **barra AC** + **símbolos SVG** (F6.1/F6.2) con la fluidez medida. ✅ **La referencia visual ya está disponible** (variante B elegida por el autor): `reference/figuras/unifilar_variante_b.svg` + `figuras/simbolos.svg` + `docs/DECISION_VISUAL.md` → **se copia, no se inventa** |
 
 ---
 
