@@ -15,7 +15,7 @@ cita: el implementador **copia** de aquí en vez de inventar iconografía.
 | archivo | bytes | sha256 |
 |---|---|---|
 | `../README.md` | 10712 | `c879cd740bb15ceed2939a7e1ac7fa40cf26c00bf3bf736492c970f9773470f8` |
-| `docs/DECISION_VISUAL.md` | 3180 | `4488ffb921add0d2ba37b9930ff0627706168afba10ae6945712be573e17468e` |
+| `docs/DECISION_VISUAL.md` | 3336 | `7bad09903616335b55ad7ba3db8225f6aac062a9e10dec4face17e80d4e53de4` |
 | `figuras/unifilar_variante_b.svg` | 11770 | `4ac9c7c1a41a76b9f983c1f8148c32e58129098ff98d5ba2e902bf9b5eb9139c` |
 | `figuras/simbolos.svg` | 7599 | `31b50aa306de47dfe752d99350dfcc795ba16345b28c6e17aa2993e1a25eeac8` |
 | `figuras/unifilar_variantes.html` | 20681 | `b3364c9219b1214014494999dec1b2d77083b0442bf1a96c14ed1de002eb14db` |

@@ -43,6 +43,7 @@ plan de fluidez, ya cumplida por construcción.
 | 2 | Posición de la barra | **arriba**, con la generación colgando |
 | 3 | Seccionadores | **visibles** en el lienzo; **clicables** cuando llegue el cambio 15 |
 | 4 | Inversor y transformador | en el dibujo; su **modelo** llega en los cambios 13 y 14 (hasta entonces el eco los reporta) |
+| 5 | Barra AC | **anclada** (`draggable: false`): es **estructura** del esquema, no un dispositivo que se arrastra. Seleccionable sí, para configurarla |
 
 ## Lo que hay que respetar al implementarlo
 

@@ -195,3 +195,65 @@ permiten afirmar).
 La cadena de confianza funciona y **está verificada por ambas partes**. Pendiente único: la parte
 visual (símbolos SVG + barra AC), **bloqueada a propósito** hasta que exista la referencia visual.
 Sugerencia de redacción para la fila: *(C8: sin degradación atribuible, redacción a corregir)*.
+
+---
+
+# 9. AUDITORÍA DEL 12.4 VISUAL (`770ac55`) — variante B implementada
+
+## 9.1 Verificado por esta auditoría, ejecutando
+
+| Prueba | Resultado |
+|---|---|
+| **Invariante de cobertura** (ahora con el tipo nuevo `ac_bus` en la paleta) | ✅ **PASS 3/3** (corrido aquí) |
+| **Los 9 símbolos vs la referencia**, path por path | ✅ **VERBATIM 9/9** — no inventó iconografía (los atributos están correctamente convertidos a JSX: `strokeWidth`, `strokeLinecap`) |
+| **Proporción del grosor** `flowWidthFor` | ✅ reproduce la referencia: 10 kW → **6.00** (ref 6), 4 kW → **3.48** (ref 3.5), 1.5 kW → **2.43** (ref 2.5) |
+| `AcBusNode` fuera del solver | ✅ `ac_bus.voltage` **declarado** en `PARAMS_SOLO_UI` con motivo; comentario "decorativo: no va al job ni al eco" |
+| Píldora de estado sin datos inventados | ✅ `useCardStatus` devuelve **`null`** si no hay `dispatch_plan` o no hay entradas del nodo |
+| Animación sin JS | ✅ `.rf-dragging .edge-flow{display:none}` + `pointer-events:none` en CSS, con `prefers-reduced-motion` |
+| **C9**: ¿se tocaron las posiciones? | ✅ **no** (condición puesta en la ronda anterior); dimensiones y posiciones intactas, la barra **solo aparece si el usuario la agrega** |
+
+## 9.2 ✅ El C8 quedó bien — y con un hallazgo propio
+
+El implementador **aceptó el error de redacción** (la desigualdad era falsa), pasó a **6 mediciones en
+orden aleatorio** y publicó los pares crudos. Resultado: **vis 22.1 vs pre 22.6 (−2.2 %)** →
+conclusión redactada como corresponde: **"NO se detecta degradación >10 %"** (lo que los datos
+permiten afirmar con ruido ±10-15 %), con `nodeMutations` constante en 50.
+
+**Y encontró por su cuenta lo que la advertencia anticipaba**: la capa `flow` animada **en reposo**
+costaba **~40 % en software** (13.5 vs 23.5 fps). Lo resolvió **sin JS**: ocultarla **solo durante el
+gesto** (`.rf-dragging`, clase que pone React Flow) y devolverla al soltar. Es la decisión correcta:
+mantiene el flujo vivo y no cobra el peaje donde duele.
+
+## 9.3 Hallazgos abiertos
+
+### a) 🔧 `AcBusNode` es **arrastrable** → **DECISIÓN DEL AUTOR (2026-10-11): va ANCLADA**
+El comentario del archivo dice *"Arrastrable y seleccionable como los demás"*. El autor resolvió el
+hallazgo: la barra es **estructura del esquema**, así que va con **`draggable: false`** (seleccionable
+sí, para configurarla). Motivo: si el operador la descoloca arrastrando, el esquema queda torcido y el
+gesto se pierde sin aviso — la barra **no** es un dispositivo que se mueve, es el bus del unifilar.
+**Acción pedida**: `draggable: false` en el nodo `ac_bus` + anotarlo en el `VERIFICACION`.
+
+### b) 🟠 La barra aparece en el **panel de sensores** y mapearla no tiene efecto
+Está declarado así: *"`Barra AC` figura en el panel de sensores … mapearla no tiene efecto: el
+sanitizador la filtra"*. **Este es exactamente el patrón que este cambio combate**: la UI ofrece una
+acción que el backend descarta **en silencio**. Coherente con el propio principio del cambio 12, la
+barra debería estar **excluida visiblemente** del panel (o marcada como no mapeable), igual que se
+excluyen los nodos de tipo sensor.
+**Fix**: filtrar `ac_bus` en la lista del panel de mapeo (una línea, mismo lugar donde ya se filtran
+los sensores).
+
+### c) 🟡 Ancho fijo de la barra: 360 px (la referencia usaba ~880 px)
+Con los nodos repartidos en el lienzo, una barra corta hace que las derivaciones de los extremos
+viajen lejos, lo que resta lectura de unifilar. **A verificar visualmente por el autor** en la app:
+si el esquema se ve desbalanceado, subir el ancho (o hacerlo depender de la extensión ocupada).
+
+### d) ⚪ No verificable aquí: **el render final del lienzo**
+No hay ninguna captura en el repo (la del implementador, `v124_final.png`, vive en su sesión). Lo que
+verifiqué es el **código** (verbatim, proporción, estados, CSS) y el **render de los SVG de
+referencia**, no el lienzo real de React Flow.
+
+## 9.4 Estado del cambio 12
+
+**Alcance completo** (12.1–12.4): cadena de confianza + arreglo del `100` + unifilar variante B.
+Verificado por ambas partes. Quedan **dos ajustes opcionales** (§9.3 a y b) y **una comprobación
+visual del autor** (§9.3 c).
