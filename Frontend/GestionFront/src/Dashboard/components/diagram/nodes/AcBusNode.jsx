@@ -2,8 +2,9 @@ import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 
 // Cambio 12.4 — Barra AC (variante B, copiada de la referencia).
-// Nodo DECORATIVO: no va al job ni al eco. Arrastrable y seleccionable
-// como los demás; sin modal de despacho (sin datos que mostrar).
+// Nodo DECORATIVO: no va al job ni al eco. ANCLADA (draggable:false en
+// handleDrop): es estructura del esquema, no un dispositivo que se mueve.
+// Seleccionable sí, para configurarla; sin modal de despacho (sin datos).
 function AcBusNode({ id, data, selected }) {
   const params = data.params || {};
   const voltage = params.voltage ?? 220;
@@ -11,7 +12,7 @@ function AcBusNode({ id, data, selected }) {
   return (
     <div
       className={`
-        relative w-[360px] rounded-xl border-2 bg-card shadow-sm transition-all duration-200
+        relative w-[880px] rounded-xl border-2 bg-card shadow-sm transition-all duration-200
         ${selected ? 'ring-2 ring-foreground ring-offset-2' : 'border-border'}
         hover:shadow-md px-4 py-2
       `}

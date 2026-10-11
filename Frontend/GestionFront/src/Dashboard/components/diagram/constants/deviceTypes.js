@@ -305,7 +305,9 @@ export const DEVICE_DEFINITIONS = {
       voltage: 220,
       frequency: 60,
     },
-    dimension: { width: 360, height: 64 },
+    // Ancho de la referencia (variante B, ~880 px): la barra abarca las
+    // derivaciones para lectura de unifilar (nota c del cierre 12.4).
+    dimension: { width: 880, height: 64 },
   },
 };
 

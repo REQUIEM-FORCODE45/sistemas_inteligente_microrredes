@@ -122,8 +122,28 @@ Símbolos SVG y barra AC quedan para el siguiente envío (sin referencia visual)
   dimensiones no hay render (arriba); tarjeta diésel muestra `sitio` en vez de `100` cuando
   `fuelCost` es null (corrige el `100` también en tarjeta); paleta conserva iconos lucide;
   trafo tiene símbolo pero **sin nodo** (llega en cambio 14); la barra aparece solo si el
-  usuario la agrega (diagramas viejos intactos); `Barra AC` figura en el panel de sensores
-  (no se tocó `SensorMappingPanel`; mapearla no tiene efecto: el sanitizador la filtra).
+  usuario la agrega (diagramas viejos intactos).
+- **Cierre 12.4 (2026-10-11, decisión del autor)**:
+  - **C1 — barra anclada**: `handleDrop` (`useDiagram.js`) crea el nodo con
+    `draggable: !definition.decorative` → la barra nace con `draggable: false`
+    (seleccionable sí). Motivo (decisión autor): descolocada sin aviso = esquema
+    torcido. Verificado con arrastre real por CDP: bus (230,520)→(230,520)
+    **inmóvil**, control diésel **sí** se mueve.
+  - **C2 — barra fuera del panel de sensores**: `mappableNodes` (`SensorMappingPanel.jsx:36`)
+    excluye `n.type !== DEVICE_TYPE.AC_BUS` junto al filtro de sensores. La captura muestra
+    6 equipos en el panel (sin la barra): ofrecer un mapeo que el sanitizador filtra en
+    silencio era el patrón que el cambio 12 combate.
+  - **Nota c — ancho**: subido de 360 a **880 px** (el de la referencia, variante B):
+    con los nodos repartidos, la barra corta dejaba derivaciones largas y se perdía
+    lectura de unifilar (visible en la primera captura). Un píxel fijo basta por ahora;
+    ancho por extensión ocupada queda diferido al cambio 13/14 si hace falta.
+  - **Captura auditable**: `reference/figuras/cambio_12_4_unifilar.png` (1920×1080,
+    en el manifiesto con bytes + sha256). Estado capturado: 7 nodos / 6 ramas /
+    6 `use` de símbolo + bus con gradiente / badges `▲ 4.0` y `▲ 10.0 kW` /
+    ramas `s=0` en el camino DC. Declarado: el camino DC (solar/inversor/batería)
+    sale en `s=0` porque el inversor sigue siendo eco `ignorado` (solo visual) —
+    **lo cierra el cambio 13** (inversor modelado). Sin errores de página, sin
+    cintas rojas de validación (cableado AC→barra, DC→inversor→barra).
 
 ## Tiempos de solver
 

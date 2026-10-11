@@ -67,6 +67,9 @@ export function useDiagram(reactFlowInstance) {
       const newNode = {
         id: generateId(),
         type: deviceData.deviceType,
+        // Cambio 12.4 (decisión del autor 2026-10-11): la barra AC es estructura
+        // del esquema, no un dispositivo que se arrastra → anclada (seleccionable sí).
+        draggable: !definition.decorative,
         position: {
           x: position.x - (definition.dimension?.width || 180) / 2,
           y: position.y - (definition.dimension?.height || 100) / 2,

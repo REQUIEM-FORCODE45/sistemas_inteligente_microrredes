@@ -33,8 +33,10 @@ export default function SensorMappingPanel() {
     d._id?.toLowerCase().includes(filter.toLowerCase()),
   );
 
+  // Cambio 12.4: la barra AC (decorativa, fuera del modelo) no se mapea —
+  // ofrecer el mapeo y filtrarlo en silencio es el patrón que el cambio 12 combate.
   const mappableNodes = nodes.filter(
-    (n) => n.data?.deviceType !== DEVICE_TYPE.SENSOR,
+    (n) => n.data?.deviceType !== DEVICE_TYPE.SENSOR && n.type !== DEVICE_TYPE.AC_BUS,
   );
 
   return (
