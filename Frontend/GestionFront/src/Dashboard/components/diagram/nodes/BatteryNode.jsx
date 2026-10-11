@@ -3,8 +3,9 @@ import { Handle, Position } from '@xyflow/react';
 import { Battery, ArrowDown, ArrowUp } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { getNodeBadgeInfo } from '../constants/deviceTypes';
+import DeviceStatusBadge from '../components/DeviceStatusBadge';
 
-function BatteryNode({ data, selected }) {
+function BatteryNode({ id, data, selected }) {
   const params = data.params || {};
   const chargePct = params.chargeLevel ?? 0;
 
@@ -20,6 +21,7 @@ function BatteryNode({ data, selected }) {
         hover:shadow-md
       `}
     >
+      <DeviceStatusBadge nodeId={id} preflight={data.preflight} />
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/30 rounded-t-xl">
         <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
           <Battery className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />

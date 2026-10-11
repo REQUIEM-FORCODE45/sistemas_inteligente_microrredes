@@ -3,6 +3,7 @@ import { Handle, Position } from '@xyflow/react';
 import { Radio, Wifi } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { mapSensor, unmapSensor } from '@/Dashboard/store/diagram/diagramSlice';
+import DeviceStatusBadge from '../components/DeviceStatusBadge';
 
 function SensorNode({ id, data, selected }) {
   const dispatch = useDispatch();
@@ -30,6 +31,7 @@ function SensorNode({ id, data, selected }) {
         hover:shadow-md
       `}
     >
+      <DeviceStatusBadge nodeId={id} preflight={data.preflight} />
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-purple-100 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/30 rounded-t-xl">
         <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center flex-shrink-0">
           <Radio className="w-4 h-4 text-purple-600 dark:text-purple-400" strokeWidth={2} />

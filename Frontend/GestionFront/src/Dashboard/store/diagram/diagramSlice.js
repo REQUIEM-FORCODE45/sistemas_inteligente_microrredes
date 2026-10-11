@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { propagateSensorDependencies } from '@/Dashboard/components/diagram/utils/diagramValidation';
+import { migrateParams } from '@/Dashboard/components/diagram/constants/deviceTypes';
 
 const initialState = {
   nodes: [],
@@ -131,9 +132,26 @@ const diagramSlice = createSlice({
       state.isDirty = true;
     },
 
+    // Cambio 12.2: marca de pre-flight por nodo (se escribe al lanzar,
+    // nunca durante el arrastre).
+    setNodePreflight(state, action) {
+      const { id, preflight } = action.payload;
+      const node = state.nodes.find((n) => n.id === id);
+      if (node) {
+        node.data = { ...node.data, preflight: preflight || null };
+      }
+    },
+
     loadDiagram(state, action) {
       const { nodes, edges, sensorMappings } = action.payload;
-      state.nodes = nodes || [];
+      // Cambio 12.4: migracion legacy EXACTA al abrir (nunca pisa valores
+      // a proposito). migrateParams solo actua con la tupla legacy conocida.
+      state.nodes = (nodes || []).map((n) => {
+        const { params, migrated } = migrateParams(
+          n.data?.deviceType || n.type, n.data?.params);
+        if (!migrated) return n;
+        return { ...n, data: { ...n.data, params, migrated12: true } };
+      });
       state.edges = edges || [];
       // PODA ANTI-FANTASMA: al cargar un snapshot, solo se conservan los
       // mappings cuyo nodo EXISTE en el diagrama cargado. Asi un guardado
@@ -185,6 +203,7 @@ export const {
   updateNodeLabel,
   clearDiagram,
   loadDiagram,
+  setNodePreflight,
   setViewport,
   markSaved,
   setDispatchModalNode,

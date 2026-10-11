@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 import time
 from typing import Any
 
@@ -13,6 +15,64 @@ PW_DIESEL_N_PTS = 10
 PW_DIESEL_BIGM = 1e6
 
 logger = logging.getLogger(__name__)
+
+
+# --------------------------------------------------------------------------- #
+# Cambio 12.1/12.3 — esquema de topologia + eco por dispositivo.
+# topology_schema.json es la fuente unica: el solver valida contra este archivo
+# y el frontend verifica la cobertura del mapper contra el mismo (test invariante).
+# --------------------------------------------------------------------------- #
+_SCHEMA_CACHE = None
+
+
+def load_topology_schema() -> dict:
+    """Lee optimization/solver/topology_schema.json (cache en memoria)."""
+    global _SCHEMA_CACHE
+    if _SCHEMA_CACHE is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "topology_schema.json")
+        with open(path, "r", encoding="utf-8") as fh:
+            _SCHEMA_CACHE = json.load(fh)
+    return _SCHEMA_CACHE
+
+
+def build_device_echo(devices: list, modeled: dict, warnings: list) -> list:
+    """Eco por dispositivo: cubre TODOS los del diagrama, ninguno ausente.
+
+    modeled: {device_id: {"tipo": str, "params_efectivos": dict}} con lo que el
+    modelo realmente uso. estado en {modelado, ignorado, error}; si no es
+    modelado, motivo es obligatorio. Los warnings se anotan con el device_id.
+    """
+    schema = load_topology_schema()
+    echo = []
+    for dev in devices or []:
+        dev_id = (dev or {}).get("id")
+        tipo = (dev or {}).get("tipo")
+        if not dev_id or not tipo:
+            echo.append({"device_id": dev_id, "tipo": tipo, "estado": "error",
+                         "motivo": "registro de dispositivo incompleto: falta id/tipo"})
+            warnings.append(f"{dev_id or '?'}: registro incompleto en devices")
+            continue
+        # La red es unica: el eco usa el id del nodo (p. ej. 'grid_1').
+        if dev_id not in modeled and tipo == "grid" and "grid" in modeled:
+            modeled[dev_id] = dict(modeled["grid"])
+        if dev_id in modeled:
+            echo.append({"device_id": dev_id, "tipo": tipo, "estado": "modelado",
+                         "params_efectivos": modeled[dev_id]["params_efectivos"]})
+            continue
+        spec = schema.get(tipo)
+        if isinstance(spec, dict) and spec.get("soportado") is False:
+            motivo = spec.get("motivo", "tipo sin modelo en el solver")
+            echo.append({"device_id": dev_id, "tipo": tipo, "estado": "ignorado",
+                         "motivo": motivo})
+            warnings.append(f"{dev_id}: ignorado ({motivo})")
+        else:
+            motivo = ("tipo no reconocido por el solver"
+                      if spec is None else "sin entrada modelada en el job")
+            echo.append({"device_id": dev_id, "tipo": tipo, "estado": "ignorado",
+                         "motivo": motivo})
+            warnings.append(f"{dev_id}: ignorado ({motivo})")
+    return echo
 
 
 def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
@@ -30,6 +90,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     storage_list = input_data.get("storage", [])
     loads = input_data.get("loads", [])
     grid_raw = input_data.get("grid", {})
+    # Cambio 12.3: inventario crudo del diagrama para device_echo (C7).
+    devices = input_data.get("devices", []) or []
     initial_diesel_kw = input_data.get("initial_diesel_kw", {}) or {}
     # Cambio 11: bloque fuel del sitio (fuente unica YAML). Si el job no lo
     # trae, se carga por site_id (produccion via run_once lo inyecta).
@@ -64,6 +126,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             grid_raw=grid_raw,
             initial_diesel_kw=initial_diesel_kw,
             site_fuel=site_fuel,
+            devices=devices,
         )
     except Exception as e:
         logger.exception("Error construyendo modelo Pyomo")
@@ -133,6 +196,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
         "grid_limits": variables.get("grid_limits"),
         "cost_fixed_applied": variables.get("cost_fixed_applied"),
         "fuel_price_applied": variables.get("fuel_price_applied"),
+        "device_echo": variables.get("device_echo", []),
         "scenario_results": scenario_results,
         "battery_soc_evolution": battery_soc,
         "total_hours": horizon,
@@ -159,6 +223,7 @@ def _build_pyomo_model(
     grid_raw: dict = None,
     initial_diesel_kw: dict = None,
     site_fuel: dict = None,
+    devices: list = None,
 ) -> tuple[Any, dict]:
 
     model = pyo.ConcreteModel(name="SIGE_Optimization")
@@ -170,6 +235,7 @@ def _build_pyomo_model(
     storage_list = storage_list or []
     loads = loads or []
     grid_raw = grid_raw or {}
+    devices = devices or []
     predictions_solar = list(predictions_solar) if predictions_solar else []
     predictions_load_total = list(predictions_load_total) if predictions_load_total else []
     predictions_pv_kw = list(predictions_pv_kw) if predictions_pv_kw else []
@@ -259,6 +325,7 @@ def _build_pyomo_model(
                 "cost_b": cb,
                 "cost_c": cc,
                 "fuel_cost": fval,
+                "fuel_origen": origen,
                 # Cambio 08.1: dato del equipo (fabricante). Si falta -> None
                 # (sin rampa + warning; nunca un 0 silencioso).
                 "ramp_kw_per_h": src.get("ramp_kw_per_h"),
@@ -712,7 +779,93 @@ def _build_pyomo_model(
         variables["Z"] = model.Z
         variables["SOC"] = model.SOC
 
+    # Cambio 12.3 — eco por dispositivo + validacion contra el esquema.
+    variables["device_echo"] = _build_device_echo_checked(
+        devices, sources, storage_list, loads, grid_raw,
+        diesel_devices, solar_devices, wind_devices, storage_vars,
+        max_import, max_export, export_source, cost_fixed_applied,
+        export_tariff, ens_penalty, warnings)
+
     return model, variables
+
+
+def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
+                               diesel_devices, solar_devices, wind_devices,
+                               storage_vars, max_import, max_export,
+                               export_source, cost_fixed_applied,
+                               export_tariff, ens_penalty, warnings) -> list:
+    """Valida contra topology_schema.json y construye device_echo.
+
+    Cubre TODOS los dispositivos del diagrama (devices); si el job no trae
+    devices, el eco se construye de los grupos recibidos (compatibilidad).
+    """
+    schema = load_topology_schema()
+    modeled = {}
+    for d in diesel_devices:
+        modeled[d["id"]] = {"tipo": "diesel", "params_efectivos": {
+            "max_kw": d["max_kw"], "min_kw": d["min_kw"],
+            "cost_a": d["cost_a"], "cost_b": d["cost_b"], "cost_c": d["cost_c"],
+            "fuel_cost": d["fuel_cost"], "fuel_origen": d.get("fuel_origen"),
+            "ramp_kw_per_h": d.get("ramp_kw_per_h"),
+            "start_cost": d.get("start_cost"), "stop_cost": d.get("stop_cost")}}
+    raw_tipo = {}
+    for e in sources or []:
+        if isinstance(e, dict) and e.get("id"):
+            raw_tipo[e["id"]] = e.get("type")
+    for d in solar_devices:
+        modeled[d["id"]] = {"tipo": raw_tipo.get(d["id"], "solar"),
+                            "params_efectivos": {
+                                "max_kw": d["max_kw"], "efficiency": d["efficiency"]}}
+    for d in wind_devices:
+        modeled[d["id"]] = {"tipo": raw_tipo.get(d["id"], "wind"),
+                            "params_efectivos": {
+                                "max_kw": d["max_kw"], "efficiency": d["efficiency"]}}
+    for b in storage_vars:
+        raw = next((x for x in storage_list
+                    if x.get("id", "") == b["id"]), {})
+        modeled[b["id"]] = {"tipo": "battery", "params_efectivos": {
+            "capacity_kwh": b["capacity_kwh"], "max_charge_kw": b["max_charge"],
+            "max_discharge_kw": b["max_discharge"],
+            "soc_min": b["soc_min"], "soc_max": b["soc_max"],
+            "initial_soc": b["initial_soc"],
+            "degradation_cost_per_kwh": raw.get("degradation_cost_per_kwh", 30.0)}}
+    for l in loads:
+        lid = l.get("id", "load")
+        modeled[lid] = {"tipo": "load", "params_efectivos": {
+            "max_kw": l.get("max_kw"), "min_kw": l.get("min_kw"),
+            "fixed_kw": l.get("fixed_kw"), "load_source": l.get("load_source")}}
+    cv = grid_raw.get("cost_variable", 60)
+    modeled["grid"] = {"tipo": "grid", "params_efectivos": {
+        "max_import_kw": max_import, "max_export_kw": max_export,
+        "export_source": export_source,
+        "cost_fixed": cost_fixed_applied,
+        "cost_variable": ("vector_24h" if isinstance(cv, (list, tuple)) else cv),
+        "export_tariff": export_tariff, "ens_penalty_cop_kwh": ens_penalty}}
+
+    # Validacion req:true sobre las entradas crudas (avisa con device_id).
+    raw_by_id = {}
+    for grp in (sources, storage_list, loads):
+        for e in grp or []:
+            if isinstance(e, dict) and e.get("id"):
+                raw_by_id[e["id"]] = e
+    for dev_id, info in modeled.items():
+        if dev_id == "grid":
+            continue
+        raw = raw_by_id.get(dev_id, {})
+        spec = schema.get(info["tipo"], {})
+        for pname, pdef in (spec.get("params") or {}).items():
+            if isinstance(pdef, dict) and pdef.get("req") is True:
+                if raw.get(pname) is None:
+                    warnings.append(
+                        f"{dev_id}: param requerido '{pname}' ausente, "
+                        f"se aplica default ({pdef.get('default')})")
+
+    if not devices:
+        # Sin inventario: eco de los grupos recibidos (compatibilidad).
+        return [{"device_id": k, "tipo": v["tipo"], "estado": "modelado",
+                 "params_efectivos": v["params_efectivos"]}
+                for k, v in modeled.items()]
+    return build_device_echo(devices, modeled, warnings)
 
 
 def _extract_dispatch_plan(

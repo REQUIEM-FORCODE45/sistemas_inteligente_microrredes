@@ -151,6 +151,15 @@ def predict_provider(site_id: str = Query(default="pasto_narino")):
             "fuente": "resuelto como /predict/weather"}
 
 
+@app.get("/predict/site-fuel")
+def predict_site_fuel(site_id: str = Query(default="pasto_narino")):
+    """Cambio 12.4: precio del combustible del sitio (fuente unica YAML).
+
+    Para que el panel muestre el valor EFECTIVO sin copiar la cifra a mano."""
+    from optimization.config.loader import load_site as _ls
+    return {"site_id": site_id, "fuel": _ls(site_id)["fuel"]}
+
+
 @app.get("/predict/sensor")
 def predict_sensor_endpoint(sensor_id: str = Query(...),
                             type: str = Query(default="solar"),

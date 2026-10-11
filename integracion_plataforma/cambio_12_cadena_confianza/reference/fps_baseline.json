@@ -1,0 +1,10 @@
+{
+  "metodo": "puppeteer + Chrome headless (--disable-gpu), viewport 1366x768, editor real con 6 nodos; arrastre sostenido del diesel en 200 pasos CDP con rAF-counter + MutationObserver(style) en .react-flow__nodes",
+  "fps": 28.6,
+  "frames": 311,
+  "seconds": 10.89,
+  "nodeMutations": 50,
+  "dragMs": 10310,
+  "reduxNodes": 6,
+  "nota": "headless sin GPU: el numero absoluto importa menos que la comparacion antes/despues con el mismo metodo. Criterio C8: FPS >= baseline - 5% y mutaciones sin subir al arrastrar."
+}

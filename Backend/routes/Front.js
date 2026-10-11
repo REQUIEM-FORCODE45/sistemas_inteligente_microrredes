@@ -59,6 +59,22 @@ router.post('/optimization/trigger', validateJwt, async (req, res) => {
   }
 });
 
+// Cambio 12.4: fuel del sitio (proxy a Python, auth). Fuente unica YAML;
+// el panel muestra el valor efectivo sin copiar la cifra a mano.
+router.get('/topology/fuel', validateJwt, async (req, res) => {
+  try {
+    const axios = require('axios');
+    const api = process.env.PREDICTION_API_URL || 'http://localhost:8000';
+    const r = await axios.get(`${api}/predict/site-fuel`, {
+      params: { site_id: process.env.OPTIMIZATION_SITE_ID || 'pasto_narino' },
+      timeout: 15000,
+    });
+    res.json({ success: true, ...r.data });
+  } catch (err) {
+    res.status(502).json({ success: false, message: err.message });
+  }
+});
+
 // --- Bucle: prediccion de sensores (proxy a Python, auth) -----------------
 router.get('/prediction/sensor', validateJwt, async (req, res) => {
   try {

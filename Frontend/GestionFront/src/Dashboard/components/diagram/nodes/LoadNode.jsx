@@ -3,8 +3,9 @@ import { Handle, Position } from '@xyflow/react';
 import { Building } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { getNodeBadgeInfo } from '../constants/deviceTypes';
+import DeviceStatusBadge from '../components/DeviceStatusBadge';
 
-function LoadNode({ data, selected }) {
+function LoadNode({ id, data, selected }) {
   const params = data.params || {};
   const consumption = params.consumption ?? 0;
 
@@ -20,6 +21,7 @@ function LoadNode({ data, selected }) {
         hover:shadow-md
       `}
     >
+      <DeviceStatusBadge nodeId={id} preflight={data.preflight} />
       <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-muted/30 dark:bg-muted/10 rounded-t-xl">
         <div className="w-8 h-8 rounded-lg bg-secondary dark:bg-muted/40 flex items-center justify-center flex-shrink-0">
           <Building className="w-4.5 h-4.5 text-foreground/60" strokeWidth={2} />

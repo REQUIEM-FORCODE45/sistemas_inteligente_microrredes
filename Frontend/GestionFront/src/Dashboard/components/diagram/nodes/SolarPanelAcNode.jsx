@@ -3,8 +3,9 @@ import { Handle, Position } from '@xyflow/react';
 import { Sun } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { getNodeBadgeInfo } from '../constants/deviceTypes';
+import DeviceStatusBadge from '../components/DeviceStatusBadge';
 
-function SolarPanelAcNode({ data, selected }) {
+function SolarPanelAcNode({ id, data, selected }) {
   const params = data.params || {};
 
   const latestResult = useSelector((state) => state.optimization.latestResult);
@@ -18,6 +19,7 @@ function SolarPanelAcNode({ data, selected }) {
         hover:shadow-md
       `}
     >
+      <DeviceStatusBadge nodeId={id} preflight={data.preflight} />
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-teal-100 dark:border-teal-900/50 bg-teal-50/50 dark:bg-teal-950/30 rounded-t-xl">
         <div className="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
           <Sun className="w-4.5 h-4.5 text-teal-600 dark:text-teal-400" strokeWidth={2} />

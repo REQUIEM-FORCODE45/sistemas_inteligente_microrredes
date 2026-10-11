@@ -327,3 +327,37 @@ export function getNodeBadgeInfo(dispatchPlan, nodeId, deviceType) {
 export const EDGE_TYPES = {
   POWER: 'powerEdge',
 };
+
+// Cambio 12.2 — claves de defaultParams que NO van al solver, cada una con su
+// motivo. Sin esta lista, el test de cobertura (test_mapper_coverage) falla.
+export const PARAMS_SOLO_UI = {
+  'grid.voltage': 'parámetro de placa, no entra al modelo',
+  'battery.voltage': 'parámetro de placa, no entra al modelo',
+  'inverter.maxCapacity': 'tipo sin modelo en el solver (ver cambio 13)',
+  'inverter.efficiency': 'tipo sin modelo en el solver (ver cambio 13)',
+  'sensor_iot.metric': 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
+  'sensor_iot.interval': 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
+};
+
+// Cambio 12.2 — tipos dibujables sin modelo en el solver (pre-flight + eco).
+export const UNSUPPORTED_SOLVER_TYPES = {
+  inverter: 'tipo sin modelo en el solver (ver cambio 13)',
+  sensor_iot: 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
+};
+
+// Cambio 12.4 — migración legacy EXACTA. Solo actúa con coincidencia exacta con
+// la tupla legacy conocida (0.001/0.5/0.5/100); nunca pisa un valor a propósito.
+const LEGACY_DIESEL = { costA: 0.001, costB: 0.5, costC: 0.5, fuelCost: 100 };
+const WILLANS_DIESEL = { costA: 0.0012, costB: 0.24, costC: 1.8, fuelCost: null };
+
+export function migrateParams(deviceType, params) {
+  const p = { ...(params || {}) };
+  if (deviceType === DEVICE_TYPE.DIESEL_GENERATOR
+      && p.costA === LEGACY_DIESEL.costA
+      && p.costB === LEGACY_DIESEL.costB
+      && p.costC === LEGACY_DIESEL.costC
+      && p.fuelCost === LEGACY_DIESEL.fuelCost) {
+    return { params: { ...p, ...WILLANS_DIESEL }, migrated: true };
+  }
+  return { params: p, migrated: false };
+}

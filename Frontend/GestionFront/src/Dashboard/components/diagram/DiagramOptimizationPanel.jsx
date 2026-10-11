@@ -12,6 +12,8 @@ import {
   setMpcStatus,
 } from '@/Dashboard/store/optimization/optimizationSlice';
 import { DEVICE_TYPE, DEVICE_DEFINITIONS, SOLVER_CATEGORY } from './constants/deviceTypes';
+import { setNodePreflight } from '@/Dashboard/store/diagram/diagramSlice';
+import { preflightNodes } from './utils/preflight';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
 
@@ -118,8 +120,13 @@ function diagramToOptimization(nodes) {
   // Cambio 10.3: mismo criterio que el mapper de red (evita el §2.2).
   const gridDefault = { max_import_kw: 400, max_export_kw: 300, min_import_kw: -300, cost_fixed: 40, cost_variable: 60 };
   let grid = null;
+  // Cambio 12.3: inventario crudo para device_echo (C7). Sin cambiar forma.
+  const devices = [];
 
   for (const node of nodes) {
+    if (DEVICE_DEFINITIONS[node.type]) {
+      devices.push({ id: node.id, tipo: node.type });
+    }
     const mapper = TOPOLOGY_MAPPERS[node.type];
     if (!mapper) continue;
     const params = node.data?.params || {};
@@ -137,7 +144,7 @@ function diagramToOptimization(nodes) {
     }
   }
 
-  return { sources, storage, loads, converters: [], grid: grid || gridDefault };
+  return { sources, storage, loads, converters: [], grid: grid || gridDefault, devices };
 }
 
 export default function DiagramOptimizationPanel({ onClose }) {
@@ -264,6 +271,10 @@ export default function DiagramOptimizationPanel({ onClose }) {
     setTriggering(true);
     setSensorStatus({});
     try {
+      // Cambio 12.2: pre-flight (marca, no bloquea).
+      for (const w of preflightNodes(diagramNodes, TOPOLOGY_MAPPERS)) {
+        dispatch(setNodePreflight({ id: w.id, preflight: w }));
+      }
       const topology = diagramToOptimization(diagramNodes);
       const res = await GridAPI.post('/front/optimization/trigger', {
         topology,

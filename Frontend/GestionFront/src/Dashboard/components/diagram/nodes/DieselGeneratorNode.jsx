@@ -3,8 +3,9 @@ import { Handle, Position } from '@xyflow/react';
 import { Fuel } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { getNodeBadgeInfo } from '../constants/deviceTypes';
+import DeviceStatusBadge from '../components/DeviceStatusBadge';
 
-function DieselGeneratorNode({ data, selected }) {
+function DieselGeneratorNode({ id, data, selected }) {
   const params = data.params || {};
 
   const latestResult = useSelector((state) => state.optimization.latestResult);
@@ -18,6 +19,7 @@ function DieselGeneratorNode({ data, selected }) {
         hover:shadow-md
       `}
     >
+      <DeviceStatusBadge nodeId={id} preflight={data.preflight} />
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/30 rounded-t-xl">
         <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
           <Fuel className="w-4.5 h-4.5 text-slate-600 dark:text-slate-300" strokeWidth={2} />

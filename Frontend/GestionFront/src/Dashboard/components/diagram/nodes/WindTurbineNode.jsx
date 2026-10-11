@@ -3,8 +3,9 @@ import { Handle, Position } from '@xyflow/react';
 import { Wind } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { getNodeBadgeInfo } from '../constants/deviceTypes';
+import DeviceStatusBadge from '../components/DeviceStatusBadge';
 
-function WindTurbineNode({ data, selected }) {
+function WindTurbineNode({ id, data, selected }) {
   const params = data.params || {};
 
   const latestResult = useSelector((state) => state.optimization.latestResult);
@@ -18,6 +19,7 @@ function WindTurbineNode({ data, selected }) {
         hover:shadow-md
       `}
     >
+      <DeviceStatusBadge nodeId={id} preflight={data.preflight} />
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100 dark:border-slate-800/50 bg-teal-50/60 dark:bg-teal-950/20 rounded-t-xl">
         <div className="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center flex-shrink-0">
           <Wind className="w-4.5 h-4.5 text-teal-600 dark:text-teal-300" strokeWidth={2} />

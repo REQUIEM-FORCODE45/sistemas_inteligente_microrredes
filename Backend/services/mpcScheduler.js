@@ -263,6 +263,8 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
       // la precedencia nodo > sitio > default (fuel_price_applied).
       site_id: process.env.OPTIMIZATION_SITE_ID || 'pasto_narino',
       initial_diesel_kw: initialDieselKw,
+      // Cambio 12.3: inventario crudo para device_echo (C7). Aditivo.
+      devices: topology.devices || [],
       sources: topology.sources || [],
       storage: storageWithSoc,
       converters: topology.converters || [],

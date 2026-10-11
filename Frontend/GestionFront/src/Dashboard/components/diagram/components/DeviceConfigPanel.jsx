@@ -8,6 +8,51 @@ import {
 } from '@/Dashboard/store/diagram/diagramSlice';
 import { X, Save, Trash2, Pencil, Check } from 'lucide-react';
 import { DEVICE_DEFINITIONS } from '../constants/deviceTypes';
+import GridAPI from '@/api/grid-api';
+
+// Cambio 12.4 — valor EFECTIVO del combustible (nunca copiado a mano).
+// Fuente: eco del ultimo resultado o endpoint del sitio (YAML, fuente unica).
+let fuelCache = null;
+function fetchSiteFuel() {
+  if (!fuelCache) {
+    fuelCache = GridAPI.get('/front/topology/fuel')
+      .then((r) => r.data?.fuel || null)
+      .catch(() => null);
+  }
+  return fuelCache;
+}
+
+function DieselEffectiveLine({ params, migrated }) {
+  const latestResult = useSelector((state) => state.optimization.latestResult);
+  const [siteFuel, setSiteFuel] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetchSiteFuel().then((f) => { if (alive) setSiteFuel(f); });
+    return () => { alive = false; };
+  }, []);
+  const eco = latestResult?.fuel_price_applied;
+  const edited = params?.fuelCost != null && params.fuelCost !== '';
+  const val = edited ? Number(params.fuelCost)
+    : (eco?.valor ?? siteFuel?.price_cop_per_l ?? null);
+  const origen = edited ? 'nodo'
+    : (eco?.origen ?? (siteFuel ? 'sitio' : null));
+  const extra = !edited && siteFuel
+    ? ` — sitio ${siteFuel.ciudad}, vigencia ${siteFuel.vigencia}` : '';
+  return (
+    <div className="space-y-1 rounded-md border border-border bg-muted/30 px-2 py-1.5">
+      <p className="text-[11px] font-semibold text-foreground">
+        {val != null
+          ? `efectivo: ${Number(val).toLocaleString('es-CO')} COP/L — ${origen}${extra}`
+          : 'efectivo: pendiente (ejecuta la optimización)'}
+      </p>
+      {migrated && (
+        <p className="text-[10px] text-amber-700 dark:text-amber-300">
+          Migrado de legacy (0.001/0.5/0.5/100) a Willans + precio del sitio.
+        </p>
+      )}
+    </div>
+  );
+}
 
 // Cambio 10.5: claves opcionales (vacio = no declarado, NUNCA 0). Solo para
 // las claves de OPTIONAL_PARAMS; el resto conserva el comportamiento actual.
@@ -271,6 +316,13 @@ export default function DeviceConfigPanel({ onClose }) {
                   );
                 })}
             </div>
+          )}
+
+          {selectedNode?.data?.deviceType === 'diesel_generator' && (
+            <DieselEffectiveLine
+              params={params}
+              migrated={!!selectedNode?.data?.migrated12}
+            />
           )}
 
           <button

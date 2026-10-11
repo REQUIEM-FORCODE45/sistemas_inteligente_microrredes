@@ -1,0 +1,110 @@
+{
+  "version": "12.1",
+  "nota": "Fuente unica para validar en las dos capas: el solver valida contra este archivo y el frontend (PARAMS_SOLO_UI + test_mapper_coverage) verifica la cobertura. req=true = sin default utilizable.",
+  "solar": {
+    "params": {
+      "max_kw": {"req": true},
+      "min_kw": {"req": true},
+      "efficiency": {"req": false, "default": 0.21},
+      "cost_a": {"req": false, "default": 0},
+      "cost_b": {"req": false, "default": 0},
+      "cost_c": {"req": false, "default": 0},
+      "fuel_cost": {"req": false, "default": 0}
+    },
+    "if_missing": {"max_kw": "900 kW (default del solver)", "min_kw": "0 kW"}
+  },
+  "solar_panel_ac": {
+    "params": {
+      "max_kw": {"req": true},
+      "min_kw": {"req": true},
+      "efficiency": {"req": false, "default": 0.21},
+      "cost_a": {"req": false, "default": 0},
+      "cost_b": {"req": false, "default": 0},
+      "cost_c": {"req": false, "default": 0},
+      "fuel_cost": {"req": false, "default": 0}
+    },
+    "if_missing": {"max_kw": "900 kW (default del solver)", "min_kw": "0 kW"}
+  },
+  "wind": {
+    "params": {
+      "max_kw": {"req": true},
+      "min_kw": {"req": true},
+      "efficiency": {"req": false, "default": 0.4},
+      "cost_a": {"req": false, "default": 0},
+      "cost_b": {"req": false, "default": 0},
+      "cost_c": {"req": false, "default": 0},
+      "fuel_cost": {"req": false, "default": 0}
+    },
+    "if_missing": {"max_kw": "100 kW (default del solver)", "min_kw": "0 kW"}
+  },
+  "wind_turbine": {
+    "params": {
+      "max_kw": {"req": true},
+      "min_kw": {"req": true},
+      "efficiency": {"req": false, "default": 0.4},
+      "cost_a": {"req": false, "default": 0},
+      "cost_b": {"req": false, "default": 0},
+      "cost_c": {"req": false, "default": 0},
+      "fuel_cost": {"req": false, "default": 0}
+    },
+    "if_missing": {"max_kw": "100 kW (default del solver)", "min_kw": "0 kW"}
+  },
+  "diesel": {
+    "params": {
+      "max_kw": {"req": true},
+      "min_kw": {"req": true},
+      "cost_a": {"req": false, "default": null},
+      "cost_b": {"req": false, "default": null},
+      "cost_c": {"req": false, "default": null},
+      "fuel_cost": {"req": false, "default": "site"},
+      "ramp_kw_per_h": {"req": false, "default": null},
+      "start_cost": {"req": false, "default": null},
+      "stop_cost": {"req": false, "default": null}
+    },
+    "if_missing": {
+      "fuel_cost": "usar sitio + eco (cambio 11)",
+      "ramp_kw_per_h": "sin rampa + warning (cambio 08)",
+      "start_cost": "sin penalizacion + warning (cambio 08.4)"
+    }
+  },
+  "battery": {
+    "params": {
+      "max_kw": {"req": true},
+      "min_kw": {"req": true},
+      "capacity_kwh": {"req": true},
+      "max_charge_kw": {"req": false, "default": "50% de capacidad"},
+      "max_discharge_kw": {"req": false, "default": "50% de capacidad"},
+      "soc_min": {"req": false, "default": 0.2},
+      "soc_max": {"req": false, "default": 0.95},
+      "initial_soc": {"req": false, "default": "sensor o 0.65"},
+      "charge_efficiency": {"req": false, "default": 0.95},
+      "discharge_efficiency": {"req": false, "default": 0.95},
+      "degradation_cost_per_kwh": {"req": false, "default": 30.0}
+    },
+    "if_missing": {}
+  },
+  "load": {
+    "params": {
+      "max_kw": {"req": true},
+      "min_kw": {"req": true},
+      "fixed_kw": {"req": false, "default": "max_kw"},
+      "load_source": {"req": false, "default": "static"}
+    },
+    "if_missing": {}
+  },
+  "grid": {
+    "params": {
+      "max_import_kw": {"req": false, "default": 400},
+      "max_export_kw": {"req": false, "default": "max_export_kw o -min_import_kw"},
+      "min_import_kw": {"req": false, "default": -300},
+      "cost_fixed": {"req": false, "default": 40},
+      "cost_fixed_month": {"req": false, "default": null},
+      "cost_variable": {"req": false, "default": 60},
+      "export_tariff": {"req": false, "default": 0.0},
+      "ens_penalty_cop_kwh": {"req": false, "default": 5000.0}
+    },
+    "if_missing": {"cost_fixed_month": "se usa cost_fixed (cambio 08)"}
+  },
+  "inverter": {"soportado": false, "motivo": "tipo sin modelo en el solver (ver cambio 13)"},
+  "sensor_iot": {"soportado": false, "motivo": "se enlaza por sensor_mappings, no entra al modelo electrico"}
+}
