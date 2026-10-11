@@ -315,8 +315,25 @@ literalmente *estado del seccionador*, con `P ≤ M·s` (abierto ⇒ no conduce)
 significa — **`sin modelo`** (o `⚠ no modelado`) — y **reservar `s=0` para el seccionador del cambio
 15**. El trazo tenue y discontinuo puede quedarse como convención de "no simulable".
 
-## 10.4 Estado del cambio 12: CERRADO
+## 10.4 El ajuste quedó cerrado (`37f33ec`) — **CAMBIO 12 COMPLETO**
 
-12.1–12.4 implementados y auditados, con el render verificado por ambas partes. **Único ajuste
-abierto**: la etiqueta del estado "extremo sin modelo" (§10.3), que conviene cerrar antes del cambio
-15 para no arrastrar la ambigüedad al incremento donde `s=0` pasa a ser real.
+El badge de rama no-modelada pasó de `s=0` a **`sin modelo`** (`PowerEdge.jsx:87`), con un comentario
+que documenta el porqué: *"la etiqueta dice lo que es; `s=0` queda RESERVADO al seccionador del cambio
+15 (`P ≤ M·s`)"*. Verificado aquí:
+
+- el único `s=0` que queda en el código está **en ese comentario**, no en la UI ✓;
+- los **3 tests del invariante siguen PASANDO** (sin regresión) ✓;
+- el `VERIFICACION` anota la corrección con el razonamiento correcto y **deja la captura intacta a
+  propósito** para que documente el render del 12.4 — decisión correcta (append-only): el badge
+  corregido se evidenciará en la captura del cambio 13 ✓.
+
+**🏁 CAMBIO 12 CERRADO**: 12.1–12.4 implementados, auditados y con el render verificado por ambas
+partes. **Sin ajustes abiertos.**
+
+## 10.5 Lo que este incremento dejó, en una línea
+
+El diagrama ya no puede mentir en silencio: **el precio del combustible que se aplica se ve** (efectivo
++ origen), **lo que no se puede simular se avisa en el nodo**, **el solver devuelve qué hizo con cada
+dispositivo** (`device_echo` con parámetros efectivos), y **un campo de la UI no puede quedarse sin
+camino al solver** sin que un test falle. Y encima el lienzo se lee como unifilar, sin perder fluidez
+(medida con pares intercalados: sin degradación > 10 %).
