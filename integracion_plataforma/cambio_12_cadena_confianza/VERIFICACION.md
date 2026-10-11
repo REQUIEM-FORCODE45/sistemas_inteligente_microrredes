@@ -144,6 +144,12 @@ Símbolos SVG y barra AC quedan para el siguiente envío (sin referencia visual)
     sale en `s=0` porque el inversor sigue siendo eco `ignorado` (solo visual) —
     **lo cierra el cambio 13** (inversor modelado). Sin errores de página, sin
     cintas rojas de validación (cableado AC→barra, DC→inversor→barra).
+  - **Última del 12 (etiqueta)**: el badge de rama no-modelada pasó de `s=0` a
+    **`sin modelo`** — `s=0` queda **reservado** al seccionador del cambio 15
+    (`P <= M*s`); pintarlo en solar/inversor mentía (la rama puede conducir; lo no
+    modelado es el otro extremo) y se contradecía con la píldora `▲ generando`.
+    La captura versionada queda intacta a propósito (documenta el render del 12.4);
+    el badge corregido se evidenciará en la captura del cambio 13.
 
 ## Tiempos de solver
 
