@@ -1,12 +1,14 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Building } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { getNodeBadgeInfo } from '../constants/deviceTypes';
 import DeviceStatusBadge from '../components/DeviceStatusBadge';
+import { TypeSymbol } from '../constants/symbols';
+import { CATEGORY_ACCENT } from '../constants/deviceTypes';
 
 function LoadNode({ id, data, selected }) {
   const params = data.params || {};
+  const accent = CATEGORY_ACCENT[data.deviceType];
   const consumption = params.consumption ?? 0;
 
   const latestResult = useSelector((state) => state.optimization.latestResult);
@@ -21,10 +23,11 @@ function LoadNode({ id, data, selected }) {
         hover:shadow-md
       `}
     >
-      <DeviceStatusBadge nodeId={id} preflight={data.preflight} />
+      <DeviceStatusBadge nodeId={id} />
+      <div className="absolute top-0 left-4 right-4 h-1 rounded-b" style={{ background: accent }} />
       <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-muted/30 dark:bg-muted/10 rounded-t-xl">
         <div className="w-8 h-8 rounded-lg bg-secondary dark:bg-muted/40 flex items-center justify-center flex-shrink-0">
-          <Building className="w-4.5 h-4.5 text-foreground/60" strokeWidth={2} />
+          <TypeSymbol type={data.deviceType} size={18} color={accent} />
         </div>
         <div className="min-w-0">
           <p className="text-xs font-semibold text-foreground truncate">

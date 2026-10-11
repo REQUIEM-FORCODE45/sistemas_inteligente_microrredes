@@ -8,6 +8,7 @@ import {
   ArrowLeftRight,
   Fuel,
   Wind,
+  Minus,
 } from 'lucide-react';
 
 export const CURRENT_TYPE = {
@@ -21,6 +22,7 @@ export const DEVICE_CATEGORIES = {
   STORAGE: 'storage',
   LOADS: 'loads',
   SENSORS: 'sensors',
+  BUSES: 'buses',
 };
 
 export const DEVICE_TYPE = {
@@ -33,6 +35,7 @@ export const DEVICE_TYPE = {
   BATTERY: 'battery',
   LOAD: 'load',
   SENSOR: 'sensor_iot',
+  AC_BUS: 'ac_bus',
 };
 
 export const BITRATE = {
@@ -86,6 +89,15 @@ export const CATEGORY_META = {
     borderClass: 'border-purple-200 dark:border-purple-800',
     textClass: 'text-purple-700 dark:text-purple-300',
     types: [DEVICE_TYPE.SENSOR],
+  },
+  [DEVICE_CATEGORIES.BUSES]: {
+    label: 'Buses',
+    icon: Minus,
+    color: 'var(--foreground)',
+    bgClass: 'bg-muted dark:bg-muted/30',
+    borderClass: 'border-border',
+    textClass: 'text-foreground',
+    types: [DEVICE_TYPE.AC_BUS],
   },
 };
 
@@ -279,6 +291,22 @@ export const DEVICE_DEFINITIONS = {
     },
     dimension: { width: 150, height: 80 },
   },
+  [DEVICE_TYPE.AC_BUS]: {
+    type: DEVICE_TYPE.AC_BUS,
+    category: DEVICE_CATEGORIES.BUSES,
+    label: 'Barra AC',
+    icon: Minus,
+    currentType: CURRENT_TYPE.AC,
+    bitrate: null,
+    // Cambio 12.4: decorativa — sin solverCategory ni solverType: no va al job,
+    // no entra al eco ni al pre-flight. Solo dibujo (barra del unifilar).
+    decorative: true,
+    defaultParams: {
+      voltage: 220,
+      frequency: 60,
+    },
+    dimension: { width: 360, height: 64 },
+  },
 };
 
 export function getDispatchChartInfo() {
@@ -328,6 +356,39 @@ export const EDGE_TYPES = {
   POWER: 'powerEdge',
 };
 
+// Cambio 12.4 — símbolo por tipo y acento de categoría, copiados de la
+// referencia (simbolos.svg). Viven aquí (solo constantes) para la regla
+// react-refresh/only-export-components.
+export const SYMBOL_FOR_TYPE = {
+  grid: 's-grid',
+  solar_panel: 's-pv',
+  solar_panel_ac: 's-pv',
+  diesel_generator: 's-die',
+  inverter: 's-inv',
+  transformer: 's-trafo',
+  battery: 's-batt',
+  load: 's-load',
+};
+
+export const CATEGORY_ACCENT = {
+  solar_panel: 'var(--pv, #10b981)',
+  solar_panel_ac: 'var(--pv, #10b981)',
+  grid: 'var(--grid, #f59e0b)',
+  diesel_generator: 'var(--die, #64748b)',
+  battery: 'var(--bat, #3b82f6)',
+  load: 'var(--load, #8b5cf6)',
+  inverter: 'var(--bat, #3b82f6)',
+  wind_turbine: 'var(--grid, #f59e0b)',
+  sensor_iot: 'var(--off, #94a3b8)',
+};
+
+// Cambio 12.4 — grosor de rama ∝ kW (proporción copiada de la referencia:
+// red 6 px @10 kW, PV 3.5 px @4 kW, batería 2.5 px @1.5 kW).
+export function flowWidthFor(kw) {
+  const w = 1.8 + 0.42 * Math.abs(kw || 0);
+  return Math.min(7, Math.max(1.5, w));
+}
+
 // Cambio 12.2 — claves de defaultParams que NO van al solver, cada una con su
 // motivo. Sin esta lista, el test de cobertura (test_mapper_coverage) falla.
 export const PARAMS_SOLO_UI = {
@@ -337,6 +398,8 @@ export const PARAMS_SOLO_UI = {
   'inverter.efficiency': 'tipo sin modelo en el solver (ver cambio 13)',
   'sensor_iot.metric': 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
   'sensor_iot.interval': 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
+  'ac_bus.voltage': 'nodo decorativo (barra del unifilar), no entra al modelo',
+  'ac_bus.frequency': 'nodo decorativo (barra del unifilar), no entra al modelo',
 };
 
 // Cambio 12.2 — tipos dibujables sin modelo en el solver (pre-flight + eco).

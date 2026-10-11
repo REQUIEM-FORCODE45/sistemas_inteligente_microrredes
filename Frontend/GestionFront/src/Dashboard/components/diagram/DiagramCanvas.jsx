@@ -8,6 +8,7 @@ import InverterNode from './nodes/InverterNode';
 import BatteryNode from './nodes/BatteryNode';
 import LoadNode from './nodes/LoadNode';
 import SensorNode from './nodes/SensorNode';
+import AcBusNode from './nodes/AcBusNode';
 import { DEVICE_TYPE } from './constants/deviceTypes';
 
 export const nodeTypes = {
@@ -20,6 +21,7 @@ export const nodeTypes = {
   [DEVICE_TYPE.BATTERY]: BatteryNode,
   [DEVICE_TYPE.LOAD]: LoadNode,
   [DEVICE_TYPE.SENSOR]: SensorNode,
+  [DEVICE_TYPE.AC_BUS]: AcBusNode,
 };
 
 export function useDragHandlers() {

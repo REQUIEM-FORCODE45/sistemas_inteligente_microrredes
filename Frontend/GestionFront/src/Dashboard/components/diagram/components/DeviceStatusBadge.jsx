@@ -1,9 +1,11 @@
 import { useSelector } from 'react-redux';
 
 // Cambio 12.2/12.3 — marca de estado por nodo (pre-flight o eco del solver).
-// Presentacional puro: lee Redux, no escribe. No toca el patron de arrastre.
-export default function DeviceStatusBadge({ nodeId, preflight }) {
+// Lee el mapa preflight de Redux (clave separada, sin pelear con el arrastre)
+// y el device_echo del ultimo resultado. Presentacional puro: no escribe.
+export default function DeviceStatusBadge({ nodeId }) {
   const latestResult = useSelector((state) => state.optimization.latestResult);
+  const preflight = useSelector((state) => state.diagram.preflight?.[nodeId]);
   const echo = (latestResult?.device_echo || []).find((e) => e.device_id === nodeId);
   const item = echo && echo.estado !== 'modelado'
     ? echo

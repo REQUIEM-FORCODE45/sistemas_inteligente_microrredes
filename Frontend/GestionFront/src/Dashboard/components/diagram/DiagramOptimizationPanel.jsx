@@ -124,7 +124,8 @@ function diagramToOptimization(nodes) {
   const devices = [];
 
   for (const node of nodes) {
-    if (DEVICE_DEFINITIONS[node.type]) {
+    // Cambio 12.4: los nodos decorativos (barra AC) no van al eco.
+    if (DEVICE_DEFINITIONS[node.type] && !DEVICE_DEFINITIONS[node.type].decorative) {
       devices.push({ id: node.id, tipo: node.type });
     }
     const mapper = TOPOLOGY_MAPPERS[node.type];

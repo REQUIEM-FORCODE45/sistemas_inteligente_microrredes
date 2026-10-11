@@ -15,6 +15,7 @@ import { edgeTypes } from './edges/PowerEdge';
 import { useDiagram } from './hooks/useDiagram';
 import { useDiagramValidation } from './hooks/useDiagramValidation';
 import DevicePalette from './DevicePalette';
+import { SvgSymbolDefs } from './constants/symbols';
 import DiagramToolbar from './DiagramToolbar';
 import SensorMappingPanel from './SensorMappingPanel';
 import DeviceConfigPanel from './components/DeviceConfigPanel';
@@ -57,6 +58,19 @@ export default function DiagramEditor() {
   const onInit = useCallback((instance) => {
     setReactFlowInstance(instance);
   }, []);
+
+  // Cambio 12.4 — pausa la animación de flujo SOLO durante el arrastre
+  // (clase directa en el wrapper, sin estado de React: cero renders extra).
+  const onNodeDragStartPause = useCallback(() => {
+    reactFlowWrapper.current?.classList.add('rf-dragging');
+  }, []);
+  const onNodeDragStopResume = useCallback(
+    (event, node) => {
+      reactFlowWrapper.current?.classList.remove('rf-dragging');
+      handleNodeDragStop(event, node);
+    },
+    [handleNodeDragStop],
+  );
 
   const onFitView = useCallback(() => {
     reactFlowInstance?.fitView({ padding: 0.3, duration: 300 });
@@ -126,6 +140,7 @@ export default function DiagramEditor() {
           className="flex-1 relative bg-muted/20 dark:bg-muted/5"
           ref={reactFlowWrapper}
         >
+          <SvgSymbolDefs />
           <ReactFlow
             nodes={nodes}
             edges={processedEdges}
@@ -137,7 +152,8 @@ export default function DiagramEditor() {
             onInit={onInit}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            onNodeDragStop={handleNodeDragStop}
+            onNodeDragStart={onNodeDragStartPause}
+            onNodeDragStop={onNodeDragStopResume}
             onConnect={handleConnect}
             onNodeClick={handleNodeClick}
             onEdgeClick={handleEdgeClick}

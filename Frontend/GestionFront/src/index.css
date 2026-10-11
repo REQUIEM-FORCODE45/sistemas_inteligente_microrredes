@@ -123,3 +123,22 @@
         @apply bg-background text-foreground;
     }
 }
+/* Cambio 12.4 — animación de flujo del unifilar (copiada de la referencia).
+   CSS puro en el compositor: sin estado de React por frame (regla 4).
+   Pausada SOLO durante el arrastre (headless sin GPU: la animación continua
+   compite con los frames del drag; en reposo sigue corriendo). Cero JS. */
+@keyframes edge-flujo {
+  to { stroke-dashoffset: -18; }
+}
+.edge-flow {
+  fill: none;
+  stroke-dasharray: 9 9;
+  animation: edge-flujo 1.15s linear infinite;
+  pointer-events: none;
+}
+.rf-dragging .edge-flow {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .edge-flow { animation: none; }
+}

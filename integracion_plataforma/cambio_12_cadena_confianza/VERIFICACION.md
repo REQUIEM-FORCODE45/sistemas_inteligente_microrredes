@@ -50,20 +50,26 @@ Símbolos SVG y barra AC quedan para el siguiente envío (sin referencia visual)
   (captura `badges.png`); el motivo viaja en el resultado, no como error genérico.
 - [x] **C7** — job de 6 dispositivos → `len(device_echo) == 6` con los 6 ids;
   `test_device_echo.py` **PASS** (5 passed).
-- [x] **C8** — **reformulado (auditoría cambio 12)**: la base 28.6 queda declarada
-  **NO comparable** (otra ventana/sesión; el limpio midió 24.1/24.9 en la misma ventana).
-  Medición válida: **3 pares intercalados en la misma sesión**, 200 pasos, mismo arrastre:
+- [x] **C8** — **reformulado (auditoría cambio 12, corrección §8.2)**:
+  la desigualdad anterior era FALSA (30.0 < 30.9) y los pares mostraban deriva por
+  orden. Medición válida: **6 pares en orden ALEATORIO, misma sesión**
+  (`fps_baseline.json`):
 
-  | par | modificado (fps) | limpio (fps) | nodeMutations |
+  | orden | árbol | fps | muts |
   |---|---|---|---|
-  | 1 | 30.7 | 28.7 | 50 = 50 |
-  | 2 | 30.0 | 30.9 | 50 = 50 |
-  | 3 | 29.2 | 31.4 | 50 = 50 |
+  | 1 | pre | 22.9 | 50 |
+  | 2 | vis | 21.4 | 50 |
+  | 3 | vis | 22.7 | 49 |
+  | 4 | pre | 21.6 | 50 |
+  | 5 | pre | 22.6 | 50 |
+  | 6 | vis | 22.1 | 50 |
 
-  Medianas: **modificado 30.0 vs limpio 30.9** (dispersión mod [29.2, 30.7],
-  limpio [28.7, 31.4]). **PASA**: mediana(mod) ≥ mediana(limpio) dentro del ruido
-  headless sin GPU (±10-15 %, insuficiente para un umbral del 5 % entre sesiones),
-  y renders sin subir (50 = 50 en las 6 corridas). Sin degradación atribuible.
+  Medianas: **vis 22.1 vs pre 22.6 (−2.2 %)**. **Conclusión honesta: NO se detecta
+  degradación >10 %** (es literalmente lo que 3 pares permiten afirmar con ruido
+  ±10-15 % headless sin GPU); renders sin subir (50 constante).
+  Hallazgo intermedio documentado: la capa `flow` animada en reposo costaba ~40 %
+  en software; se oculta **solo durante el gesto** (`.rf-dragging`, cero JS, vuelve
+  al soltar) en vez de aceptar el tirón.
 - [x] **C9** — añadir (6 nodos) + editar + doble clic → `dispatchModalNodeId: "solar_1"`;
   guardar → `fuelCost: null` persistido; recargar + reabrir → 6/6 mismos ids.
   Sin pérdida ni reordenamiento.
@@ -93,6 +99,31 @@ Símbolos SVG y barra AC quedan para el siguiente envío (sin referencia visual)
   en un archivo que no toqué. El mecanismo de apertura (doble clic → `dispatchModalNodeId`)
   sí está verificado. En producción (build empaquetado) el modal está documentado como funcional.
 - Símbolos SVG y barra AC: **no implementados** (referencia visual pendiente, según lo acordado).
+
+## 12.4 visual — variante B (referencia copiada, no inventada)
+
+- Símbolos: `constants/symbols.jsx` con los 9 paths **verbatim** + `SvgSymbolDefs` inyectado
+  UNA vez en el lienzo; `SYMBOL_FOR_TYPE`/`CATEGORY_ACCENT` en `deviceTypes.js`.
+  Ajuste declarado: `<use>` necesita `width/height` explícitos (sin ellos Chrome no pinta).
+- `AcBusNode.jsx` + `ac_bus` en paleta (sección Buses): gradiente de 4 stops de la
+  referencia, etiqueta `BUS AC · 220 V · 60 Hz`; **decorativo**: fuera del job, del eco
+  y del pre-flight (documentado en `PARAMS_SOLO_UI`).
+- Tarjetas (8 nodos de dispositivo): filete superior con acento, símbolo nuevo, píldora de
+  estado **solo con datos reales** (`useCardStatus`: ▲/●/○ del `dispatch_plan`; sin datos
+  no hay píldora); detalle (capacidad, eficiencia) y doble clic→modal intactos;
+  **dimensiones y posiciones sin tocar**.
+- `PowerEdge`: `getSmoothStepPath` ortogonal, `strokeWidth = flowWidthFor(kW)` calculado al
+  recibir el resultado, capa `flow` duplicada (base tenue + animada), badge en el conector
+  con `▲/▼` (`EdgeLabelRenderer` ya existente), rama abierta tenue/discontinua + `s=0`.
+- CSS en `index.css`: `@keyframes edge-flujo` + `prefers-reduced-motion`.
+- Captura 1920×1080 (`v124_final.png` en evidencia de sesión): filetes, símbolos, píldoras,
+  ramas ortogonales con grosores distintos, badges `▲ 4.0/10.0/1.5 kW`, `s=0`, bus con gradiente.
+- Desviaciones declaradas (el usuario las verá distinto al mockup estático): sin `use` sin
+  dimensiones no hay render (arriba); tarjeta diésel muestra `sitio` en vez de `100` cuando
+  `fuelCost` es null (corrige el `100` también en tarjeta); paleta conserva iconos lucide;
+  trafo tiene símbolo pero **sin nodo** (llega en cambio 14); la barra aparece solo si el
+  usuario la agrega (diagramas viejos intactos); `Barra AC` figura en el panel de sensores
+  (no se tocó `SensorMappingPanel`; mapearla no tiene efecto: el sanitizador la filtra).
 
 ## Tiempos de solver
 

@@ -10,7 +10,8 @@ export function preflightNodes(nodes, mappers) {
   const out = [];
   for (const node of nodes || []) {
     const def = DEVICE_DEFINITIONS[node.type];
-    if (!def) continue;
+    // Cambio 12.4: los nodos decorativos no se marcan (no van al modelo).
+    if (!def || def.decorative) continue;
     const reason = UNSUPPORTED_SOLVER_TYPES[node.type]
       || (!mappers?.[node.type] || !def.solverCategory
         ? 'sin camino al modelo del solver' : null);

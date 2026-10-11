@@ -11,6 +11,7 @@ const initialState = {
   viewport: { x: 0, y: 0, zoom: 1 },
   isDirty: false,
   dispatchModalNodeId: null,
+  preflight: {},
 };
 
 const diagramSlice = createSlice({
@@ -132,14 +133,14 @@ const diagramSlice = createSlice({
       state.isDirty = true;
     },
 
-    // Cambio 12.2: marca de pre-flight por nodo (se escribe al lanzar,
-    // nunca durante el arrastre).
+    // Cambio 12.2: marcas de pre-flight por nodo (se escriben al lanzar,
+    // nunca durante el arrastre). Clave SEPARADA de nodes para no pelear
+    // con el estado local del arrastre (el lienzo solo sincroniza por .length).
     setNodePreflight(state, action) {
       const { id, preflight } = action.payload;
-      const node = state.nodes.find((n) => n.id === id);
-      if (node) {
-        node.data = { ...node.data, preflight: preflight || null };
-      }
+      if (!state.preflight) state.preflight = {};
+      if (preflight) state.preflight[id] = preflight;
+      else delete state.preflight[id];
     },
 
     loadDiagram(state, action) {
@@ -168,6 +169,7 @@ const diagramSlice = createSlice({
       );
       state.selectedElement = null;
       state.isDirty = false;
+      state.preflight = {};
     },
 
     setViewport(state, action) {

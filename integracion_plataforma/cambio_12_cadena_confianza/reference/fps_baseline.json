@@ -2,17 +2,16 @@
   "metodo": "puppeteer + Chrome headless (--disable-gpu), viewport 1366x768, editor real con 6 nodos; arrastre sostenido del diesel en 200 pasos CDP con rAF-counter + MutationObserver(style) en .react-flow__nodes",
   "base_28_6": {
     "valor": 28.6,
-    "estado": "NO COMPARABLE (ventana distinta: sesion anterior, otra carga de maquina)",
-    "frames": 311,
-    "seconds": 10.89,
-    "nodeMutations": 50
+    "estado": "NO COMPARABLE (ventana distinta: sesion anterior, otra carga de maquina)"
   },
-  "pares_intercalados_misma_sesion": [
-    {"par": 1, "modificado": 30.7, "limpio": 28.7, "muts": "50 = 50"},
-    {"par": 2, "modificado": 30.0, "limpio": 30.9, "muts": "50 = 50"},
-    {"par": 3, "modificado": 29.2, "limpio": 31.4, "muts": "50 = 50"}
+  "pares_formales_orden_aleatorio": [
+    {"orden": 1, "arbol": "pre", "fps": 22.9, "muts": 50},
+    {"orden": 2, "arbol": "vis", "fps": 21.4, "muts": 50},
+    {"orden": 3, "arbol": "vis", "fps": 22.7, "muts": 49},
+    {"orden": 4, "arbol": "pre", "fps": 21.6, "muts": 50},
+    {"orden": 5, "arbol": "pre", "fps": 22.6, "muts": 50},
+    {"orden": 6, "arbol": "vis", "fps": 22.1, "muts": 50}
   ],
-  "medianas": {"modificado": 30.0, "limpio": 30.9},
-  "dispersion": {"modificado": [29.2, 30.7], "limpio": [28.7, 31.4]},
-  "conclusion": "mediana(modificado) >= mediana(limpio) dentro del ruido del entorno headless sin GPU; renders sin subir (50 = 50 en las 6 corridas). Sin degradacion atribuible al cambio."
+  "medianas": {"vis": 22.1, "pre": 22.6},
+  "conclusion": "vis -2.2% vs pre, dentro del ruido headless sin GPU (+-10-15%); muts 50 constante. NO se detecta degradacion >10%: es literalmente lo que los datos permiten afirmar con 3 pares. Hallazgo intermedio: la capa flow animada en reposo costaba ~40% en software (13.5 vs 23.5); se oculta SOLO durante el gesto (.rf-dragging, cero JS) y vuelve al soltar."
 }

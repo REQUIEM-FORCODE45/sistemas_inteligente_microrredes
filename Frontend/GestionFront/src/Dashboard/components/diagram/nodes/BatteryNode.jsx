@@ -1,12 +1,17 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Battery, ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { getNodeBadgeInfo } from '../constants/deviceTypes';
 import DeviceStatusBadge from '../components/DeviceStatusBadge';
+import { TypeSymbol } from '../constants/symbols';
+import { CATEGORY_ACCENT } from '../constants/deviceTypes';
+import { useCardStatus } from '../components/cardStatus';
 
 function BatteryNode({ id, data, selected }) {
   const params = data.params || {};
+  const accent = CATEGORY_ACCENT[data.deviceType];
+  const cardStatus = useCardStatus(id, data.deviceType);
   const chargePct = params.chargeLevel ?? 0;
 
   const latestResult = useSelector((state) => state.optimization.latestResult);
@@ -21,10 +26,11 @@ function BatteryNode({ id, data, selected }) {
         hover:shadow-md
       `}
     >
-      <DeviceStatusBadge nodeId={id} preflight={data.preflight} />
+      <DeviceStatusBadge nodeId={id} />
+      <div className="absolute top-0 left-4 right-4 h-1 rounded-b" style={{ background: accent }} />
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/30 rounded-t-xl">
         <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
-          <Battery className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" strokeWidth={2} />
+          <TypeSymbol type={data.deviceType} size={18} color={accent} />
         </div>
         <div className="min-w-0">
           <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-200 truncate">
@@ -33,7 +39,7 @@ function BatteryNode({ id, data, selected }) {
           <div className="flex gap-1 mt-0.5">
             <ArrowDown className="w-2.5 h-2.5 text-emerald-500" />
             <ArrowUp className="w-2.5 h-2.5 text-emerald-500" />
-            <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">DC Bidir.</span>
+            <span className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium">DC Bidir.{cardStatus && (<span style={{ color: cardStatus.color }}> · {cardStatus.text}</span>)}</span>
           </div>
         </div>
       </div>
