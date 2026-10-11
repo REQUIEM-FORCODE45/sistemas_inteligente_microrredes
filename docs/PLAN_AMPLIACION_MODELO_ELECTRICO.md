@@ -238,3 +238,17 @@ reordenarse.
 | 3 | **Trafo y flujo de potencia** | ¿se acepta la frontera declarada (pérdidas + kVA) y **AC-OPF** queda como fase futura separada? |
 | 4 | **Vista dual** | ¿selector `Esquema`/`Editor` (recomendado) o sustituir el lienzo? |
 | 5 | **Fidelidad de η** | ¿constante declarada o curva η(P) del fabricante? (si no hay dato → `null` declarado) |
+
+### ✅ Resolución (2026-10-11) — confirmada por el autor
+
+| # | Decisión | Resuelto |
+|---|---|---|
+| 1 | Topología del sitio | **AC (sin bus DC)** por defecto; el **bus DC** queda como variante **opt-in** (`bus_dc: true`) |
+| 2 | Switch: quién decide | **`switch_mode: "operador"`** por defecto; `"solver"` y `"ambos"` disponibles |
+| 3 | Trafo y AC-OPF | **Frontera aceptada**: pérdidas + kVA ahora; **AC-OPF queda como fase futura separada** |
+| 4 | Vista dual | **Sí**: selector `Esquema` \| `Editor` |
+| 5 | Fidelidad de η | **Declarable** (constante o curva del fabricante); si no se declara → `null` + eco, **sin inventar** |
+
+**Regla transversal confirmada**: **todo es opt-in** — con los defaults, los resultados anteriores **no
+cambian** (lo verifica el cambio 15 · C6 por sha256).
+

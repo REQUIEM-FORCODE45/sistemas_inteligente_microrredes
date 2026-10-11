@@ -173,3 +173,9 @@ precio del sitio (11), ni el patrón de arrastre del lienzo.
 
 Sin artefactos de datos nuevos (spec de arquitectura). Ver `reference/README.md` para el manifiesto
 (sha256) y los documentos que esta spec cita.
+
+> **DECISIÓN DEL AUTOR (2026-10-11) — confirmada**: la microrred arranca con la topología **actual
+> (AC, sin bus DC)** y **todo lo nuevo es opt-in**: con los defaults declarados aquí, **los resultados
+> anteriores no cambian**. Confirmados: `bus_dc: false` · `switch_mode: "operador"` ·
+> **frontera AC-OPF aceptada** (tensión/impedancia no se simulan) · vista dual `Esquema`/`Editor` ·
+> `η` del inversor **declarable** (`null` si no se declara, sin inventar). **Nada queda bloqueado.**

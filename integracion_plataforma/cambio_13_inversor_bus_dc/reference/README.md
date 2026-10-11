@@ -13,7 +13,7 @@ Por eso `reference/` no lleva `datos/` ni `scripts/`.
 
 | archivo | bytes | sha256 |
 |---|---|---|
-| `../README.md` | 6932 | `d9761643c2c4855910fccd1a2b2f508d4b938b7cc925a9c01a1761d1876a1441` |
+| `../README.md` | 7433 | `3cb70f4a225931f183c1c0c945487e41c7d6241586d5f6ed20fd7bcd3960d0d4` |
 
 > Los sha256 son del **blob versionado (LF)**. En un checkout Windows con `core.autocrlf=true` el
 > archivo en disco puede diferir por CRLF: verificar con `git show HEAD:<path> | sha256sum`,

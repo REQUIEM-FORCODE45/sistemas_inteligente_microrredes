@@ -161,5 +161,16 @@ dirección coherentes con el `dispatch_plan`); el `Editor` conserva **todas** la
 | 3 | **Vista dual** | ¿selector `Esquema`/`Editor`, o sustituir el lienzo por el unifilar? |
 | 4 | **Alcance del rediseño** | solo 12.1+12.2 (barra + símbolos) · completo (12.1–12.4) |
 
+### ✅ Resolución (2026-10-11)
+
+| # | Decisión | Resuelto |
+|---|---|---|
+| 1 | **Inversor** | Se le da **modelo real** (opción B) → **cambio 13** (conversión DC/AC, η, límite, bus DC opt-in) |
+| 3 | **Sensor IoT** | Se **quita el nodo** del lienzo → **cambio 12** (§4), sin tocar `SensorMappingPanel` ni `sensor_mappings` |
+| 4 | **Alcance del rediseño** | **Completo**, pero **repartido por fases**: cambio 12 (barra + símbolos) y cambio 16 (flujo + vista dual) |
+
+**Pendiente**: el **aerogenerador** (dejarlo con "sin señal — modelo nulo" o quitarlo).
+
+
 **Orden recomendado**: §1 (arreglo del `100`, es un defecto visible y barato) → §4 (quitar el sensor)
 → 12.1/12.2 (barra + símbolos) → 12.3/12.4 (flujo + vista dual).
