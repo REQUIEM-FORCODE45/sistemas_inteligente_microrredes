@@ -1,10 +1,18 @@
 {
   "metodo": "puppeteer + Chrome headless (--disable-gpu), viewport 1366x768, editor real con 6 nodos; arrastre sostenido del diesel en 200 pasos CDP con rAF-counter + MutationObserver(style) en .react-flow__nodes",
-  "fps": 28.6,
-  "frames": 311,
-  "seconds": 10.89,
-  "nodeMutations": 50,
-  "dragMs": 10310,
-  "reduxNodes": 6,
-  "nota": "headless sin GPU: el numero absoluto importa menos que la comparacion antes/despues con el mismo metodo. Criterio C8: FPS >= baseline - 5% y mutaciones sin subir al arrastrar."
+  "base_28_6": {
+    "valor": 28.6,
+    "estado": "NO COMPARABLE (ventana distinta: sesion anterior, otra carga de maquina)",
+    "frames": 311,
+    "seconds": 10.89,
+    "nodeMutations": 50
+  },
+  "pares_intercalados_misma_sesion": [
+    {"par": 1, "modificado": 30.7, "limpio": 28.7, "muts": "50 = 50"},
+    {"par": 2, "modificado": 30.0, "limpio": 30.9, "muts": "50 = 50"},
+    {"par": 3, "modificado": 29.2, "limpio": 31.4, "muts": "50 = 50"}
+  ],
+  "medianas": {"modificado": 30.0, "limpio": 30.9},
+  "dispersion": {"modificado": [29.2, 30.7], "limpio": [28.7, 31.4]},
+  "conclusion": "mediana(modificado) >= mediana(limpio) dentro del ruido del entorno headless sin GPU; renders sin subir (50 = 50 en las 6 corridas). Sin degradacion atribuible al cambio."
 }

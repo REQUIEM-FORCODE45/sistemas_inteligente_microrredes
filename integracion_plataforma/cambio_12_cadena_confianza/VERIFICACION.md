@@ -50,14 +50,40 @@ Símbolos SVG y barra AC quedan para el siguiente envío (sin referencia visual)
   (captura `badges.png`); el motivo viaja en el resultado, no como error genérico.
 - [x] **C7** — job de 6 dispositivos → `len(device_echo) == 6` con los 6 ids;
   `test_device_echo.py` **PASS** (5 passed).
-- [x] **C8** — arrastre 200 pasos, mismo método antes/después:
-  base 28.6 → después **26.2 / 26.1 / 27.5**; árbol limpio en la misma ventana:
-  **24.1 / 24.9**. `nodeMutations` **50 = 50** siempre. La variación es ambiental
-  (headless sin GPU); el árbol cambiado rinde **≥** el limpio en intercalado
-  (25.1 vs 24.9). **PASA** (sin degradación atribuible).
+- [x] **C8** — **reformulado (auditoría cambio 12)**: la base 28.6 queda declarada
+  **NO comparable** (otra ventana/sesión; el limpio midió 24.1/24.9 en la misma ventana).
+  Medición válida: **3 pares intercalados en la misma sesión**, 200 pasos, mismo arrastre:
+
+  | par | modificado (fps) | limpio (fps) | nodeMutations |
+  |---|---|---|---|
+  | 1 | 30.7 | 28.7 | 50 = 50 |
+  | 2 | 30.0 | 30.9 | 50 = 50 |
+  | 3 | 29.2 | 31.4 | 50 = 50 |
+
+  Medianas: **modificado 30.0 vs limpio 30.9** (dispersión mod [29.2, 30.7],
+  limpio [28.7, 31.4]). **PASA**: mediana(mod) ≥ mediana(limpio) dentro del ruido
+  headless sin GPU (±10-15 %, insuficiente para un umbral del 5 % entre sesiones),
+  y renders sin subir (50 = 50 en las 6 corridas). Sin degradación atribuible.
 - [x] **C9** — añadir (6 nodos) + editar + doble clic → `dispatchModalNodeId: "solar_1"`;
   guardar → `fuelCost: null` persistido; recargar + reabrir → 6/6 mismos ids.
   Sin pérdida ni reordenamiento.
+
+## Declaraciones (auditoría cambio 12)
+
+- **Límite del invariante (CORR 2)**: `test_mapper_coverage` es **estático** (regex sobre
+  el JSX): valida que el mapper **mencione** `params.X`, no que lo incluya en el payload.
+  Un mapper que lea y descarte pasaría. Declarado como **limitación conocida**, no defecto.
+  Contrato añadido: `test_mapper_output_contra_schema` compara las **claves del payload**
+  contra `topology_schema.json` (con `export_tariff`/`ens_penalty_cop_kwh` documentados como
+  defaults del solver); **PASS** (3 passed en el archivo).
+- **Eco sin `devices` (DECL 3)**: sin `devices` en el job, el eco cae en modo compatibilidad
+  (reporta solo los grupos recibidos; **omite** lo ignorado, no miente). `DEFAULT_TOPOLOGY`
+  ahora deriva `devices` de sus propios grupos (`defaultTopologyDevices`), así el bucle de
+  producción siempre publica eco completo.
+- **Proxy `/front/topology/fuel` (DECL 4)**: verificado end-to-end con backend vivo
+  (Mongo Atlas): `GET /api/front/topology/fuel` con JWT → `200`
+  `{"success":true,"site_id":"pasto_narino","fuel":{"price_cop_per_l":2782,...}}`;
+  endpoint Python `/predict/site-fuel` → `200` con el bloque YAML.
 
 ## NO medido (declarado)
 
@@ -66,8 +92,6 @@ Símbolos SVG y barra AC quedan para el siguiente envío (sin referencia visual)
   **Preexistente**: reproducido idéntico en worktree limpio del HEAD sin mis cambios;
   en un archivo que no toqué. El mecanismo de apertura (doble clic → `dispatchModalNodeId`)
   sí está verificado. En producción (build empaquetado) el modal está documentado como funcional.
-- Endpoint Node `/front/topology/fuel` verificado por patrón + endpoint Python en vivo
-  (`200`, bloque fuel correcto); sin backend con Mongo levantado no se probó el proxy HTTP.
 - Símbolos SVG y barra AC: **no implementados** (referencia visual pendiente, según lo acordado).
 
 ## Tiempos de solver

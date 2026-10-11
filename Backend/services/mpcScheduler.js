@@ -46,6 +46,20 @@ const DEFAULT_TOPOLOGY = {
   },
 };
 
+// Declaración 3 (cambio 12): DEFAULT_TOPOLOGY deriva su inventario devices de
+// sus propios grupos para que el eco sea completo también sin diagrama.
+function defaultTopologyDevices(topo) {
+  const out = [];
+  for (const list of [topo.sources, topo.storage, topo.loads, topo.converters]) {
+    for (const d of list || []) {
+      if (d && d.id) out.push({ id: d.id, tipo: d.type });
+    }
+  }
+  if (topo.grid) out.push({ id: 'grid', tipo: 'grid' });
+  return out;
+}
+DEFAULT_TOPOLOGY.devices = defaultTopologyDevices(DEFAULT_TOPOLOGY);
+
 // Cambio 08.1: potencia diesel de la ultima hora del ciclo anterior, por
 // device_id, para el estado inicial de la rampa (t=0). Sin resultado previo
 // -> {} (el solver asume arranque permitido 0->minimo).
@@ -264,7 +278,9 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
       site_id: process.env.OPTIMIZATION_SITE_ID || 'pasto_narino',
       initial_diesel_kw: initialDieselKw,
       // Cambio 12.3: inventario crudo para device_echo (C7). Aditivo.
-      devices: topology.devices || [],
+      // Sin devices (cliente viejo), se deriva de los grupos recibidos.
+      devices: (topology.devices && topology.devices.length
+        ? topology.devices : defaultTopologyDevices(topology)),
       sources: topology.sources || [],
       storage: storageWithSoc,
       converters: topology.converters || [],

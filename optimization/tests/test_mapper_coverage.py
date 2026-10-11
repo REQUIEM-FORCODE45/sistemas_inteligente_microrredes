@@ -112,6 +112,105 @@ def test_mapper_coverage():
     assert not faltan, f"params sin camino al job ni motivo: {faltan}"
 
 
+def _solver_type(src, dev):
+    """solverType del bloque DEVICE_DEFINITIONS (None si no modelado)."""
+    m = re.search(r"\[DEVICE_TYPE\." + dev + r"\]:\s*\{", src)
+    if not m:
+        return None
+    start = m.end() - 1
+    depth, i = 0, start
+    while i < len(src):
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                break
+        i += 1
+    sm = re.search(r"solverType:\s*['\"]([^'\"]+)['\"]", src[start:i + 1])
+    return sm.group(1) if sm else None
+
+
+def _balanced(src, start):
+    """Devuelve el literal {...} balanceado desde start (que es '{')."""
+    depth, i = 0, start
+    while i < len(src):
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[start:i + 1]
+        i += 1
+    return src[start:]
+
+
+def _top_keys(literal):
+    """Claves de nivel 1 de un literal {...} (con { inicial)."""
+    out, buf, d = set(), "", 0
+    for c in literal[1:]:
+        if c == "{":
+            d += 1
+            buf += c
+        elif c == "}":
+            if d == 0:
+                break
+            d -= 1
+            buf += c
+        elif c == "," and d == 0:
+            km = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*:", buf)
+            if km:
+                out.add(km.group(1))
+            buf = ""
+        else:
+            buf += c
+    km = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*:", buf)
+    if km:
+        out.add(km.group(1))
+    return out
+
+
+def _output_keys(body):
+    """Claves del payload que el mapper emite (literal + out.X)."""
+    keys = set(re.findall(r"\bout\.([A-Za-z_][A-Za-z0-9_]*)\s*=", body))
+    for m in list(re.finditer(r"return\s*\(?\s*\{", body)) \
+            + list(re.finditer(r"const\s+out\s*=\s*\{", body)):
+        keys |= _top_keys(_balanced(body, m.end() - 1))
+    # flecha concisa: el cuerpo ES el literal
+    if "return" not in body and "const out" not in body:
+        keys |= _top_keys(_balanced(body, body.index("{")))
+    return keys
+
+
+# Claves que el solver aporta por defecto (documentadas en el esquema).
+FUERA_DEL_MAPPER = {
+    "export_tariff": "default del solver 0.0",
+    "ens_penalty_cop_kwh": "default del solver 5000.0",
+}
+
+
+def test_mapper_output_contra_schema():
+    """Contrato (auditoria C2): el payload del mapper cubre los params del
+    esquema para su solverType. LIMITACION DECLARADA: no verifica la semantica
+    del mapeo (p. ej. maxCapacity/1000 -> max_kw), solo la presencia de claves.
+    """
+    schema = json.load(open(SCHEMA, encoding="utf-8"))
+    dt = _read(DT)
+    panel = _read(PANEL)
+    mappers = _mapper_bodies(panel)
+    faltan = []
+    for dev, body in mappers.items():
+        stype = _solver_type(dt, dev)
+        if not stype:
+            continue
+        spec = schema.get(stype, {})
+        want = set((spec.get("params") or {}).keys()) - set(FUERA_DEL_MAPPER)
+        got = _output_keys(body)
+        for k in sorted(want - got):
+            faltan.append(f"{dev}: esquema pide '{k}' y el payload no lo trae")
+    assert not faltan, faltan
+
+
 def test_solo_ui_contra_schema():
     schema = json.load(open(SCHEMA, encoding="utf-8"))
     dt = _read(DT)

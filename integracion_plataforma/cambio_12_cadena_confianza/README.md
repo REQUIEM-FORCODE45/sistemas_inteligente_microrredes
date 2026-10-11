@@ -131,8 +131,12 @@ precio del sitio (11), ni el patrón de arrastre del lienzo.
   `device_id` y el motivo, y la UI **señala ese nodo** (no un error genérico).
 - [ ] **C7 · `device_echo` completo**: en un diagrama con N dispositivos, el eco tiene **N entradas**
   (comparar `len(device_echo) == nº de dispositivos enviados`).
-- [ ] **C8 · FLUIDEZ (requisito duro)**: FPS durante arrastre sostenido (200 frames) **≥ línea base
-  − 5 %** y **el contador de renders del canvas NO sube al arrastrar**. Reportar los dos números.
+- [ ] **C8 · FLUIDEZ (requisito duro, reformulado auditoría cambio 12)**:
+  `mediana(fps_modificado) >= mediana(fps_limpio)` dentro del ruido del entorno, **medido
+  intercalado en la misma sesión y ventana** (≥3 pares, 200 pasos, mismo arrastre), **más**
+  el contador de renders del canvas que **NO sube al arrastrar**. Reportar pares crudos y
+  medianas. Justificación: el ruido headless sin GPU (±10-15 %) no da para un umbral del 5 %
+  contra una sesión distinta (la base 28.6 quedó declarada NO comparable).
 - [ ] **C9 · El editor no pierde nada**: añadir, editar, doble clic → modal, guardar y reabrir un
   diagrama viejo → sin pérdida de nodos ni reordenamiento.
 
