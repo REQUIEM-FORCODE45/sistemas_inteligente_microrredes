@@ -28,3 +28,7 @@
   - `expA2_table.md` `a9b0ad8479e72e2b721b6cdb322fc9ed649d00e157ac6292e40830959928ab51`
 - Nota sobre la tesis: precio 4,500 COP/L (**+62 %** vs Pasto) — decisión del autor,
   capítulos ya escritos mantienen 4,500; la plataforma usa el real del sitio.
+- Los sha256 de arriba son del **BLOB versionado (LF)**. En un checkout Windows con
+  `core.autocrlf=true` el archivo en disco difiere por CRLF: verificar con
+  `git show HEAD:<path> | sha256sum`, **NO** con `sha256sum <path>` — este último da otro
+  hash y **NO** significa que el archivo haya cambiado (auditoría §9.2).
