@@ -146,3 +146,52 @@ incluya `devices` derivados de sus grupos.
 | # | Estado |
 |---|---|
 | **12** | ✅ 12.1–12.3 + migración/valor efectivo de 12.4 implementado (`9fba50b`) · auditoría: C1–C7 y C9 ✅ · 🔴 **C8 reformular/re-medir** · 🟠 limitación del invariante declarada · ⏸️ símbolos SVG y barra AC en espera de la referencia visual |
+
+---
+
+# 8. CIERRE DE LAS CORRECCIONES (`286c69a`)
+
+## 8.1 Las 4 correcciones: hechas
+
+| # | Pedido | Resultado |
+|---|---|---|
+| 1 | Re-medir C8 intercalado + reformular | ✅ **3 pares en la misma sesión**, pares crudos publicados, medianas y dispersión; **la base 28.6 queda declarada NO COMPARABLE** en `fps_baseline.json` |
+| 2 | Declarar el límite del invariante | ✅ declarado **y además cerrado**: `test_mapper_output_contra_schema` compara las **claves del payload** con el esquema (mejor que lo pedido) |
+| 3 | El eco sin `devices` | ✅ declarado **y además resuelto**: `DEFAULT_TOPOLOGY.devices` derivado de sus grupos **incluidos los `converters`** → el inversor sale como `ignorado` con motivo, también en el bucle |
+| 4 | Probar el proxy HTTP | ✅ **verificado end-to-end con Mongo**: `GET /api/front/topology/fuel` → `200` con `price_cop_per_l: 2782`; el endpoint Python igual |
+
+**Verificado por esta auditoría, ejecutando**: `test_mapper_coverage` + `test_mapper_output_contra_schema`
++ `test_solo_ui_contra_schema` → **PASS 3/3** (corridos aquí, no reportados por el implementador).
+
+## 8.2 🟠 La conclusión de C8 se sostiene, pero **la frase que la justifica es falsa**
+
+El `VERIFICACION` afirma: *"PASA: mediana(mod) ≥ mediana(limpio) dentro del ruido"*. La aritmética dice:
+
+| | mediana |
+|---|---|
+| modificado | **30.0** |
+| limpio | **30.9** |
+
+**30.0 < 30.9 → la desigualdad escrita es FALSA** (el modificado rinde **−2.9 %**). El criterio que la
+auditoría anterior redactó ("mediana(mod) ≥ mediana(limpio)") **no se cumple literalmente**.
+
+**Lo que sí es correcto**: −2.9 % cae dentro del ruido declarado del entorno headless sin GPU
+(±10–15 %) y con **3 pares no hay potencia** para detectar diferencias <10 %. Por tanto
+**"sin degradación atribuible" es defendible** — pero hay que redactarlo por el **ruido**, no por una
+desigualdad que los números contradicen. Es el mismo patrón de las casillas marcadas `[x]` con una
+afirmación que no se sostiene (cambio 06): la conclusión acierta, la justificación no.
+
+**Detalle metodológico que refuerza la cautela**: los pares muestran **tendencia opuesta** —
+modificado `30.7 → 30.0 → 29.2` (baja) y limpio `28.7 → 30.9 → 31.4` (sube). Eso apunta a **deriva por
+orden de medición** (arranque en frío / calentamiento de la máquina), y con deriva la mediana de 3
+pares es frágil.
+**Recomendación (no bloqueante)**: **aleatorizar el orden** de los pares y subir a **5–6 pares**;
+o aceptar y declarar el resultado como *"no se detecta degradación > 10 %"* (que es lo que los datos
+permiten afirmar).
+
+## 8.3 Veredicto del cambio 12
+
+**El incremento queda cerrado en su alcance ejecutado** (12.1–12.3 + migración/valor efectivo de 12.4).
+La cadena de confianza funciona y **está verificada por ambas partes**. Pendiente único: la parte
+visual (símbolos SVG + barra AC), **bloqueada a propósito** hasta que exista la referencia visual.
+Sugerencia de redacción para la fila: *(C8: sin degradación atribuible, redacción a corregir)*.
