@@ -433,7 +433,18 @@ positivo de seguridad a cualquiera que audite.
 | C5 · tablas intactas | ✅ **verificado por sha256 del blob** |
 | C6 · precio en YAML **y** en el resultado | ✅ YAML verificado; el campo consta en la salida (`:135`) |
 | C7 · 336 L/MWh | ✅ número reproducido aquí |
-| 🟡 nota de verificación de hashes (LF/CRLF) | pendiente de añadir |
+| 🟡 nota de verificación de hashes (LF/CRLF) | ✅ **añadida** (`8c91282`): nota en el sidecar + evidencia ejecutada del blob en el `VERIFICACION.md` (líneas 26-38) |
 
 **Pendiente de fondo (diferido)**: la **re-corrida** del Exp A/A2 con el precio de Pasto — bloque de
 validación final. El cambio 11 queda **implementado y verificado en todo lo verificable desde aquí**.
+
+## 9.4 Cierre del §9.2 — verificado por esta auditoría (`8c91282`)
+
+- La **nota** está en el sidecar (líneas 31-34) con el comando correcto (`git show HEAD:<path> |
+  sha256sum`) y la advertencia explícita de que `sha256sum <path>` **no** significa que el archivo
+  haya cambiado ✓
+- El `VERIFICACION.md` del 11 incluye la **evidencia ejecutada** (comando + los 5 hashes) y coincide
+  con el sidecar ✓ — trazabilidad cruzada con la auditoría §9.2 ✓
+- **Independientemente**, esta auditoría recalculó los 5 hashes del blob y los encontró declarados en
+  el sidecar: **5/5 SI** ✓
+- Ninguna tabla fue tocada en `8c91282` (solo el sidecar) ✓
