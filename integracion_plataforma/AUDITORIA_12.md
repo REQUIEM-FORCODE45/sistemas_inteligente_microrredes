@@ -257,3 +257,66 @@ referencia**, no el lienzo real de React Flow.
 **Alcance completo** (12.1–12.4): cadena de confianza + arreglo del `100` + unifilar variante B.
 Verificado por ambas partes. Quedan **dos ajustes opcionales** (§9.3 a y b) y **una comprobación
 visual del autor** (§9.3 c).
+
+---
+
+# 10. CIERRE DEL 12.4 VISUAL (`811f9e0`) — con la captura auditada
+
+## 10.1 Las tres cosas pedidas: hechas
+
+| Pedido | Resultado |
+|---|---|
+| **Barra anclada** | ✅ resuelto **de forma genérica**: `draggable: !definition.decorative` en `useDiagram.js` — no un caso especial para `ac_bus`, sino un flag reutilizable. Mejor que lo pedido |
+| **Fuera del panel de sensores** | ✅ `n.type !== DEVICE_TYPE.AC_BUS` en el filtro de `mappableNodes`, **con el motivo escrito en el código** ("ofrecer el mapeo y filtrarlo en silencio es el patrón que el cambio 12 combate") |
+| **Ancho de la barra** | ✅ 360 → **880 px** (`dimension` actualizada), citando la nota c del cierre anterior |
+| **Captura auditable** | ✅ `reference/figuras/cambio_12_4_unifilar.png` (153 KB, 1920×1080) **en el manifiesto** → el render ya es auditable, no solo el código |
+
+## 10.2 Lo que la captura confirma (render real de React Flow)
+
+| Elemento | Confirmado en la imagen |
+|---|---|
+| La barra se lee como **bus** | ✅ `BUS AC · 220 V · 60 Hz` con línea de gradiente y derivaciones radiales |
+| Tarjetas con **filete de categoría** y **símbolo** | ✅ ámbar (red), gris (diésel), verde (solar), teal (batería), azul (inversor), morado (carga) |
+| **Grosor ∝ kW** | ✅ la rama del diésel (10 kW) notablemente más gruesa que la de la red (4 kW) |
+| **Badges en el conector** | ✅ `▲ 4.0 kW`, `▲ 10.0 kW` |
+| **Error atribuido visible** | ✅ la tarjeta `inv_1` lleva el badge naranja **`no simulable`** (+ su texto "Solo visual — no participa en el modelo") |
+| **El `100` corregido** | ✅ el diésel muestra **`sitio`** en C. Combustible |
+| **Estado sin datos no se inventa** | ✅ los campos sin dato quedan en `—` |
+
+**Falso positivo desmentido (registro metodológico)**: la lectura a resolución completa sugirió *"texto
+tapado por la tarjeta `inv_1`"* y *"líneas por debajo de una tarjeta"*. El **zoom sobre la región**
+(`region: [560,250,1420,760]`) lo desmintió: **no hay ningún texto tapado por una tarjeta ni líneas
+ocultas bajo tarjetas**; lo que parecía recorte era el **borde del recorte de la imagen**. Se deja
+constancia para que no se persiga un defecto inexistente.
+
+## 10.3 🟠 HALLAZGO REAL: `s=0` dice una cosa y significa otra
+
+La captura muestra dos badges **`s=0`**: en la rama `solar_1 → inv_1` y en `inv_1 → BUS AC`. El código
+(`PowerEdge.jsx:37-44`) explica por qué:
+
+```
+openReason = openEnd(source) || openEnd(target)     // preflight o eco con estado !== 'modelado'
+...
+{openReason ? <span>s=0</span> : (kw > 0.01 && <span>{dir} {kw} kW</span>)}
+```
+
+Es decir: `s=0` se pinta cuando **un extremo de la rama no participa en el modelo** (aquí, el
+inversor). Pero `s=0` es la notación del **seccionador** — y en el **cambio 15** significará
+literalmente *estado del seccionador*, con `P ≤ M·s` (abierto ⇒ no conduce). Tres consecuencias:
+
+1. **Hoy engaña**: un ingeniero lee `s=0` como *"rama abierta / no conduce"*, cuando la rama puede
+   estar conduciendo (el inversor es lo que no se modela).
+2. **Se contradice con la propia tarjeta**: `solar_1` muestra la píldora **`▲ generando`** y su rama
+   muestra **`s=0`**. Dos mensajes opuestos en el mismo tramo.
+3. **Colisiona con el futuro**: en el cambio 15 el mismo símbolo tendrá el significado real de
+   seccionador → **dos conceptos distintos con idéntica etiqueta**.
+
+**Fix pedido** (una línea de etiqueta, no de lógica): el badge de este estado debe decir lo que
+significa — **`sin modelo`** (o `⚠ no modelado`) — y **reservar `s=0` para el seccionador del cambio
+15**. El trazo tenue y discontinuo puede quedarse como convención de "no simulable".
+
+## 10.4 Estado del cambio 12: CERRADO
+
+12.1–12.4 implementados y auditados, con el render verificado por ambas partes. **Único ajuste
+abierto**: la etiqueta del estado "extremo sin modelo" (§10.3), que conviene cerrar antes del cambio
+15 para no arrastrar la ambigüedad al incremento donde `s=0` pasa a ser real.
