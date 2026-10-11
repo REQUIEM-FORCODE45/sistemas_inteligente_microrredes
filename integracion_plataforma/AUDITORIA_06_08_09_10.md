@@ -384,3 +384,56 @@ resultados**):
    es paramétrico, con un aviso visible en el panel mientras no esté calibrado.
 3. Alinear la plataforma con la tesis (o documentar la diferencia explícitamente) en el cambio 07.
 4. Registrar como línea abierta — **no** cerrar aquí.
+
+---
+
+# 9. CUARTA RONDA — cambio 11 implementado (`1c45ed0`)
+
+## 9.1 Verificado por esta auditoría (ejecutando)
+
+| verificación | resultado |
+|---|---|
+| **Los números de la spec** (cálculo independiente) | **934.8 COP/kWh** y **336.0 L/MWh** y **5.35×** a 50 kW → **coinciden exactamente** con lo declarado en el `VERIFICACION.md` ✓ |
+| **C5 — las tablas NO se reescribieron** | ninguna tabla aparece en el diff de `1c45ed0` ✓ **y** los 5 sha256 del sidecar coinciden con el **blob de git** (`git show HEAD:<path> \| sha256sum`) ✓ |
+| Precio en el sitio con vigencia y fuente | `pasto_narino.yaml` sección `fuel`: 2782 / 10529 / Pasto / 2026-10 / Portal CREG ✓ |
+| Precedencia y normalización legacy | `model_builder.py:223-246`: `WILLANS`/`LEGACY` declarados; normaliza coefs legacy **solo si coinciden exactamente**, y el precio si es `None` o `100`; `fuel_price_applied {valor, origen, vigencia, fuente}` en el resultado ✓ |
+| Resolución **en el solver** (mi recomendación al P1) | `run_once.py` inyecta el `fuel` del sitio por `site_id`; `mpcScheduler` añade `site_id` ✓ → cero dependencias nuevas en el backend |
+| `fuelCost: null` en la UI (mi recomendación al P4) | `deviceTypes.js` con `null` + etiquetas con unidad (`COP/L`, `L/h`, `L/(h·kW)`, `L/(h·kW²)`) ✓ → **el YAML sigue siendo la única fuente** |
+| Sidecar junto a las tablas (P3) | `results/pasto_narino/experiments/REGIMEN_ECONOMICO.md` con hashes, régimen declarado (89.29× → 5.35×) y el pendiente de re-corrida ✓ |
+| Tests del proyecto | `test_protocolo_*` siguen **PASANDO**; total aquí **20/24** (3 import-fail por `pyomo`: `test_solver`, `test_complementarity_scenarios`, **`test_fuel_site`**) |
+
+**Los 5 tests nuevos de `test_fuel_site.py` cubren C1, C2, C3, C6, C7 y la normalización legacy** — no se pudieron ejecutar en esta máquina (requieren `pyomo`), por lo que quedan **declarados como no verificados aquí**, no como aceptados por defecto.
+
+## 9.2 🟡 Hallazgo nuevo — los hashes del sidecar son del *blob*, no del archivo en disco
+
+Al verificar C5 de forma independiente, **los sha256 del sidecar NO coincidían** con el archivo en
+disco — y estuve a punto de reportar una violación de append-only. La causa: el repo tiene
+`core.autocrlf=true`, el **blob en git está en LF** y el **checkout en Windows está en CRLF**
+(5/43/15/13/122 líneas CR en los 5 archivos).
+
+Los hashes del sidecar son **los correctos** (blob versionado) — pero **cualquier verificador local va
+a tropezar igual** y puede concluir "manipulación" sin serlo.
+
+**Recomendación**: añadir una línea al sidecar (y al patrón de auditoría del proyecto):
+> *Los sha256 son del **blob versionado** (LF). En un checkout Windows con `core.autocrlf=true` el
+> archivo en disco **difiere por CRLF**: verificar con `git show HEAD:<path> | sha256sum`, no con
+> `sha256sum <path>`.*
+
+Es un hallazgo de **usabilidad de la trazabilidad**, no un defecto del cambio — pero ahorra un falso
+positivo de seguridad a cualquiera que audite.
+
+## 9.3 Estado del cambio 11
+
+| criterio | estado |
+|---|---|
+| C1 · precio del sitio + 934.8 COP/kWh | ✅ verificado (número reproducido aquí) |
+| C2 · nodo sobrescribe con `origen` | ⚪ test existe; no ejecutable aquí (`pyomo`) |
+| C3 · desglose cuadra a mano (373,900.8) | ⚪ ídem |
+| C4 · régimen escrito (89.29× → 5.35×) | ✅ sidecar verificado |
+| C5 · tablas intactas | ✅ **verificado por sha256 del blob** |
+| C6 · precio en YAML **y** en el resultado | ✅ YAML verificado; el campo consta en la salida (`:135`) |
+| C7 · 336 L/MWh | ✅ número reproducido aquí |
+| 🟡 nota de verificación de hashes (LF/CRLF) | pendiente de añadir |
+
+**Pendiente de fondo (diferido)**: la **re-corrida** del Exp A/A2 con el precio de Pasto — bloque de
+validación final. El cambio 11 queda **implementado y verificado en todo lo verificable desde aquí**.
