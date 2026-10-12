@@ -96,13 +96,22 @@ la consecuencia hay que gestionarla:
 con el job que ya incluye el inversor"* — y anotar en el informe que los números anteriores son
 pre-inversor.
 
-### 3.3 🟡 Divergencia diagrama ↔ experimentos (fácil de evitar)
+### 3.3 🟡 Divergencia diagrama ↔ experimentos → **DECISIÓN DEL AUTOR (2026-10-12)**
 
 El **diagrama** solo convierte si el usuario **declara** `efficiency` en el nodo del inversor (si está
 vacío → `eta: null` → **no convierte**, por contrato). Los **experimentos** sí llevan 0.97 por config.
 Es decir: **hoy el diagrama y los experimentos no simulan lo mismo**.
-**Acción**: dejar 0.97 (o el valor del fabricante, §3.1) declarado también en el **nodo** del diagrama,
-para que lo que se ve en pantalla sea lo que corren los experimentos.
+
+**Resuelto**: `defaultParams.efficiency = 0.97` **declarado en el nodo**, con su **origen visible** en
+el panel (reutilizando la línea de "valor efectivo" del 12.4) y con tres condiciones:
+1. el valor no puede quedar como un número opaco: su origen se ve **en el panel**;
+2. el campo sigue siendo **borrable** → vaciarlo devuelve `eta: null` → no convierte + eco + pre-flight
+   (C3 intacto);
+3. **opt-in respetado**: los diagramas ya guardados no cambian (manda su param); solo los nodos nuevos
+   nacen con 0.97.
+
+Razonamiento que lo sostiene: el contrato prohíbe **inventar** una eficiencia, no **declarar** una
+referencia con su fuente. Un default declarado y documentado es trazable; uno silencioso no.
 
 ### 3.4 🟡 Acabado de layout en la captura (no es un defecto del cambio)
 
