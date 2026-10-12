@@ -3,10 +3,15 @@ import { Handle, Position } from '@xyflow/react';
 import DeviceStatusBadge from '../components/DeviceStatusBadge';
 import { TypeSymbol } from '../constants/symbols';
 import { CATEGORY_ACCENT } from '../constants/deviceTypes';
+import { useCardStatus } from '../components/cardStatus';
 
+// Cambio 13: el inversor participa en el modelo (P_ac = eta*P_dc). La tarjeta
+// muestra la pildora de estado desde el plan; sin eta declarada la fila de
+// Eficiencia queda en '—' (nada inventado) y el pre-flight avisa 'sin η'.
 function InverterNode({ id, data, selected }) {
   const params = data.params || {};
   const accent = CATEGORY_ACCENT[data.deviceType];
+  const status = useCardStatus(id, data.deviceType);
 
   return (
     <div
@@ -30,6 +35,11 @@ function InverterNode({ id, data, selected }) {
             <span className="text-[10px] bg-blue-200 dark:bg-blue-800/50 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">DC</span>
             <span className="text-[10px] text-blue-400">→</span>
             <span className="text-[10px] bg-blue-200 dark:bg-blue-800/50 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium">AC</span>
+            {status && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ color: status.color }}>
+                {status.text}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -43,11 +53,8 @@ function InverterNode({ id, data, selected }) {
         <div className="flex justify-between text-[11px]">
           <span className="text-muted-foreground">Eficiencia</span>
           <span className="font-medium tabular-nums text-foreground">
-            {params.efficiency != null ? `${(params.efficiency * 100).toFixed(0)}%` : '—'}
+            {params.efficiency != null && params.efficiency !== '' ? `${(Number(params.efficiency) * 100).toFixed(0)}%` : '—'}
           </span>
-        </div>
-        <div className="text-[10px] text-muted-foreground/70 border-t border-border/50 pt-1">
-          Solo visual · no participa en el modelo
         </div>
       </div>
       {data.hasSensor && (

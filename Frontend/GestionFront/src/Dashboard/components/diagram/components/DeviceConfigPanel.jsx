@@ -178,6 +178,9 @@ export default function DeviceConfigPanel({ onClose }) {
     touValley: 'ToU valle 00–05 (COP/kWh)',
     touMedia: 'ToU media 06–18/22–23 (COP/kWh)',
     touPeak: 'ToU pico 19–21 (COP/kWh)',
+    // Cambio 13: flags del inversor (opt-in, default false = AC actual).
+    bidirectional: 'Bidireccional AC→DC (solo con bus DC)',
+    busDc: 'Puerta de bus DC (paneles/batería en DC)',
   };
 
   return (
@@ -302,6 +305,20 @@ export default function DeviceConfigPanel({ onClose }) {
                 .filter((key) => key !== 'loadSource' && key !== 'tariffMode')
                 .map((key) => {
                   const dv = nodeDeviceDef.defaultParams[key];
+                  // Cambio 13: los flags booleanos van con checkbox, no texto.
+                  if (typeof dv === 'boolean') {
+                    return (
+                      <label key={key} className="flex items-center gap-2 text-[11px] text-foreground cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={params[key] === true || params[key] === 'true'}
+                          onChange={(e) => setParams((prev) => ({ ...prev, [key]: e.target.checked }))}
+                          className="w-3.5 h-3.5 accent-primary"
+                        />
+                        {paramLabels[key] || key}
+                      </label>
+                    );
+                  }
                   const numType = typeof dv === 'number'
                     || (dv == null && OPTIONAL_NUMERIC.includes(key));
                   return (

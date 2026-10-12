@@ -74,6 +74,8 @@ def _build_job(anchor: pd.Timestamp, band: pd.DataFrame, load_fc: pd.Series,
         ],
         "storage": [battery],
         "loads": [{"id": "load_1", "type": "load", "max_kw": 1000, "min_kw": 0}],
+        # Cambio 13: inversor declarado de la microred (serie sobre el PV).
+        "converters": [dict({"type": "inverter"}, **MICROGRID["inverter"])],
         "grid": {
             "max_import_kw": (MICROGRID["grid"]["max_import_kw"]
                               if grid_max_kw is None else float(grid_max_kw)),

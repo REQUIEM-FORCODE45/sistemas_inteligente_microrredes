@@ -36,14 +36,18 @@ def load_topology_schema() -> dict:
     return _SCHEMA_CACHE
 
 
-def build_device_echo(devices: list, modeled: dict, warnings: list) -> list:
+def build_device_echo(devices: list, modeled: dict, warnings: list,
+                      excluidos: list = None) -> list:
     """Eco por dispositivo: cubre TODOS los del diagrama, ninguno ausente.
 
     modeled: {device_id: {"tipo": str, "params_efectivos": dict}} con lo que el
     modelo realmente uso. estado en {modelado, ignorado, error}; si no es
     modelado, motivo es obligatorio. Los warnings se anotan con el device_id.
+    excluidos (cambio 13.2): ids con error atribuido (p. ej. panel AC en bus
+    DC) — se reportan como error aunque el resto resuelva.
     """
     schema = load_topology_schema()
+    excluidos = set(excluidos or [])
     echo = []
     for dev in devices or []:
         dev_id = (dev or {}).get("id")
@@ -52,6 +56,11 @@ def build_device_echo(devices: list, modeled: dict, warnings: list) -> list:
             echo.append({"device_id": dev_id, "tipo": tipo, "estado": "error",
                          "motivo": "registro de dispositivo incompleto: falta id/tipo"})
             warnings.append(f"{dev_id or '?'}: registro incompleto en devices")
+            continue
+        if dev_id in excluidos:
+            echo.append({"device_id": dev_id, "tipo": tipo, "estado": "error",
+                         "motivo": "panel AC en bus DC: excluido, no se adivina la topologia"})
+            warnings.append(f"{dev_id}: panel AC en bus DC (error atribuido)")
             continue
         # La red es unica: el eco usa el id del nodo (p. ej. 'grid_1').
         if dev_id not in modeled and tipo == "grid" and "grid" in modeled:
@@ -90,6 +99,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     storage_list = input_data.get("storage", [])
     loads = input_data.get("loads", [])
     grid_raw = input_data.get("grid", {})
+    # Cambio 13.1: convertidores (inversor). Opt-in: sin ellos, todo igual.
+    converters = input_data.get("converters", []) or []
     # Cambio 12.3: inventario crudo del diagrama para device_echo (C7).
     devices = input_data.get("devices", []) or []
     initial_diesel_kw = input_data.get("initial_diesel_kw", {}) or {}
@@ -124,6 +135,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             storage_list=storage_list,
             loads=loads,
             grid_raw=grid_raw,
+            converters=converters,
             initial_diesel_kw=initial_diesel_kw,
             site_fuel=site_fuel,
             devices=devices,
@@ -221,6 +233,7 @@ def _build_pyomo_model(
     storage_list: list = None,
     loads: list = None,
     grid_raw: dict = None,
+    converters: list = None,
     initial_diesel_kw: dict = None,
     site_fuel: dict = None,
     devices: list = None,
@@ -235,6 +248,7 @@ def _build_pyomo_model(
     storage_list = storage_list or []
     loads = loads or []
     grid_raw = grid_raw or {}
+    converters = converters or []
     devices = devices or []
     predictions_solar = list(predictions_solar) if predictions_solar else []
     predictions_load_total = list(predictions_load_total) if predictions_load_total else []
@@ -336,6 +350,80 @@ def _build_pyomo_model(
             })
 
     warnings = []
+    # Cambio 13.1 — inversor: etapa en serie sobre la rama PV (default AC,
+    # bus_dc:false). La bateria sigue por su hilo directo (13.2 la pasa a DC).
+    # Solo el primero si hay varios (warning); con eta ausente NO se convierte
+    # (prohibido inventar): pasa directo + eco eta_origen + pre-flight (front).
+    inverter = None
+    _inv_list = [c for c in (converters or [])
+                 if isinstance(c, dict) and c.get("type") == "inverter"]
+    if len(_inv_list) > 1:
+        warnings.append("inversores: hay %d, solo se modela el primero (%s)"
+                        % (len(_inv_list), _inv_list[0].get("id", "inv")))
+    if _inv_list:
+        _c0 = _inv_list[0]
+        _eta_raw = _c0.get("eta", None)
+        _eta = None
+        try:
+            _eta = float(_eta_raw) if _eta_raw is not None else None
+        except (TypeError, ValueError):
+            _eta = None
+        if _eta is not None and not (0.0 < _eta <= 1.0):
+            warnings.append("%s: eta=%s fuera de (0,1], no se convierte" %
+                            (_c0.get("id", "inv"), _eta_raw))
+            _eta = None
+        _max_raw = _c0.get("max_kw", None)
+        try:
+            _max_kw = float(_max_raw) if _max_raw is not None else None
+        except (TypeError, ValueError):
+            _max_kw = None
+        inverter = {
+            "id": _c0.get("id", "inv"),
+            "eta": _eta,
+            "eta_origen": "declarada" if _eta is not None else "no declarada",
+            "max_kw": _max_kw,
+            "bidirectional": bool(_c0.get("bidirectional", False)),
+            "bus_dc": bool(_c0.get("bus_dc", False)),
+        }
+        if _eta is None:
+            warnings.append("%s: eta no declarada, no convierte "
+                            "(P_ac = P_dc)" % inverter["id"])
+        if inverter["bidirectional"] and not inverter["bus_dc"]:
+            warnings.append("%s: bidirectional sin bus_dc no tiene efecto "
+                            "(requiere bus DC, cambio 13.2)" % inverter["id"])
+        # Cambio 13.2 — bus DC: paneles DC + bateria al bus; el inversor es la
+        # unica puerta al AC. Un panel AC en bus DC es ERROR ATRIBUIDO al nodo
+        # (eco estado error + se excluye, no se adivina la topologia). Ojo: el
+        # mapper manda type 'solar' para ambos paneles; la distincion AC vive
+        # en el inventario devices (tipo de nodo). Sin inventario no se puede
+        # atribuir: no se excluye nada (declarado).
+        inverter["ac_excluded"] = []
+        inverter["dc_share"] = 1.0
+        if inverter["bus_dc"]:
+            _dev_tipo = {d.get("id"): str(d.get("tipo", "")).lower()
+                         for d in (devices or []) if isinstance(d, dict)}
+            _ac_ids = [i for i, t in _dev_tipo.items()
+                       if t == "solar_panel_ac"]
+            _ac = [sd for sd in solar_devices if sd["id"] in _ac_ids]
+            if _ac:
+                _w_total = total_solar_kw or 1.0
+                _w_ac = sum(sd.get("weight", 0.0) for sd in _ac)
+                inverter["ac_excluded"] = [sd["id"] for sd in _ac]
+                inverter["dc_share"] = max(
+                    0.0, 1.0 - _w_ac / _w_total if _w_total > 0 else 1.0)
+                for _sd in _ac:
+                    warnings.append(
+                        "%s: panel AC en bus DC, excluido (error atribuido)" %
+                        _sd["id"])
+            # Tope big-M para la puerta: lado DC acotado por datos (no 1e4).
+            _eta_c = inverter["eta"] if inverter["eta"] else 1.0
+            _dc_from_ac = ((inverter["max_kw"] / _eta_c)
+                           if inverter["max_kw"] else 0.0)
+            _dc_from_pv = sum(sd.get("max_kw", 0.0) for sd in solar_devices)
+            _dc_from_bat = sum(float((b or {}).get("max_discharge_kw", 0.0))
+                               for b in (storage_list or []))
+            inverter["dc_cap"] = max(_dc_from_ac, _dc_from_pv, 1.0) \
+                + _dc_from_bat
     num_diesel = len(diesel_devices)
     grid_max = grid_raw.get("max_import_kw", 400)
     grid_min = grid_raw.get("min_import_kw", -300)
@@ -509,6 +597,32 @@ def _build_pyomo_model(
 
     pv_first_kw = 0.0
     wind_first_kw = 0.0
+    # Cambio 13.2 — bus DC: la puerta es variable (P_inv_dc decide el solver;
+    # P_ac = eta*P_dc sale por restriccion). Bidireccional: P_inv_rev + U_inv
+    # (exclusividad como la bateria, solo con bus_dc: riesgo 1 de la spec).
+    if inverter is not None and inverter["bus_dc"]:
+        model.P_inv_dc = pyo.Var(model.T, model.S, domain=pyo.NonNegativeReals)
+        # Recurso DC (no va al nonant): el excedente DC por escenario se
+        # vierte aqui. Sin holgura, P_inv_dc atado en t=0 + PV por escenario
+        # = infactible (misma razon por la que CURT/ENS son recurso en AC).
+        model.CURT_DC = pyo.Var(model.T, model.S, domain=pyo.NonNegativeReals)
+        if inverter["bidirectional"]:
+            model.P_inv_rev = pyo.Var(model.T, model.S,
+                                      domain=pyo.NonNegativeReals)
+            model.U_inv = pyo.Var(model.T, model.S, domain=pyo.Binary)
+            _bigm = float(inverter.get("dc_cap", 1e4))
+            for t in model.T:
+                for s in model.S:
+                    model.add_component(
+                        f"inv_excl_fwd_{t}_{s}",
+                        pyo.Constraint(
+                            expr=model.P_inv_dc[t, s] <= _bigm * model.U_inv[t, s]))
+                    model.add_component(
+                        f"inv_excl_rev_{t}_{s}",
+                        pyo.Constraint(
+                            expr=model.P_inv_rev[t, s] <= _bigm * (1.0 - model.U_inv[t, s])))
+    # Cambio 13.1: serie del inversor por (t, escenario): (P_dc, P_ac, recorte).
+    inv_series = {}
     for s_idx in s_ids:
         sc = scenarios[s_idx]
         factor_pv = sc["factor_pv"]
@@ -523,14 +637,35 @@ def _build_pyomo_model(
             elif predictions_pv_band:
                 pv_kw = _band_at(t_idx, sc.get("quantile") or "P10",
                                  band=predictions_pv_band) * factor_pv
+                if inverter is not None and inverter["bus_dc"]:
+                    pv_kw *= inverter["dc_share"]
             elif predictions_pv_kw:
                 pv_kw = (predictions_pv_kw[t_idx] if t_idx < len(predictions_pv_kw)
                          else 0.0) * factor_pv
+                if inverter is not None and inverter["bus_dc"]:
+                    pv_kw *= inverter["dc_share"]
             else:
+                _excl = set(inverter["ac_excluded"]) \
+                    if (inverter is not None and inverter["bus_dc"]) else set()
                 pv_kw = sum(sd["max_kw"] * sd["efficiency"] * irrad * factor_pv
-                            for sd in solar_devices)
+                            for sd in solar_devices if sd["id"] not in _excl)
             if t_idx == 0 and s_idx == s_ids[0]:
                 pv_first_kw = float(pv_kw)
+
+            # Cambio 13.1 — etapa del inversor en serie (bus_dc:false): la rama
+            # PV entrega DC y el inversor la pasa a AC (eta + tope P_ac_max).
+            # Sin eta NO convierte (pasa directo); el recorte por tope se
+            # acumula como no aprovechado (se reporta en el plan, no desaparece).
+            pv_dc = float(pv_kw)
+            pv_ac = pv_dc
+            inv_clip = 0.0
+            if inverter is not None and not inverter["bus_dc"]:
+                if inverter["eta"] is not None:
+                    pv_ac = inverter["eta"] * pv_dc
+                if inverter["max_kw"] is not None and pv_ac > inverter["max_kw"]:
+                    inv_clip = pv_ac - inverter["max_kw"]
+                    pv_ac = float(inverter["max_kw"])
+                inv_series[(t_idx, s_idx)] = (pv_dc, pv_ac, inv_clip)
 
             if not wind_devices:
                 wind_kw = 0.0
@@ -562,18 +697,56 @@ def _build_pyomo_model(
             ) if storage_list else 0.0
 
             grid_net = model.P_import[t, s_idx] - model.P_export[t, s_idx]
-            expr = (diesel_total + grid_net + pv_kw + wind_kw
-                    + storage_discharge + model.ENS[t, s_idx]
-                    - storage_charge - model.CURT[t, s_idx])
+            # Cambio 13.1: al balance AC entra la salida del inversor (pv_ac);
+            # sin inversor pv_ac == pv_kw (identico a antes, cero regresion).
+            # Cambio 13.2 (bus_dc): DOS balances. DC: PV DC + descarga ==
+            # carga + puerta; AC: diesel + red + viento + salida puerta ==
+            # carga. El inversor es el unico acople (C4). La bateria sale del
+            # AC y entra al DC; el PV ya viene en DC (pv_dc, con excluidos).
+            if inverter is not None and inverter["bus_dc"]:
+                _eta_c = inverter["eta"] if inverter["eta"] is not None else 1.0
+                _inv_ac = _eta_c * model.P_inv_dc[t, s_idx]
+                _rev = (model.P_inv_rev[t, s_idx]
+                        if inverter["bidirectional"] else 0.0)
+                model.add_component(
+                    f"balance_dc_{t}_{s_idx}",
+                    pyo.Constraint(expr=(pv_dc + storage_discharge + _rev
+                                         - storage_charge
+                                         - model.P_inv_dc[t, s_idx]
+                                         - model.CURT_DC[t, s_idx] == 0.0)),
+                )
+                if inverter["max_kw"] is not None:
+                    model.add_component(
+                        f"inv_cap_{t}_{s_idx}",
+                        pyo.Constraint(
+                            expr=_inv_ac <= float(inverter["max_kw"])),
+                    )
+                model.add_component(
+                    f"balance_{t}_{s_idx}",
+                    pyo.Constraint(expr=(diesel_total + grid_net + _inv_ac
+                                         + wind_kw + model.ENS[t, s_idx]
+                                         - _rev - model.CURT[t, s_idx]
+                                         == load_total)),
+                )
+                model.add_component(
+                    f"exp_solo_pv_{t}_{s_idx}",
+                    pyo.Constraint(
+                        expr=model.P_export[t, s_idx] <= _inv_ac + 1e-3),
+                )
+                inv_series[(t_idx, s_idx)] = (float(pv_dc), None, 0.0)
+            else:
+                expr = (diesel_total + grid_net + pv_ac + wind_kw
+                        + storage_discharge + model.ENS[t, s_idx]
+                        - storage_charge - model.CURT[t, s_idx])
 
-            model.add_component(
-                f"balance_{t}_{s_idx}",
-                pyo.Constraint(expr=expr == load_total),
-            )
-            model.add_component(
-                f"exp_solo_pv_{t}_{s_idx}",
-                pyo.Constraint(expr=model.P_export[t, s_idx] <= pv_kw + 1e-3),
-            )
+                model.add_component(
+                    f"balance_{t}_{s_idx}",
+                    pyo.Constraint(expr=expr == load_total),
+                )
+                model.add_component(
+                    f"exp_solo_pv_{t}_{s_idx}",
+                    pyo.Constraint(expr=model.P_export[t, s_idx] <= pv_ac + 1e-3),
+                )
 
     if storage_list:
         for bi, bmeta in enumerate(storage_vars):
@@ -667,6 +840,13 @@ def _build_pyomo_model(
                     model.nonant.add(model.P_charge[bi, t, s0] == model.P_charge[bi, t, s])
                     model.nonant.add(model.P_discharge[bi, t, s0] == model.P_discharge[bi, t, s])
                     model.nonant.add(model.Z[bi, t, s0] == model.Z[bi, t, s])
+            # Cambio 13.2: la puerta tambien es primera etapa (t=0, E4).
+            if inverter is not None and inverter["bus_dc"]:
+                for s in s_ids[1:]:
+                    model.nonant.add(model.P_inv_dc[t, s0] == model.P_inv_dc[t, s])
+                    if inverter["bidirectional"]:
+                        model.nonant.add(model.P_inv_rev[t, s0] == model.P_inv_rev[t, s])
+                        model.nonant.add(model.U_inv[t, s0] == model.U_inv[t, s])
 
     # Cambio 08.3 — cargo fijo: cost_fixed (COP/hora de conexion, criterio
     # actual) vs cost_fixed_month (COP/mes, prorrateo a hora: /720). Como no
@@ -763,6 +943,16 @@ def _build_pyomo_model(
         "predictions_solar": predictions_solar,
         "predictions_pv_kw": predictions_pv_kw,
         "predictions_pv_band": predictions_pv_band,
+        "inverter": inverter,
+        "inv_series": inv_series,
+        # Cambio 13.2: la puerta es variable (el extractor lee su valor).
+        "P_inv_dc": model.P_inv_dc if (
+            inverter is not None and inverter["bus_dc"]) else None,
+        "P_inv_rev": model.P_inv_rev if (
+            inverter is not None and inverter["bus_dc"]
+            and inverter["bidirectional"]) else None,
+        "CURT_DC": model.CURT_DC if (
+            inverter is not None and inverter["bus_dc"]) else None,
         "pv_balance_first_kw": pv_first_kw,
         "wind_devices": wind_devices,
         "predictions_wind_kw": predictions_wind_kw,
@@ -784,7 +974,7 @@ def _build_pyomo_model(
         devices, sources, storage_list, loads, grid_raw,
         diesel_devices, solar_devices, wind_devices, storage_vars,
         max_import, max_export, export_source, cost_fixed_applied,
-        export_tariff, ens_penalty, warnings)
+        export_tariff, ens_penalty, warnings, inverter=inverter)
 
     return model, variables
 
@@ -793,7 +983,8 @@ def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
                                diesel_devices, solar_devices, wind_devices,
                                storage_vars, max_import, max_export,
                                export_source, cost_fixed_applied,
-                               export_tariff, ens_penalty, warnings) -> list:
+                               export_tariff, ens_penalty, warnings,
+                               inverter=None) -> list:
     """Valida contra topology_schema.json y construye device_echo.
 
     Cubre TODOS los dispositivos del diagrama (devices); si el job no trae
@@ -834,6 +1025,17 @@ def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
         modeled[lid] = {"tipo": "load", "params_efectivos": {
             "max_kw": l.get("max_kw"), "min_kw": l.get("min_kw"),
             "fixed_kw": l.get("fixed_kw"), "load_source": l.get("load_source")}}
+    # Cambio 13: el inversor entra al eco como modelado con sus params
+    # efectivos (C6). Sin eta: modelado en paso directo + eta_origen que lo
+    # dice (prohibido inventar); el pre-flight lo marca en el lienzo.
+    if isinstance(inverter, dict):
+        modeled[inverter.get("id", "inv")] = {"tipo": "inverter",
+            "params_efectivos": {
+                "eta": inverter.get("eta"),
+                "eta_origen": inverter.get("eta_origen", "no declarada"),
+                "max_kw": inverter.get("max_kw"),
+                "bidirectional": inverter.get("bidirectional", False),
+                "bus_dc": inverter.get("bus_dc", False)}}
     cv = grid_raw.get("cost_variable", 60)
     modeled["grid"] = {"tipo": "grid", "params_efectivos": {
         "max_import_kw": max_import, "max_export_kw": max_export,
@@ -865,7 +1067,9 @@ def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
         return [{"device_id": k, "tipo": v["tipo"], "estado": "modelado",
                  "params_efectivos": v["params_efectivos"]}
                 for k, v in modeled.items()]
-    return build_device_echo(devices, modeled, warnings)
+    _excl = list((inverter or {}).get("ac_excluded", [])) \
+        if isinstance(inverter, dict) else []
+    return build_device_echo(devices, modeled, warnings, excluidos=_excl)
 
 
 def _extract_dispatch_plan(
@@ -1024,6 +1228,12 @@ def _extract_dispatch_plan(
                     pv_kw = pv_total * sd.get("weight", 0.0) / total_solar_kw
                 else:
                     pv_kw = sd["max_kw"] * sd["efficiency"] * irrad * factor_pv
+                # Cambio 13.2: el panel AC excluido del bus DC no muestra
+                # potencia (su aporte al modelo es 0: se ve en el eco error).
+                _excl = set((variables.get("inverter") or {}).get(
+                    "ac_excluded", []))
+                if sd["id"] in _excl:
+                    pv_kw = 0.0
                 plan.append({
                     "device_id": sd["id"],
                     "device_type": "solar",
@@ -1050,6 +1260,88 @@ def _extract_dispatch_plan(
                     "power_kw": round(wind_kw, 3) if wind_kw > 0.001 else 0.0,
                     "cost": 0.0,
                 })
+            # Cambio 13.1 — filas del inversor (base balance: cuantil del
+            # escenario, sin redondeo intermedio). P_ac por hora y escenario
+            # (C1) + recorte por tope como no aprovechado (C2, no desaparece).
+            inv_meta = variables.get("inverter")
+            inv_series = variables.get("inv_series", {}) or {}
+            if isinstance(inv_meta, dict) and not inv_meta.get("bus_dc"):
+                _serie = inv_series.get((t, s_idx), (0.0, 0.0, 0.0))
+                _pv_ac, _clip = float(_serie[1]), float(_serie[2])
+                plan.append({
+                    "device_id": inv_meta.get("id", "inv"),
+                    "device_type": "inverter",
+                    "hour": t + 1,
+                    "scenario": sc_name,
+                    "power_kw": round(_pv_ac, 3) if _pv_ac > 0.001 else 0.0,
+                    "cost": 0.0,
+                })
+                if _clip > 0.001:
+                    plan.append({
+                        "device_id": inv_meta.get("id", "inv"),
+                        "device_type": "curtailment",
+                        "hour": t + 1,
+                        "scenario": sc_name,
+                        "power_kw": round(_clip, 3),
+                        "cost": 0.0,
+                    })
+            elif isinstance(inv_meta, dict) and inv_meta.get("bus_dc"):
+                # Cambio 13.2 — filas de la puerta (valores optimizados, C4
+                # audita DC y AC por separado desde el plan + PV de inputs).
+                _Pdc = variables.get("P_inv_dc")
+                _Prev = variables.get("P_inv_rev")
+                try:
+                    _dc_in = float(pyo.value(_Pdc[t, s_idx])) if _Pdc is not None else 0.0
+                except (ValueError, KeyError, TypeError):
+                    _dc_in = 0.0
+                try:
+                    _rev = float(pyo.value(_Prev[t, s_idx])) if _Prev is not None else 0.0
+                except (ValueError, KeyError, TypeError):
+                    _rev = 0.0
+                _eta_c = inv_meta.get("eta")
+                _eta_c = float(_eta_c) if _eta_c is not None else 1.0
+                _ac_out = _eta_c * _dc_in
+                if inv_meta.get("max_kw") is not None:
+                    _ac_out = min(_ac_out, float(inv_meta["max_kw"]))
+                plan.append({
+                    "device_id": inv_meta.get("id", "inv"),
+                    "device_type": "inverter",
+                    "hour": t + 1,
+                    "scenario": sc_name,
+                    "power_kw": round(_ac_out, 3) if _ac_out > 0.001 else 0.0,
+                    "cost": 0.0,
+                })
+                plan.append({
+                    "device_id": inv_meta.get("id", "inv"),
+                    "device_type": "inverter_dc",
+                    "hour": t + 1,
+                    "scenario": sc_name,
+                    "power_kw": round(_dc_in, 3) if _dc_in > 0.001 else 0.0,
+                    "cost": 0.0,
+                })
+                if _rev > 0.001:
+                    plan.append({
+                        "device_id": inv_meta.get("id", "inv"),
+                        "device_type": "inverter_rev",
+                        "hour": t + 1,
+                        "scenario": sc_name,
+                        "power_kw": round(_rev, 3),
+                        "cost": 0.0,
+                    })
+                _Cdc = variables.get("CURT_DC")
+                try:
+                    _spill = float(pyo.value(_Cdc[t, s_idx])) if _Cdc is not None else 0.0
+                except (ValueError, KeyError, TypeError):
+                    _spill = 0.0
+                if _spill > 0.001:
+                    plan.append({
+                        "device_id": inv_meta.get("id", "inv"),
+                        "device_type": "curtailment",
+                        "hour": t + 1,
+                        "scenario": sc_name,
+                        "power_kw": round(_spill, 3),
+                        "cost": 0.0,
+                    })
             if t < len(predictions_load_total):
                 ld = predictions_load_total[t]
                 if ld > 0.001:

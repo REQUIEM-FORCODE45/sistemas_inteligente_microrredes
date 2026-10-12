@@ -100,6 +100,17 @@ const TOPOLOGY_MAPPERS = {
       degradation_cost_per_kwh: params.degradationCost != null ? params.degradationCost : 30.0,
     };
   },
+  // Cambio 13.1: el inversor va al job (converters). efficiency null/'' =
+  // eta no declarada -> el solver NO convierte (C3, prohibido inventar).
+  // bidirectional/busDc opt-in (default false = comportamiento AC actual).
+  [DEVICE_TYPE.INVERTER]: (_node, params) => ({
+    type: 'inverter',
+    eta: params.efficiency != null && params.efficiency !== ''
+      ? Number(params.efficiency) : null,
+    max_kw: (params.maxCapacity || 10000) / 1000,
+    bidirectional: params.bidirectional === true || params.bidirectional === 'true',
+    bus_dc: params.busDc === true || params.busDc === 'true',
+  }),
   [DEVICE_TYPE.LOAD]: (_node, params) => {
     // fuente de Carga: 'mat' (perfil modular Consumo.mat) o 'static' (fija).
     const fixedW = (params.consumption && params.consumption > 0)
@@ -117,6 +128,8 @@ function diagramToOptimization(nodes) {
   const sources = [];
   const storage = [];
   const loads = [];
+  // Cambio 13.1: convertidores (inversor) — grupo propio, no sources.
+  const converters = [];
   // Cambio 10.3: mismo criterio que el mapper de red (evita el §2.2).
   const gridDefault = { max_import_kw: 400, max_export_kw: 300, min_import_kw: -300, cost_fixed: 40, cost_variable: 60 };
   let grid = null;
@@ -142,10 +155,11 @@ function diagramToOptimization(nodes) {
       if (def?.solverCategory === SOLVER_CATEGORY.SOURCES) sources.push(entry);
       else if (def?.solverCategory === SOLVER_CATEGORY.STORAGE) storage.push(entry);
       else if (def?.solverCategory === SOLVER_CATEGORY.LOADS) loads.push(entry);
+      else if (def?.solverCategory === SOLVER_CATEGORY.CONVERSION) converters.push(entry);
     }
   }
 
-  return { sources, storage, loads, converters: [], grid: grid || gridDefault, devices };
+  return { sources, storage, loads, converters, grid: grid || gridDefault, devices };
 }
 
 export default function DiagramOptimizationPanel({ onClose }) {

@@ -65,6 +65,16 @@ MICROGRID = {
         "export_tariff": 0.0,
         "ens_penalty_cop_kwh": 5000.0,
     },
+    # Cambio 13: inversor declarado (etapa en serie sobre el PV, bus AC por
+    # defecto). Los experimentos lo incluyen: el PV entra al balance como
+    # P_ac = eta * P_dc. Sin este bloque, el comportamiento es el anterior.
+    "inverter": {
+        "id": "inv_1",
+        "eta": 0.97,
+        "max_kw": 50.0,
+        "bidirectional": False,
+        "bus_dc": False,
+    },
 }
 
 # Perfil ToU horario (hora 0..23) — documentado en la seccion de resultados.

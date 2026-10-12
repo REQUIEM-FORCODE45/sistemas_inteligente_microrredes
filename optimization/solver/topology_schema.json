@@ -1,5 +1,5 @@
 {
-  "version": "12.1",
+  "version": "13",
   "nota": "Fuente unica para validar en las dos capas: el solver valida contra este archivo y el frontend (PARAMS_SOLO_UI + test_mapper_coverage) verifica la cobertura. req=true = sin default utilizable.",
   "solar": {
     "params": {
@@ -105,6 +105,14 @@
     },
     "if_missing": {"cost_fixed_month": "se usa cost_fixed (cambio 08)"}
   },
-  "inverter": {"soportado": false, "motivo": "tipo sin modelo en el solver (ver cambio 13)"},
+  "inverter": {
+    "params": {
+      "eta": {"req": false, "default": null},
+      "max_kw": {"req": false, "default": null},
+      "bidirectional": {"req": false, "default": false},
+      "bus_dc": {"req": false, "default": false}
+    },
+    "if_missing": {"eta": "NO se convierte + eco eta_origen:no declarada + pre-flight (cambio 13, prohibido inventar)", "max_kw": "sin limite de conversion"}
+  },
   "sensor_iot": {"soportado": false, "motivo": "se enlaza por sensor_mappings, no entra al modelo electrico"}
 }

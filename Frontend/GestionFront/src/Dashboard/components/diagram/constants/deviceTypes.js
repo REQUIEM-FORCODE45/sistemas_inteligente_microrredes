@@ -106,6 +106,7 @@ export const SOLVER_CATEGORY = {
   STORAGE: 'storage',
   LOADS: 'loads',
   GRID: 'grid',
+  CONVERSION: 'conversion',
 };
 
 export const DEVICE_DEFINITIONS = {
@@ -231,9 +232,19 @@ export const DEVICE_DEFINITIONS = {
     bitrate: BITRATE.BIDIRECCIONAL,
     convertsFrom: CURRENT_TYPE.DC,
     convertsTo: CURRENT_TYPE.AC,
+    // Cambio 13.1: con modelo en el solver (P_ac = eta*P_dc, tope P_ac_max).
+    // efficiency null/'' = eta no declarada -> NO convierte (C3, prohibido
+    // inventar). bidirectional/busDc opt-in (default false = AC actual).
+    solverCategory: SOLVER_CATEGORY.CONVERSION,
+    solverType: 'inverter',
+    dispatchTypes: [
+      { type: 'inverter', color: '#3b82f6', label: 'Inversor' },
+    ],
     defaultParams: {
       maxCapacity: 10000,
       efficiency: 0.95,
+      bidirectional: false,
+      busDc: false,
     },
     dimension: { width: 200, height: 120 },
   },
@@ -396,8 +407,9 @@ export function flowWidthFor(kw) {
 export const PARAMS_SOLO_UI = {
   'grid.voltage': 'parámetro de placa, no entra al modelo',
   'battery.voltage': 'parámetro de placa, no entra al modelo',
-  'inverter.maxCapacity': 'tipo sin modelo en el solver (ver cambio 13)',
-  'inverter.efficiency': 'tipo sin modelo en el solver (ver cambio 13)',
+  // Cambio 13: inverter.maxCapacity/efficiency ELIMINADAS de esta lista —
+  // desde el 13.1 tienen camino al job por el mapper (antes: 'tipo sin modelo
+  // en el solver (ver cambio 13)'). Dejarlas seria declarar una mentira.
   'sensor_iot.metric': 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
   'sensor_iot.interval': 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
   'ac_bus.voltage': 'nodo decorativo (barra del unifilar), no entra al modelo',
@@ -405,8 +417,8 @@ export const PARAMS_SOLO_UI = {
 };
 
 // Cambio 12.2 — tipos dibujables sin modelo en el solver (pre-flight + eco).
+// Cambio 13: salio 'inverter' (ya modelado); queda solo el sensor.
 export const UNSUPPORTED_SOLVER_TYPES = {
-  inverter: 'tipo sin modelo en el solver (ver cambio 13)',
   sensor_iot: 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
 };
 

@@ -34,11 +34,14 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
   const echo = latestResult?.device_echo || [];
 
   const echoOf = (nodeId) => echo.find((e) => e.device_id === nodeId);
+  // Cambio 13: abierto = NO simulado ('ignorado'/'error'). Un 'aviso' (p. ej.
+  // inversor sin eta, modelado en paso directo) sigue mostrando sus kW.
+  const esAbierto = (it) => it && (it.estado === 'ignorado' || it.estado === 'error');
   const openEnd = (nodeId) => {
     const p = preflight?.[nodeId];
-    if (p && p.estado !== 'modelado') return p.motivo;
+    if (esAbierto(p)) return p.motivo;
     const e = echoOf(nodeId);
-    if (e && e.estado !== 'modelado') return e.motivo;
+    if (esAbierto(e)) return e.motivo;
     return null;
   };
   const openReason = openEnd(source) || openEnd(target);

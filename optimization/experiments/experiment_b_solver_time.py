@@ -59,6 +59,9 @@ JOB = {
     "loads": [{"id": "load_1", "type": "load", "max_kw": 1000, "min_kw": 0}],
     "grid": {"max_import_kw": 400, "max_export_kw": 300, "min_import_kw": -300,
              "cost_fixed": 40, "cost_variable": 80},
+    # Cambio 13: el ExpB mide el MILP de produccion CON inversor declarado.
+    "converters": [{"id": "inv_1", "type": "inverter", "eta": 0.97,
+                    "max_kw": 50.0, "bidirectional": False, "bus_dc": False}],
     "scenarios": None,
     "solver": "gurobi",
 }

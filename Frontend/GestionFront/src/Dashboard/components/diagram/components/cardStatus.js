@@ -40,6 +40,11 @@ export function useCardStatus(nodeId, deviceType) {
       if (pw('battery_charge') > 0.01) return { text: '▲ cargando', color: '#3b82f6' };
       return null;
     }
+    // Cambio 13: el inversor ya sale en el plan (device_type 'inverter').
+    case 'inverter': {
+      const p = pw('inverter');
+      return p > 0.01 ? { text: '▲ convirtiendo', color: '#3b82f6' } : null;
+    }
     default:
       return null;
   }

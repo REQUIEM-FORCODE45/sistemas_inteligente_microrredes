@@ -24,8 +24,10 @@ def test_schema_tipos_reconocidos():
 
 
 def test_schema_inverter_sensor_declarados():
+    # Cambio 13: el inversor YA tiene modelo (params + if_missing, sin
+    # soportado:false); el sensor sigue fuera del modelo electrico.
     schema = load_topology_schema()
-    assert schema["inverter"]["soportado"] is False
-    assert schema["inverter"]["motivo"]
+    assert "params" in schema["inverter"]
+    assert schema["inverter"]["params"]["eta"]["default"] is None
     assert schema["sensor_iot"]["soportado"] is False
     assert schema["sensor_iot"]["motivo"]

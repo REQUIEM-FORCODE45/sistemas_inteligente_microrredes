@@ -11,7 +11,10 @@ export default function DeviceStatusBadge({ nodeId }) {
     ? echo
     : (preflight && preflight.estado !== 'modelado' ? preflight : null);
   if (!item) return null;
+  // Cambio 13: 'aviso' (p. ej. inversor sin eta: modelado en paso directo,
+  // no ignorado) lleva su propio texto; no se pinta como 'no simulable'.
   const bad = item.estado === 'error';
+  const label = bad ? 'error' : item.estado === 'aviso' ? 'sin η' : 'no simulable';
   return (
     <div
       title={item.motivo || item.estado}
@@ -21,7 +24,7 @@ export default function DeviceStatusBadge({ nodeId }) {
       }`}
     >
       <span>{bad ? '✕' : '⚠'}</span>
-      <span>{item.estado === 'error' ? 'error' : 'no simulable'}</span>
+      <span>{label}</span>
     </div>
   );
 }
