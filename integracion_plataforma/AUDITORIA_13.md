@@ -71,8 +71,13 @@ equipo del sitio**. Dos consecuencias:
 2. **Decisión del autor**: si el inversor real del sitio tiene η distinto (0.95/0.98, o curva), el
    `MICROGRID` debe llevar **ese** valor.
 
-**Acción**: `MICROGRID["inverter"]["eta"]` con un campo `fuente`/`nota` que diga de dónde sale, y
-decisión del autor sobre el valor final.
+**DECISIÓN DEL AUTOR (2026-10-12)**: se mantiene **`η = 0.97`**, declarado como **referencia típica
+de inversor comercial**, con el pendiente del **dato de placa** explícito en la config. La acción de
+trazabilidad (campo de origen/nota) se mantiene: el valor se queda, pero deja de ser un número sin
+fuente.
+
+**Acción**: `MICROGRID["inverter"]["eta"]` con un campo `fuente`/`nota` que diga de dónde sale (valor
+de referencia típico, pendiente del dato de placa).
 
 ### 3.2 🟠 Los resultados publicados de **ExpA/ExpB quedan superados** (afecta al capítulo)
 
@@ -105,6 +110,22 @@ Los badges se apiñan sobre codos y cruces de líneas, y el bus de 880 px queda 
 que sube a `load_1` (la línea parece entrar en la caja del bus). Es **layout del diagrama del autor**
 (posiciones de las tarjetas), no un fallo de la implementación. Se anota para cuando se ordene el
 diagrama definitivo del capítulo.
+
+### 3.5 🟠 `AGENTS.md` quedó contradiciendo el cambio 13 — y ese archivo lo leen los agentes
+
+Verificado: **`AGENTS.md` no se tocó** en `943bf4b`, y contiene dos afirmaciones que ahora son **falsas**:
+
+| Línea | Dice | Realidad tras el cambio 13 |
+|---|---|---|
+| `AGENTS.md:192` | *"El bloque **Inversor es solo visual** (no tiene mapper, no entra al solver)"* | **Falso**: tiene mapper, entra al solver, convierte con `η` y propaga la banda |
+| `AGENTS.md:153` | *"**Nodes (7)**: SolarPanel, DieselGenerator, Grid, Inverter, Battery, Load, Sensor"* | Desactualizado: falta la **Barra AC** (`ac_bus`, cambio 12); el conteo ya no es 7 |
+
+Por qué importa más de lo que parece: `AGENTS.md` es **la referencia que consume cualquier agente**
+que trabaje en este repositorio. Un archivo que dice que el inversor "es solo visual" puede hacer que
+el **próximo agente revierta** el trabajo de este cambio creyendo que corrige un error — el mismo fallo
+de confianza que el cambio 12 combate en la UI, pero en la documentación.
+**Acción**: actualizar esas dos líneas (y la sección de tipos de dispositivo si procede) al estado real
+tras los cambios 12 y 13.
 
 ---
 
