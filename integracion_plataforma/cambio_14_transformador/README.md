@@ -122,3 +122,16 @@ Sin artefactos de datos nuevos (spec de arquitectura). Ver `reference/README.md`
 > anteriores no cambian**. Confirmados: `bus_dc: false` · `switch_mode: "operador"` ·
 > **frontera AC-OPF aceptada** (tensión/impedancia no se simulan) · vista dual `Esquema`/`Editor` ·
 > `η` del inversor **declarable** (`null` si no se declara, sin inventar). **Nada queda bloqueado.**
+
+---
+
+## 8. Rama del trafo — DECISIÓN REGISTRADA (2026-10-12)
+
+La spec original **no declaraba** a qué rama aplica el trafo (y el payload del solver no trae aristas,
+solo grupos). El implementador eligió la **RAMA DE RED** (subestación de conexión), justificándolo:
+§1 cita la red como patrón del trafo (*"elemento de paso con coste/límite"*) y C2 (*"forzar más
+demanda"*) solo cuadra ahí. Se dejó **aislado y reversible** (bloque de parse + `grid_net` + cotas +
+filas) para poder moverlo o añadir un parámetro `branch` si el autor lo pide.
+
+**Contrato**: el trafo se modela en la **rama de red**. Cualquier otro emplazamiento (PV, batería,
+carga) requiere decisión explícita del autor.

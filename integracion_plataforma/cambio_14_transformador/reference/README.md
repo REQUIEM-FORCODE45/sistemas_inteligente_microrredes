@@ -12,13 +12,13 @@ Por eso `reference/` no lleva `datos/` ni `scripts/`.
 
 | archivo | bytes | sha256 |
 |---|---|---|
-| `../README.md` | 6393 | `0bcd8d6035435b9cf5ccd8a4e66dfe5496fdb84d5b198f8547dbabfb7fffbb5e` |
+| `../README.md` | 7099 | `c28538d83553167a8f33145549ad55fabd55911997d9cd4b9da9ed882410bc18` |
 
 ## Evidencia visual versionada (render real, no mockup)
 
 | archivo | bytes | sha256 |
 |---|---|---|
-| `figuras/cambio_14_unifilar.png` | 160321 | `2c79ebd9bb07c9e9ddcf5a0510f0f50ce277088f` |
+| `figuras/cambio_14_unifilar.png` | 160321 | `38571844ca44ca63d612fa77bfaa7d92f0f2e010093dea45d54f75818e86fd18` |
 
 - `figuras/cambio_14_unifilar.png` — captura 1920×1080 del lienzo con el 14
   aplicado (8 nodos, trafo con placa declarada en la rama de red, eco

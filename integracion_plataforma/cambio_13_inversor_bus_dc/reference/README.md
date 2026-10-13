@@ -13,13 +13,13 @@ Por eso `reference/` no lleva `datos/` ni `scripts/`.
 
 | archivo | bytes | sha256 |
 |---|---|---|
-| `../README.md` | 7433 | `3cb70f4a225931f183c1c0c945487e41c7d6241586d5f6ed20fd7bcd3960d0d4` |
+| `../README.md` | 9164 | `c00dcde28d2c89dcb4f9d7f0cfe220628e311d5b044b262880c67af5f37c33de` |
 
 ## Evidencia visual versionada (render real, no mockup)
 
 | archivo | bytes | sha256 |
 |---|---|---|
-| `figuras/cambio_13_unifilar.png` | 145992 | `c762b38fcceb691f609901d1a879335318e5f88e` |
+| `figuras/cambio_13_unifilar.png` | 145992 | `59e9341d4e9096cb3446bffdfcdf2b76c8d7b42324b7391108a1db432ac5e4b2` |
 
 - `figuras/cambio_13_unifilar.png` — captura 1920×1080 del lienzo con el 13
   aplicado (7 nodos, inversor con η=0.97 declarada, eco `modelado`). Lo que se

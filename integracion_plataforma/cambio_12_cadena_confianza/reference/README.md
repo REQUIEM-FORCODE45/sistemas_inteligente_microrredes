@@ -28,7 +28,7 @@ cita: el implementador **copia** de aquí en vez de inventar iconografía.
 | `figuras/unifilar_variante_b.svg` | 11770 | `4ac9c7c1a41a76b9f983c1f8148c32e58129098ff98d5ba2e902bf9b5eb9139c` |
 | `figuras/simbolos.svg` | 7599 | `31b50aa306de47dfe752d99350dfcc795ba16345b28c6e17aa2993e1a25eeac8` |
 | `figuras/unifilar_variantes.html` | 20681 | `b3364c9219b1214014494999dec1b2d77083b0442bf1a96c14ed1de002eb14db` |
-| `figuras/cambio_12_4_unifilar.png` | 153302 | `42d0a1a48e3205e0179007cae181e774cf375586` |
+| `figuras/cambio_12_4_unifilar.png` | 153302 | `a3f6b2a1f2187fd62ab7c92494f80e5ccb194d392de71ffeb36e762521700906` |
 
 > Los sha256 son del **blob versionado (LF)**. En un checkout Windows con `core.autocrlf=true` el
 > archivo en disco puede diferir por CRLF: verificar con `git show HEAD:<path> | sha256sum`,
