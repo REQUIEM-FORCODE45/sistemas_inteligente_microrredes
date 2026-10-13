@@ -5,6 +5,7 @@ import DieselGeneratorNode from './nodes/DieselGeneratorNode';
 import WindTurbineNode from './nodes/WindTurbineNode';
 import GridNode from './nodes/GridNode';
 import InverterNode from './nodes/InverterNode';
+import TransformerNode from './nodes/TransformerNode';
 import BatteryNode from './nodes/BatteryNode';
 import LoadNode from './nodes/LoadNode';
 import SensorNode from './nodes/SensorNode';
@@ -18,6 +19,7 @@ export const nodeTypes = {
   [DEVICE_TYPE.WIND_TURBINE]: WindTurbineNode,
   [DEVICE_TYPE.GRID]: GridNode,
   [DEVICE_TYPE.INVERTER]: InverterNode,
+  [DEVICE_TYPE.TRANSFORMER]: TransformerNode,
   [DEVICE_TYPE.BATTERY]: BatteryNode,
   [DEVICE_TYPE.LOAD]: LoadNode,
   [DEVICE_TYPE.SENSOR]: SensorNode,

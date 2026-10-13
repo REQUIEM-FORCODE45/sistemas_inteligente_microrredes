@@ -45,6 +45,11 @@ export function useCardStatus(nodeId, deviceType) {
       const p = pw('inverter');
       return p > 0.01 ? { text: '▲ convirtiendo', color: '#3b82f6' } : null;
     }
+    // Cambio 14: el trafo sale en el plan (device_type 'transformer').
+    case 'transformer': {
+      const p = pw('transformer');
+      return p > 0.01 ? { text: '▲ transformando', color: '#0ea5e9' } : null;
+    }
     default:
       return null;
   }

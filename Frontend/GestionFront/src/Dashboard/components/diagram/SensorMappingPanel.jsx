@@ -35,8 +35,11 @@ export default function SensorMappingPanel() {
 
   // Cambio 12.4: la barra AC (decorativa, fuera del modelo) no se mapea —
   // ofrecer el mapeo y filtrarlo en silencio es el patrón que el cambio 12 combate.
+  // Cambio 14: el trafo tampoco (sus params son de placa, no de sensor).
   const mappableNodes = nodes.filter(
-    (n) => n.data?.deviceType !== DEVICE_TYPE.SENSOR && n.type !== DEVICE_TYPE.AC_BUS,
+    (n) => n.data?.deviceType !== DEVICE_TYPE.SENSOR
+      && n.type !== DEVICE_TYPE.AC_BUS
+      && n.type !== DEVICE_TYPE.TRANSFORMER,
   );
 
   return (

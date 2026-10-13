@@ -9,6 +9,7 @@ import {
   Fuel,
   Wind,
   Minus,
+  PlugZap,
 } from 'lucide-react';
 
 export const CURRENT_TYPE = {
@@ -32,6 +33,7 @@ export const DEVICE_TYPE = {
   WIND_TURBINE: 'wind_turbine',
   GRID: 'grid',
   INVERTER: 'inverter',
+  TRANSFORMER: 'transformer',
   BATTERY: 'battery',
   LOAD: 'load',
   SENSOR: 'sensor_iot',
@@ -61,7 +63,7 @@ export const CATEGORY_META = {
     bgClass: 'bg-blue-50 dark:bg-blue-950/30',
     borderClass: 'border-blue-200 dark:border-blue-800',
     textClass: 'text-blue-700 dark:text-blue-300',
-    types: [DEVICE_TYPE.INVERTER],
+    types: [DEVICE_TYPE.INVERTER, DEVICE_TYPE.TRANSFORMER],
   },
   [DEVICE_CATEGORIES.STORAGE]: {
     label: 'Almacenamiento',
@@ -251,6 +253,32 @@ export const DEVICE_DEFINITIONS = {
     },
     dimension: { width: 200, height: 120 },
   },
+  [DEVICE_TYPE.TRANSFORMER]: {
+    type: DEVICE_TYPE.TRANSFORMER,
+    category: DEVICE_CATEGORIES.CONVERSION,
+    label: 'Transformador',
+    icon: PlugZap,
+    currentType: CURRENT_TYPE.AC,
+    bitrate: BITRATE.BIDIRECCIONAL,
+    // Cambio 14: etapa en la RAMA DE RED (decision 2026-10-12). Perdidas y pf
+    // son DATOS DE PLACA: default null = no declarado (nunca un tipico).
+    // Regla unificada del 0: campo no > 0 = no declarado (mapper, preflight,
+    // tarjeta, eco, test). ratioLabel es solo rotulo (SOLO_UI).
+    solverCategory: SOLVER_CATEGORY.CONVERSION,
+    solverType: 'transformer',
+    dispatchTypes: [
+      { type: 'transformer', color: '#0ea5e9', label: 'Trafo' },
+      { type: 'transformer_loss', color: '#94a3b8', label: 'Trafo (pérdidas)' },
+    ],
+    defaultParams: {
+      capacityKva: null,
+      powerFactor: null,
+      lossesPct: null,
+      efficiency: null,
+      ratioLabel: '',
+    },
+    dimension: { width: 200, height: 132 },
+  },
   [DEVICE_TYPE.BATTERY]: {
     type: DEVICE_TYPE.BATTERY,
     category: DEVICE_CATEGORIES.STORAGE,
@@ -394,6 +422,7 @@ export const CATEGORY_ACCENT = {
   battery: 'var(--bat, #3b82f6)',
   load: 'var(--load, #8b5cf6)',
   inverter: 'var(--bat, #3b82f6)',
+  transformer: 'var(--trafo, #0ea5e9)',
   wind_turbine: 'var(--grid, #f59e0b)',
   sensor_iot: 'var(--off, #94a3b8)',
 };
@@ -415,6 +444,8 @@ export const PARAMS_SOLO_UI = {
   // en el solver (ver cambio 13)'). Dejarlas seria declarar una mentira.
   'sensor_iot.metric': 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
   'sensor_iot.interval': 'se enlaza por sensor_mappings, no entra al modelo eléctrico',
+  // Cambio 14: ratio_label es rotulo informativo (no se simula).
+  'transformer.ratioLabel': 'rótulo de nivel, no entra al modelo',
   'ac_bus.voltage': 'nodo decorativo (barra del unifilar), no entra al modelo',
   'ac_bus.frequency': 'nodo decorativo (barra del unifilar), no entra al modelo',
 };

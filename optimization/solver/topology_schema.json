@@ -1,5 +1,5 @@
 {
-  "version": "13",
+  "version": "14",
   "nota": "Fuente unica para validar en las dos capas: el solver valida contra este archivo y el frontend (PARAMS_SOLO_UI + test_mapper_coverage) verifica la cobertura. req=true = sin default utilizable.",
   "solar": {
     "params": {
@@ -113,6 +113,16 @@
       "bus_dc": {"req": false, "default": false}
     },
     "if_missing": {"eta": "NO se convierte + eco eta_origen:no declarada + pre-flight (cambio 13, prohibido inventar)", "max_kw": "sin limite de conversion"}
+  },
+  "transformer": {
+    "params": {
+      "s_max_kva": {"req": false, "default": null},
+      "power_factor": {"req": false, "default": null},
+      "losses_pct": {"req": false, "default": null},
+      "eta": {"req": false, "default": null},
+      "ratio_label": {"req": false, "default": null}
+    },
+    "if_missing": {"power_factor": "limite NO aplicado + eco + pre-flight (cambio 14, prohibido asumir pf tipico)", "losses_pct": "sin perdidas + eco + pre-flight (cambio 14, prohibido asumir perdidas tipicas)", "s_max_kva": "sin tope del trafo (solo el de la red)"}
   },
   "sensor_iot": {"soportado": false, "motivo": "se enlaza por sensor_mappings, no entra al modelo electrico"}
 }

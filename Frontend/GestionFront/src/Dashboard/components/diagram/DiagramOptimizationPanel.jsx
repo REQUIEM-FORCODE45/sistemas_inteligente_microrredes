@@ -114,6 +114,27 @@ const TOPOLOGY_MAPPERS = {
       bus_dc: params.busDc === true || params.busDc === 'true',
     };
   },
+  // Cambio 14: el trafo va al job (converters, rama de RED). Regla unificada
+  // del 0: campo no > 0 = no declarado (el panel guarda 0 al vaciar un
+  // number). pf/eta fuera de (0,1] tambien cuentan como no declarados.
+  [DEVICE_TYPE.TRANSFORMER]: (_node, params) => {
+    const _num = (v) => {
+      const f = Number(v);
+      return f > 0 ? f : null;
+    };
+    let pf = _num(params.powerFactor);
+    if (pf !== null && pf > 1) pf = null;
+    let eta = _num(params.efficiency);
+    if (eta !== null && eta > 1) eta = null;
+    return {
+      type: 'transformer',
+      s_max_kva: _num(params.capacityKva),
+      power_factor: pf,
+      losses_pct: _num(params.lossesPct),
+      eta: eta,
+      ratio_label: params.ratioLabel || null,
+    };
+  },
   [DEVICE_TYPE.LOAD]: (_node, params) => {
     // fuente de Carga: 'mat' (perfil modular Consumo.mat) o 'static' (fija).
     const fixedW = (params.consumption && params.consumption > 0)

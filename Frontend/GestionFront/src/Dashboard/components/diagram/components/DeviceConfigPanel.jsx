@@ -74,10 +74,40 @@ function InverterEffectiveLine({ params }) {
   );
 }
 
+// Cambio 14 (C4): misma linea para el trafo + NOTA DE FRONTERA visible en el
+// panel (no solo en codigo): el solver es despacho MILP de activa, no AC-OPF.
+// Regla del 0: campo no > 0 = no declarado (el panel guarda 0 al vaciar).
+function TrafoEffectiveLine({ params }) {
+  const smax = Number(params?.capacityKva);
+  const pf = Number(params?.powerFactor);
+  const lp = Number(params?.lossesPct);
+  const et = Number(params?.efficiency);
+  const limite = (smax > 0 && pf > 0 && pf <= 1)
+    ? `efectivo: tope ${(smax * pf).toFixed(1)} kW (S·pf, dato de placa)`
+    : 'efectivo: SIN tope (pf/capacidad no declarados)';
+  const perd = (lp > 0)
+    ? `efectivo: pérdidas ${lp.toFixed(1)} % (dato de placa)`
+    : (et > 0
+      ? `efectivo: pérdidas η ${(et * 100).toFixed(0)} % (dato de placa)`
+      : 'efectivo: SIN pérdidas (no declaradas)');
+  return (
+    <div className="space-y-1">
+      <div className="space-y-1 rounded-md border border-border bg-muted/30 px-2 py-1.5">
+        <p className="text-[11px] font-semibold text-foreground">{limite}</p>
+        <p className="text-[11px] font-semibold text-foreground">{perd}</p>
+      </div>
+      <p className="text-[10px] text-muted-foreground/80 border border-border/60 rounded-md px-2 py-1.5">
+        Alcance: modelo de despacho (pérdidas + capacidad). Tensión, impedancia
+        y caída NO se simulan (AC-OPF: fase futura separada).
+      </p>
+    </div>
+  );
+}
+
 // Cambio 10.5: claves opcionales (vacio = no declarado, NUNCA 0). Solo para
 // las claves de OPTIONAL_PARAMS; el resto conserva el comportamiento actual.
 const OPTIONAL_PARAMS = ['rampKwPerH', 'startCostCop', 'stopCostCop', 'fuelCost'];
-const OPTIONAL_NUMERIC = ['rampKwPerH', 'startCostCop', 'stopCostCop', 'fuelCost', 'maxExportKw', 'touValley', 'touMedia', 'touPeak'];
+const OPTIONAL_NUMERIC = ['rampKwPerH', 'startCostCop', 'stopCostCop', 'fuelCost', 'maxExportKw', 'touValley', 'touMedia', 'touPeak', 'capacityKva', 'powerFactor', 'lossesPct'];
 
 function ParamField({ label, value, onChange, type = 'text', step = 'any', paramKey = null }) {
   const optional = paramKey != null && OPTIONAL_PARAMS.includes(paramKey);
@@ -201,6 +231,11 @@ export default function DeviceConfigPanel({ onClose }) {
     // Cambio 13: flags del inversor (opt-in, default false = AC actual).
     bidirectional: 'Bidireccional AC→DC (solo con bus DC)',
     busDc: 'Puerta de bus DC (paneles/batería en DC)',
+    // Cambio 14: datos de placa del trafo (null = no declarado, nunca tipico).
+    capacityKva: 'Capacidad (kVA) — dato de placa',
+    powerFactor: 'Factor de potencia (0-1) — dato de placa',
+    lossesPct: 'Pérdidas (%) — dato de placa',
+    ratioLabel: 'Nivel (rótulo, p. ej. 13.2/0.22 kV)',
   };
 
   return (
@@ -363,6 +398,9 @@ export default function DeviceConfigPanel({ onClose }) {
           )}
           {selectedNode?.data?.deviceType === 'inverter' && (
             <InverterEffectiveLine params={params} />
+          )}
+          {selectedNode?.data?.deviceType === 'transformer' && (
+            <TrafoEffectiveLine params={params} />
           )}
 
           <button

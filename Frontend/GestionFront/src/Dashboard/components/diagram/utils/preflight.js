@@ -37,6 +37,23 @@ export function preflightNodes(nodes, mappers) {
           motivo: 'eta no declarada: pasa directo sin convertir (P_ac = P_dc)' });
       }
     }
+    // Cambio 14 (C3): trafo con datos sin declarar — AVISO (modelado igual,
+    // las ramas siguen con sus kW), un motivo por cada ausencia.
+    if (def?.solverType === 'transformer') {
+      const p = node.data?.params || {};
+      const faltan = [];
+      const _pf = Number(p.powerFactor);
+      if (!(Number(p.capacityKva) > 0) || !(_pf > 0 && _pf <= 1)) {
+        faltan.push('sin límite (pf/capacidad no declarados)');
+      }
+      if (!(Number(p.lossesPct) > 0) && !(Number(p.efficiency) > 0)) {
+        faltan.push('sin pérdidas (no declaradas)');
+      }
+      if (faltan.length > 0) {
+        out.push({ id: node.id, estado: 'aviso',
+          motivo: `trafo incompleto: ${faltan.join(' + ')}` });
+      }
+    }
     // Cambio 13.2 (C4): panel AC con bus DC declarado -> error atribuido.
     if (hayBusDc && node.type === DEVICE_TYPE.SOLAR_PANEL_AC) {
       out.push({ id: node.id, estado: 'error',

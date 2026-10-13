@@ -427,6 +427,66 @@ def _build_pyomo_model(
                                for b in (storage_list or []))
             inverter["dc_cap"] = max(_dc_from_ac, _dc_from_pv, 1.0) \
                 + _dc_from_bat
+    # Cambio 14 — transformador en la RAMA DE RED (decision 2026-10-12, ver
+    # VERIFICACION: la spec cita la red como patron y el C2 cuadra ahi; camino
+    # aislado y reversible). Opt-in: sin trafo, todo identico. Etapa de paso
+    # sin variables nuevas (como el serie 13.1): perdidas como escala y tope
+    # como cota. Regla unificada del 0: campo no > 0 = no declarado.
+    trafo = None
+    _tr_list = [c for c in (converters or [])
+                if isinstance(c, dict) and c.get("type") == "transformer"]
+    if len(_tr_list) > 1:
+        warnings.append("transformadores: hay %d, solo se modela el primero (%s)"
+                        % (len(_tr_list), _tr_list[0].get("id", "trafo")))
+    if _tr_list:
+        _t0 = _tr_list[0]
+
+        def _pos(v):
+            try:
+                f = float(v) if v is not None and v != "" else None
+            except (TypeError, ValueError):
+                f = None
+            return f if (f is not None and f > 0) else None
+
+        _smax = _pos(_t0.get("s_max_kva", None))
+        _pf = _pos(_t0.get("power_factor", None))
+        if _pf is not None and _pf > 1.0:
+            warnings.append("%s: power_factor=%s fuera de (0,1], no declarado" %
+                            (_t0.get("id", "trafo"), _t0.get("power_factor")))
+            _pf = None
+        _lp = _pos(_t0.get("losses_pct", None))
+        _eta_t = _pos(_t0.get("eta", None))
+        if _eta_t is not None and _eta_t > 1.0:
+            warnings.append("%s: eta=%s fuera de (0,1], no declarada" %
+                            (_t0.get("id", "trafo"), _t0.get("eta")))
+            _eta_t = None
+        # losses_pct manda; efficiency es la alternativa (lo dice el eco).
+        _p = None
+        _p_origen = "no declaradas"
+        if _lp is not None:
+            _p = _lp / 100.0
+            _p_origen = "losses_pct"
+        elif _eta_t is not None:
+            _p = 1.0 - _eta_t
+            _p_origen = "efficiency"
+        _cap = (_smax * _pf) if (_smax is not None and _pf is not None) else None
+        trafo = {
+            "id": _t0.get("id", "trafo"),
+            "s_max_kva": _smax,
+            "pf": _pf,
+            "pf_origen": "declarado" if _pf is not None else "no declarado",
+            "p": _p,
+            "p_origen": _p_origen,
+            "cap_kw": _cap,
+            "limite_aplicado": _cap is not None,
+            "ratio_label": _t0.get("ratio_label"),
+        }
+        if _pf is None:
+            warnings.append("%s: power_factor no declarado, limite del trafo "
+                            "NO aplicado" % trafo["id"])
+        if _p is None:
+            warnings.append("%s: perdidas no declaradas, sin perdidas "
+                            "(energia_no_contabilizada)" % trafo["id"])
     num_diesel = len(diesel_devices)
     grid_max = grid_raw.get("max_import_kw", 400)
     grid_min = grid_raw.get("min_import_kw", -300)
@@ -548,9 +608,16 @@ def _build_pyomo_model(
 
     for t in model.T:
         for s in model.S:
-            model.P_import[t, s].setub(max_import if max_import >= 0 else 1e6)
-            if max_export > 0:
-                model.P_export[t, s].setub(max_export)
+            # Cambio 14: tope del trafo (P_in <= S_max*pf) como cota minima con
+            # la de la red. Sin trafo/limite: identico a antes.
+            _ub_imp = max_import if max_import >= 0 else 1e6
+            _ub_exp = max_export if max_export > 0 else 0.0
+            if trafo is not None and trafo["limite_aplicado"]:
+                _ub_imp = min(_ub_imp, trafo["cap_kw"])
+                _ub_exp = min(_ub_exp, trafo["cap_kw"])
+            model.P_import[t, s].setub(_ub_imp)
+            if _ub_exp > 0:
+                model.P_export[t, s].setub(_ub_exp)
             else:
                 model.P_export[t, s].setub(0.0)
                 model.P_export[t, s].fix(0.0)
@@ -700,6 +767,13 @@ def _build_pyomo_model(
             ) if storage_list else 0.0
 
             grid_net = model.P_import[t, s_idx] - model.P_export[t, s_idx]
+            # Cambio 14: con trafo y perdidas, al bus llega (1-p)*P_import; el
+            # costo sigue sobre P_import (lado medidor, sin cambios). La
+            # exportacion sale del bus (P_export) y la red recibe (1-p)*P_export.
+            # Sin perdidas declaradas: identico a antes (paso directo).
+            if trafo is not None and trafo["p"] is not None:
+                grid_net = ((1.0 - trafo["p"]) * model.P_import[t, s_idx]
+                            - model.P_export[t, s_idx])
             # Cambio 13.1: al balance AC entra la salida del inversor (pv_ac);
             # sin inversor pv_ac == pv_kw (identico a antes, cero regresion).
             # Cambio 13.2 (bus_dc): DOS balances. DC: PV DC + descarga ==
@@ -948,6 +1022,8 @@ def _build_pyomo_model(
         "predictions_pv_band": predictions_pv_band,
         "inverter": inverter,
         "inv_series": inv_series,
+        # Cambio 14: el trafo viaja al eco y al plan (etapa sin variables).
+        "trafo": trafo,
         # Cambio 13.2: la puerta es variable (el extractor lee su valor).
         "P_inv_dc": model.P_inv_dc if (
             inverter is not None and inverter["bus_dc"]) else None,
@@ -977,7 +1053,7 @@ def _build_pyomo_model(
         devices, sources, storage_list, loads, grid_raw,
         diesel_devices, solar_devices, wind_devices, storage_vars,
         max_import, max_export, export_source, cost_fixed_applied,
-        export_tariff, ens_penalty, warnings, inverter=inverter)
+        export_tariff, ens_penalty, warnings, inverter=inverter, trafo=trafo)
 
     return model, variables
 
@@ -987,7 +1063,7 @@ def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
                                storage_vars, max_import, max_export,
                                export_source, cost_fixed_applied,
                                export_tariff, ens_penalty, warnings,
-                               inverter=None) -> list:
+                               inverter=None, trafo=None) -> list:
     """Valida contra topology_schema.json y construye device_echo.
 
     Cubre TODOS los dispositivos del diagrama (devices); si el job no trae
@@ -1042,6 +1118,28 @@ def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
             _pe["eta_fuente"] = inverter.get("eta_fuente")
         modeled[inverter.get("id", "inv")] = {"tipo": "inverter",
             "params_efectivos": _pe}
+    # Cambio 14 (C4/C5): el trafo sale como modelado con sus efectivos y el
+    # alcance declarado (tension/impedancia NO simuladas). Ausencias: motivo
+    # por campo + energia_no_contabilizada (nunca se asume).
+    if isinstance(trafo, dict):
+        _pf_motivo = (None if trafo.get("pf") is not None
+                      else "power_factor no declarado: limite NO aplicado")
+        _p_motivo = (None if trafo.get("p") is not None
+                     else "perdidas no declaradas: sin perdidas")
+        _motivos = [m for m in (_pf_motivo, _p_motivo) if m]
+        modeled[trafo.get("id", "trafo")] = {"tipo": "transformer",
+            "params_efectivos": {
+                "s_max_kva": trafo.get("s_max_kva"),
+                "power_factor": trafo.get("pf"),
+                "pf_origen": trafo.get("pf_origen", "no declarado"),
+                "losses_p": trafo.get("p"),
+                "losses_origen": trafo.get("p_origen", "no declaradas"),
+                "limite_kw": trafo.get("cap_kw"),
+                "limite_aplicado": trafo.get("limite_aplicado", False),
+                "energia_no_contabilizada": bool(_motivos),
+                "motivos": _motivos,
+                "alcance": ("despacho (perdidas+capacidad); "
+                            "tension/impedancia NO simuladas (AC-OPF: fase futura)")}}
     cv = grid_raw.get("cost_variable", 60)
     modeled["grid"] = {"tipo": "grid", "params_efectivos": {
         "max_import_kw": max_import, "max_export_kw": max_export,
@@ -1135,6 +1233,33 @@ def _extract_dispatch_plan(
                     "power_kw": round(grid_val, 3),
                     "cost": 0.0,
                 })
+            # Cambio 14 (C1): filas del trafo. Paso = import+export (lado
+            # medidor); perdida declarada = p*(import+export), NO desaparece
+            # (fila propia atribuida, no CURT). Sin perdidas: solo paso.
+            _tr = variables.get("trafo")
+            if isinstance(_tr, dict):
+                _thru = imp + exp
+                if _thru > 0.001:
+                    plan.append({
+                        "device_id": _tr.get("id", "trafo"),
+                        "device_type": "transformer",
+                        "hour": t + 1,
+                        "scenario": sc_name,
+                        "power_kw": round(_thru, 3),
+                        "cost": 0.0,
+                    })
+                _pp = _tr.get("p")
+                if _pp is not None:
+                    _loss = float(_pp) * _thru
+                    if _loss > 0.001:
+                        plan.append({
+                            "device_id": _tr.get("id", "trafo"),
+                            "device_type": "transformer_loss",
+                            "hour": t + 1,
+                            "scenario": sc_name,
+                            "power_kw": round(_loss, 3),
+                            "cost": 0.0,
+                        })
             if "ENS" in variables:
                 try:
                     ens = float(pyo.value(variables["ENS"][t, s_idx]))
