@@ -182,3 +182,44 @@ una rama abierta"* es haber interiorizado el hallazgo del 12.4.
 - Las marcas de pre-flight de C3/C4 en el navegador (verificadas por código + lado solver en test;
   declarado por el implementador).
 - Efecto numérico del −3 % de PV sobre los resultados del capítulo: **hay que medirlo** (§3.2).
+
+---
+
+# 7. CIERRE DE LOS PUNTOS 1–4 (`96bf5b0`) — **CAMBIO 13 COMPLETO**
+
+| Punto | Resultado |
+|---|---|
+| **1 · fuente del `η`** | ✅ `MICROGRID["inverter"]["eta_fuente"]` con el texto de la decisión del autor. **Y mejor de lo pedido**: el campo **viaja en el job y sale en el eco** (`params_efectivos.eta_fuente`) |
+| **2 · ExpA/A2 + grid30** | ✅ fila **V7** en `PENDIENTES_MPC_ESTADO.md` §8 con el detalle completo (grid30 con/sin + contraste en isla) y la frase *"cifras publicadas = anteriores al inversor"* |
+| **3 · `0.97` en el nodo** | ✅ `defaultParams.efficiency` **0.95 → 0.97**, con comentario que apunta a la config como fuente canónica; **origen visible en el panel** reutilizando el patrón del valor efectivo del 12.4; campo **borrable** → `sin declarar — NO convierte`; diagramas guardados intactos (opt-in) |
+| **4 · `AGENTS.md`** | ✅ líneas 192 y 153 al estado real (12+13), con un párrafo que describe el inversor modelado y remite al `VERIFICACION` |
+
+**Verificado aquí**: el invariante de cobertura sigue **PASS 3/3** (corrido por mí).
+
+## 7.1 Dos cosas que este cierre hizo bien
+
+**a) Reutilizó el patrón en vez de inventar otro.** Para el origen del `η` usó la misma línea de
+"valor efectivo" del precio del combustible (`DieselEffectiveLine`, 12.4) → `InverterEffectiveLine`.
+Consistencia en la UI y una sola idea que el operador ya reconoce.
+
+**b) Cazó el pitfall del `0` por su cuenta.** Al vaciar un campo `number` el panel guarda **`0`**, no
+`''`. Con la condición anterior (`== null || === ''`) el `0` **no** marcaba aviso en el preflight,
+mientras el mapper sí pasaba `eta: 0` y el solver lo trataba como no declarada → **inconsistencia
+UI ↔ motor** (justo lo que el cambio 12 existe para eliminar). Ahora hay **una regla unificada**
+(`η ≯ 0 = no declarada`) en el mapper, el preflight (`aviso`), la tarjeta (`—`) y el test C3 (extendido
+con `eta: 0`). Es el pitfall *"vacío = no declarado, NUNCA 0"* del cambio 10, reaparecido en un campo
+nuevo y cazado otra vez.
+
+## 7.2 Nota sobre el costo de la sonda (no atribuir al inversor lo que es base)
+
+El V7 no se forzó porque *"1 día de grid30 no termina en <280 s (HiGHS)"* → 3 d × 2 ≥ ~30 min, en el
+límite fijado. **Matiz para planificar el bloque de validación**: ese costo es del **ExpA2 en general**
+(PatchTST + ERA5 + MILP horario por hora y escenario), no del inversor — el ExpB mostró que el inversor
+aporta ~+0.8 s por ciclo de 24 h. Es decir: cuando se aborde V7 hay que presupuestar **horas**, y el
+contraste "con/sin inversor" conviene hacerlo sobre **pocos días** para que quepa.
+
+## 7.3 Estado
+
+**CAMBIO 13 COMPLETO**: implementado, auditado y con los 4 puntos aplicados. Los dos temas que afectan a
+la tesis quedan **registrados donde se van a leer** (V7 en pendientes) y **con su fuente declarada**
+(el `η`). Siguiente en la cola: **cambio 14, transformador**.
