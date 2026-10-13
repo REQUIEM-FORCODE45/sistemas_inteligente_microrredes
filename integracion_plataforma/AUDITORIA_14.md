@@ -152,4 +152,37 @@ Regla operativa asociada: **el SHA del `README.md` se recalcula en el mismo comm
 
 | # | Estado |
 |---|---|
-| **14** | ✅ **Implementado y auditado** (`3c3f511`): pérdidas en el balance con **fila atribuida**, tope con **ENS declarado** (válvula física), regla del `0` cubierta, **frontera visible en eco + tarjeta + panel**, símbolo copiado, `MICROGRID` intacto, invariante **3/3** corrido por la auditoría · 🟠 **defecto**: el badge de salida del trafo muestra la **entrada** (`Math.max` de las filas del dispositivo) → arreglar en el **cambio 16** (o ignorar filas de pérdidas ya) · 🟡 test del mapper exige `eta:` literal · 🟡 commit `a39698b "fix"` sin trazabilidad |
+| **14** | ✅ **Implementado y auditado** (`3c3f511`): pérdidas en el balance con **fila atribuida**, tope con **ENS declarado** (válvula física), regla del `0` cubierta, **frontera visible en eco + tarjeta + panel**, símbolo copiado, `MICROGRID` intacto, invariante **3/3** corrido por la auditoría · 🟠 el badge de salida del trafo muestra la **entrada** (`Math.max` de las filas del dispositivo) → **declarado** y con criterio **C8 en la spec del 16** · ✅ **cierre** (`38a4167`): `test_manifiestos_reference.py` añadido — verificado por la auditoría (**PASS** + **prueba de fuego**) · 🟡 test del mapper exige `eta:` literal · 🟡 commit `a39698b "fix"` sin trazabilidad |
+
+---
+
+# 7. CIERRE DEL 14 (`38a4167`) — **CAMBIO 14 COMPLETO**
+
+## 7.1 Lo pedido: hecho, y bien
+
+**a) El límite del badge, declarado con el porqué.** El `VERIFICACION` explica la causa (las dos filas
+del `device_id` + el `Math.max`), **acota el alcance** (*"la pérdida SÍ está en el modelo; solo el
+badge miente"*) y —lo importante— **razona por qué no se parchea a medias**: *"cambiar la fila a
+'entregado' duplicaría el error en la rama de entrada"*. Remite al **C8 del cambio 16**, ya en su spec.
+Es el criterio pedido: no tapar, no parchear mal, dejar el arreglo donde toca.
+
+**b) `test_manifiestos_reference.py` (76 líneas) — verificado por esta auditoría EJECUTANDO**:
+
+| Prueba | Resultado |
+|---|---|
+| El test corre | ✅ **PASS** (corrido aquí, no reportado por el implementador) |
+| **Prueba de fuego**: romper un hash a mano | ✅ **FALLA como debe**, con declarado y real en el mensaje (`…d93 != sha256 38571844…`) |
+| Protecciones anti-falso-verde | ✅ `assert leidos` (glob sin matches) y `assert total >= 10` (parser que deja de matchear) — mismo patrón que se le pidió al invariante del mapper |
+| Qué valida | ✅ hash **y** tamaño, **solo** en las tablas bajo el header exacto `\| archivo \| bytes \| sha256 \|` (no confunde otras tablas) |
+| Limitación documentada | ✅ tolera prefijos ≥16 hex por el paquete legacy del 05, y declara la nota del CRLF (aquí disco == blob) |
+
+**Es la red de seguridad que faltaba**: a partir de ahora un manifiesto que no cuadre **rompe la
+suite**, en vez de descubrirse en una auditoría tres incrementos después.
+
+## 7.2 Estado
+
+**CAMBIO 14 COMPLETO**: implementado, auditado, el hueco de la spec cerrado como contrato y su cierre
+aplicado. Los 22 manifiestos del `reference/` verifican OK, y ahora **un test lo comprueba solo**.
+
+Siguiente: **cambio 15 (switches de conectividad)** — el único donde `s=0` recupera su significado
+real, y donde el MPC deja de operar en una configuración **impuesta** para **elegirla**.
