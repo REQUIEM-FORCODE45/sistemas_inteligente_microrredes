@@ -96,6 +96,18 @@ Medianas: **cur 12.1 vs pre 11.6 (+4 %, dentro del ruido)**; muts constantes.
 **Sin degradación >10 % detectable.** Mismo nivel absoluto que la sesión del 13
 (~12, render por software headless).
 
+## Limitaciones conocidas (hallazgo de auditoría, no se parchea aquí)
+
+- **El badge de la rama de salida del trafo muestra el valor de paso, no el
+  entregado**: con pérdidas declaradas el trafo entra con `10.0 kW` y sale con
+  `10.0 kW` (debería marcar `9.8`). Causa: el plan emite dos filas del mismo
+  `device_id` (`transformer` = paso, `transformer_loss` = pérdida) y
+  `PowerEdge.powerFor()` toma `Math.max` de todas. La pérdida SÍ está en el
+  modelo (el balance la aplica) y se lee en panel/eco; solo el badge miente.
+  Cambiar la fila a "entregado" duplicaría el error en la rama de entrada, así
+  que no se toca: **se corrige en el cambio 16**, cuyo criterio C8 (ya en su
+  spec) exige que el badge refleje el valor que circula por SU rama.
+
 ## Captura
 
 `reference/figuras/cambio_14_unifilar.png` (1920×1080, 160321 bytes, sha256 en
