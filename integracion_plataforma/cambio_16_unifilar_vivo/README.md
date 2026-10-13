@@ -85,6 +85,15 @@ solo se sincroniza al soltar. Reglas **obligatorias** (del plan maestro §F6.2):
 - [ ] **C7 · Sin regresión funcional**: añadir, editar, doble clic → modal, guardar, reabrir: todo
   igual que antes.
 
+- [ ] **C8 · El badge refleja SU rama** (hallazgo del cambio 14): el badge de una rama debe mostrar **el
+  valor que circula por esa rama** (entrada vs salida del dispositivo), **no** el `Math.max` de todas
+  las filas del `device_id`. Caso de prueba obligatorio: el trafo con pérdidas declaradas → la rama de
+  **entrada** marca el paso (p. ej. `10.0`) y la de **salida** el entregado (`9.8`), comprobado a mano
+  en 3 horas. Hoy falla: el trafo entra con `10.0` y sale con `10.0` porque el plan emite dos filas
+  (`transformer` y `transformer_loss`) y `powerFor` toma el máximo. **Se generaliza**: lo mismo aplica
+  al inversor en bus DC, al vertido y, cuando llegue el cambio 15, a cada rama con seccionador.
+
+
 ---
 
 ## 6. Riesgos declarados
