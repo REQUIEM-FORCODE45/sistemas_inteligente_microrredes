@@ -127,3 +127,30 @@ Sin artefactos de datos nuevos (spec de arquitectura). Ver `reference/README.md`
 > anteriores no cambian**. Confirmados: `bus_dc: false` · `switch_mode: "operador"` ·
 > **frontera AC-OPF aceptada** (tensión/impedancia no se simulan) · vista dual `Esquema`/`Editor` ·
 > `η` del inversor **declarable** (`null` si no se declara, sin inventar). **Nada queda bloqueado.**
+
+## 10. Ronda de declaraciones post-auditoría (2026-10-12)
+
+> **Punto 1 — fuente del η = 0.97 (decisión del autor 2026-10-12)**: se mantiene
+> 0.97, pero declarado como **referencia típica de inversor comercial
+> (0.95–0.98); PENDIENTE del dato de placa del inversor del sitio**. Vive en
+> `optimization/experiments/config.py` (`MICROGRID["inverter"]["eta_fuente"]`),
+> viaja en el job (`converters`) y sale en el eco (`params_efectivos.eta_fuente`).
+> El valor NO cambia; lo que faltaba es que dejara de ser un número huérfano.
+
+> **Punto 2 — números anteriores al inversor**: al entrar el inversor en serie,
+> el balance recibe `P_ac = 0.97·P_dc` (PV efectivo −3 %). **Cualquier cifra de
+> ExpA/ExpB ya publicada (costo, ENS, CVaR, litros) es anterior al inversor y NO
+> es reproducible con el job nuevo.** No se re-corre ahora (el autor mantiene la
+> validación para el bloque final): queda registrado como V7 en
+> `docs/PENDIENTES_MPC_ESTADO.md` §8. Matiz físico: en ISLA el PV ya se vertía
+> (~74 %), así que el −3 % puede no cambiar el despacho; donde puede morder es
+> en GRID30/GRID10 (PV útil) — al hacer V7, la prueba es grid30 con/sin inversor
+> con delta de costo/ENS.
+
+> **Punto 3 — diagrama vs experimentos (decisión del autor 2026-10-12)**: el
+> **default del nodo es una REFERENCIA declarada, no el dato de placa**:
+> `defaultParams.efficiency = 0.97` con su origen visible en el panel (misma
+> línea de "valor efectivo" del precio de combustible, cambio 12.4). El campo
+> sigue **borrable** (vacío → η null → no convierte + eco + pre-flight, C3
+> intacto) y los diagramas guardados no cambian (opt-in). Con esto, lo que se ve
+> en el diagrama es lo que corren los experimentos.

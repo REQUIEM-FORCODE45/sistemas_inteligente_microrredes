@@ -54,6 +54,26 @@ function DieselEffectiveLine({ params, migrated }) {
   );
 }
 
+// Punto 3 (auditoria 13): misma linea de "valor efectivo" que el combustible
+// (12.4), para el eta del inversor. La fuente es la canonica de
+// optimization/experiments/config.py ["eta_fuente"]; aqui va copiada como
+// texto visible junto al campo (el panel no importa python). El campo sigue
+// borrable: vacio/0 => sin declarar => no convierte (C3).
+const ETA_FUENTE_TXT = 'referencia típica de inversor comercial (0.95–0.98); PENDIENTE del dato de placa del sitio';
+function InverterEffectiveLine({ params }) {
+  const eta = Number(params?.efficiency);
+  const declarado = eta > 0;
+  return (
+    <div className="space-y-1 rounded-md border border-border bg-muted/30 px-2 py-1.5">
+      <p className="text-[11px] font-semibold text-foreground">
+        {declarado
+          ? `efectivo: η ${(eta * 100).toFixed(0)} % — ${ETA_FUENTE_TXT}`
+          : 'efectivo: sin declarar — NO convierte (P_ac = P_dc)'}
+      </p>
+    </div>
+  );
+}
+
 // Cambio 10.5: claves opcionales (vacio = no declarado, NUNCA 0). Solo para
 // las claves de OPTIONAL_PARAMS; el resto conserva el comportamiento actual.
 const OPTIONAL_PARAMS = ['rampKwPerH', 'startCostCop', 'stopCostCop', 'fuelCost'];
@@ -340,6 +360,9 @@ export default function DeviceConfigPanel({ onClose }) {
               params={params}
               migrated={!!selectedNode?.data?.migrated12}
             />
+          )}
+          {selectedNode?.data?.deviceType === 'inverter' && (
+            <InverterEffectiveLine params={params} />
           )}
 
           <button

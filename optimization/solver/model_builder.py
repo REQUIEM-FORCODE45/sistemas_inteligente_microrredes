@@ -381,6 +381,9 @@ def _build_pyomo_model(
             "id": _c0.get("id", "inv"),
             "eta": _eta,
             "eta_origen": "declarada" if _eta is not None else "no declarada",
+            # Punto 1 (auditoria 13): la fuente viaja con el job (viene del
+            # mapper o de la config de experimentos) y sale en el eco.
+            "eta_fuente": _c0.get("eta_fuente"),
             "max_kw": _max_kw,
             "bidirectional": bool(_c0.get("bidirectional", False)),
             "bus_dc": bool(_c0.get("bus_dc", False)),
@@ -1029,13 +1032,16 @@ def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
     # efectivos (C6). Sin eta: modelado en paso directo + eta_origen que lo
     # dice (prohibido inventar); el pre-flight lo marca en el lienzo.
     if isinstance(inverter, dict):
-        modeled[inverter.get("id", "inv")] = {"tipo": "inverter",
-            "params_efectivos": {
+        _pe = {
                 "eta": inverter.get("eta"),
                 "eta_origen": inverter.get("eta_origen", "no declarada"),
                 "max_kw": inverter.get("max_kw"),
                 "bidirectional": inverter.get("bidirectional", False),
-                "bus_dc": inverter.get("bus_dc", False)}}
+                "bus_dc": inverter.get("bus_dc", False)}
+        if inverter.get("eta_fuente"):
+            _pe["eta_fuente"] = inverter.get("eta_fuente")
+        modeled[inverter.get("id", "inv")] = {"tipo": "inverter",
+            "params_efectivos": _pe}
     cv = grid_raw.get("cost_variable", 60)
     modeled["grid"] = {"tipo": "grid", "params_efectivos": {
         "max_import_kw": max_import, "max_export_kw": max_export,

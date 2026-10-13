@@ -100,17 +100,20 @@ const TOPOLOGY_MAPPERS = {
       degradation_cost_per_kwh: params.degradationCost != null ? params.degradationCost : 30.0,
     };
   },
-  // Cambio 13.1: el inversor va al job (converters). efficiency null/'' =
+  // Cambio 13.1: el inversor va al job (converters). efficiency vacia/0 =
   // eta no declarada -> el solver NO convierte (C3, prohibido inventar).
+  // (El panel guarda 0 al vaciar un number: Number(0) tampoco convierte.)
   // bidirectional/busDc opt-in (default false = comportamiento AC actual).
-  [DEVICE_TYPE.INVERTER]: (_node, params) => ({
-    type: 'inverter',
-    eta: params.efficiency != null && params.efficiency !== ''
-      ? Number(params.efficiency) : null,
-    max_kw: (params.maxCapacity || 10000) / 1000,
-    bidirectional: params.bidirectional === true || params.bidirectional === 'true',
-    bus_dc: params.busDc === true || params.busDc === 'true',
-  }),
+  [DEVICE_TYPE.INVERTER]: (_node, params) => {
+    const _eta = Number(params.efficiency);
+    return {
+      type: 'inverter',
+      eta: _eta > 0 ? _eta : null,
+      max_kw: (params.maxCapacity || 10000) / 1000,
+      bidirectional: params.bidirectional === true || params.bidirectional === 'true',
+      bus_dc: params.busDc === true || params.busDc === 'true',
+    };
+  },
   [DEVICE_TYPE.LOAD]: (_node, params) => {
     // fuente de Carga: 'mat' (perfil modular Consumo.mat) o 'static' (fija).
     const fixedW = (params.consumption && params.consumption > 0)

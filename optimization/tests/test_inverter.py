@@ -78,6 +78,13 @@ def test_c3_eta_ausente_no_convierte_y_lo_dice():
     # P_ac = P_dc (paso directo): igual al cuantil DC de cada escenario.
     for r in _inv_rows(out):
         assert abs(r["power_kw"] - VALOR_DC[r["scenario"]]) < 1e-6, r
+    # Punto 3: el panel guarda 0 al vaciar el number; 0 tampoco convierte.
+    out0 = build_and_solve(_job(
+        [{"id": "inv_1", "type": "inverter", "eta": 0}], band=BAND))
+    assert out0["status"] == "optimal"
+    e0 = next(x for x in out0["device_echo"] if x["device_id"] == "inv_1")
+    assert e0["params_efectivos"]["eta"] is None
+    assert e0["params_efectivos"]["eta_origen"] == "no declarada"
 
 
 def test_c6_eco_modelado_con_efectivos():

@@ -151,6 +151,7 @@ ENS                   = 3.45 kWh
 | V4 | **Significancia estadística** (~35 d, p<0.05) | Al final | ~30-40 h de solver; proyección ya documentada |
 | V5 | **Experimento D** — validación del bucle en vivo (deriva plan→realidad, estabilidad entre ciclos, pronóstico en vivo vs anclado) | Al final, sobre el programa ya desarrollado | Mide el programa terminado, no el intermedio |
 | V6 | Verificación de que el **S-MPC se separa del D-MPC** con la banda real | Al final (junto a V1/V2) | Es la pregunta que la banda corregida habilita |
+| V7 | Re-correr **ExpA/A2 con el job que ya incluye el inversor** (cambio 13: PV efectivo −3 %; cifras publicadas = **anteriores al inversor**, no reproducibles con el job nuevo). Al hacerla: **grid30 con/sin inversor** (mismas fechas, mismo solver; única diferencia el inversor) y reportar delta de costo/ENS/litros diésel (+ par en ISLA como contraste: ahí el PV ya se vertía ~74 %, el delta debería ser ~0) | Bloque final (con V1/V2) | Sonda 2026-10-12: 1 día grid30 no termina en <280 s (HiGHS) → 3 d × 2 ≥ ~30 min, en el límite; no se fuerza (decisión del autor: sin cómputo largo en este paso) |
 
 **Regla de esta decisión**: ningún cambio de **producción** queda bloqueado esperando a la
 validación. Los criterios de cierre de los cambios de producción se verifican con **pruebas

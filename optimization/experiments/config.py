@@ -71,6 +71,11 @@ MICROGRID = {
     "inverter": {
         "id": "inv_1",
         "eta": 0.97,
+        # Punto 1 (auditoria 13): el 0.97 NO es un numero huerfano. Origen
+        # declarado — decision del autor 2026-10-12: se mantiene 0.97 por ahora.
+        "eta_fuente": ("referencia tipica de inversor comercial (0.95-0.98); "
+                       "PENDIENTE del dato de placa del inversor del sitio - "
+                       "decision del autor 2026-10-12: se mantiene 0.97 por ahora"),
         "max_kw": 50.0,
         "bidirectional": False,
         "bus_dc": False,

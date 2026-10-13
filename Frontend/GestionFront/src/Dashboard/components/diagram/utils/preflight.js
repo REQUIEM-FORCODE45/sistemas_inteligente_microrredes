@@ -30,8 +30,9 @@ export function preflightNodes(nodes, mappers) {
     // directo (P_ac = P_dc, prohibido inventar). No es error ni ignorado: es
     // AVISO (el badge lo muestra como 'sin η', las ramas siguen con sus kW).
     if (def?.solverType === 'inverter') {
+      // Punto 3: el panel guarda 0 al vaciar el number; 0 tampoco convierte.
       const p = node.data?.params || {};
-      if (p.efficiency == null || p.efficiency === '') {
+      if (!(Number(p.efficiency) > 0)) {
         out.push({ id: node.id, estado: 'aviso',
           motivo: 'eta no declarada: pasa directo sin convertir (P_ac = P_dc)' });
       }

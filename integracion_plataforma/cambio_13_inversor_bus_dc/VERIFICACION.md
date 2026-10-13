@@ -156,9 +156,30 @@ sha256 en `reference/README.md`): inversor modelado, sin badge, con píldora y
 6. Filas nuevas del plan (`inverter`, `inverter_dc`, `inverter_rev`,
    `curtailment` atribuido): series nuevas en el chart solo con bus_dc (opt-in).
 
-## No medido (declarado)
+## Ronda post-auditoría (Puntos 1–4, 2026-10-12)
 
-- Marcas de preflight C3 (`sin η`) y C4-ui (panel AC `error`): verificadas en
+- **Punto 1 — fuente del η**: `MICROGRID["inverter"]["eta_fuente"]` con el texto
+  literal de la decisión del autor (referencia típica 0.95–0.98, pendiente placa).
+  Viaja en el job (`converters`, vía `strategies._build_job` sin cambios) y sale
+  en el eco (`params_efectivos.eta_fuente`, 2 líneas en `model_builder.py`).
+  Tests 17/17 (inverter 9 + mapper + schema + exp_b×3 con el JOB ya con inversor).
+- **Punto 2 — números anteriores al inversor + V7**: frase en el README del cambio
+  (§10) y fila **V7** en `docs/PENDIENTES_MPC_ESTADO.md` §8 (grid30 con/sin +
+  contraste en ISLA). Sonda de costo (decisión de no forzar): 1 día grid30 smpc
+  con el job nuevo **no termina en <280 s** (HiGHS, PatchTST+ERA5+MILP horario);
+  3 d × 2 escenarios ≥ ~30 min, en el límite del autor → **no se fuerza**.
+- **Punto 3 — 0.97 en el nodo**: `defaultParams.efficiency` 0.95 → **0.97** con
+  comentario de fuente (canónica: `eta_fuente` de la config); diagramas guardados
+  conservan su valor (opt-in). Origen **visible en el panel**:
+  `InverterEffectiveLine` (mismo patrón que `DieselEffectiveLine`, 12.4):
+  `efectivo: η 97 % — referencia típica…; PENDIENTE dato de placa`, o `sin
+  declarar — NO convierte` si se vacía. Regla unificada **η ≯ 0 = no declarada**
+  (mapper, preflight-aviso, tarjeta '—'; el panel guarda 0 al vaciar un number y
+  el solver ya trataba el 0 como no declarado): test C3 extendido con `eta: 0`
+  (eco `no declarada`). C3 intacto.
+- **Punto 4 — AGENTS.md**: líneas 192 y 153 al estado real 12+13 (ver diff).
+
+## No medido (declarado)- Marcas de preflight C3 (`sin η`) y C4-ui (panel AC `error`): verificadas en
   código + lado solver en test; la captura evidencia el camino modelado. El
   badge corregido del 12.4 (`sin modelo`) sigue para ramas con extremo ignorado.
 - ExpA completo de 14 días con inversor: no recorrido (cómputo); los tests de

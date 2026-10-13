@@ -233,8 +233,11 @@ export const DEVICE_DEFINITIONS = {
     convertsFrom: CURRENT_TYPE.DC,
     convertsTo: CURRENT_TYPE.AC,
     // Cambio 13.1: con modelo en el solver (P_ac = eta*P_dc, tope P_ac_max).
-    // efficiency null/'' = eta no declarada -> NO convierte (C3, prohibido
-    // inventar). bidirectional/busDc opt-in (default false = AC actual).
+    // Punto 3 (auditoria 13, decision del autor 2026-10-12): el default 0.97
+    // es REFERENCIA declarada (no dato de placa) — canonica en
+    // optimization/experiments/config.py ["eta_fuente"]; PENDIENTE el dato de
+    // placa del sitio. efficiency vacia/0 => eta no declarada => NO convierte
+    // (C3, prohibido inventar). bidirectional/busDc opt-in (default false).
     solverCategory: SOLVER_CATEGORY.CONVERSION,
     solverType: 'inverter',
     dispatchTypes: [
@@ -242,7 +245,7 @@ export const DEVICE_DEFINITIONS = {
     ],
     defaultParams: {
       maxCapacity: 10000,
-      efficiency: 0.95,
+      efficiency: 0.97,
       bidirectional: false,
       busDc: false,
     },

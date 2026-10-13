@@ -150,7 +150,7 @@ Five reducers in `store.js`: `auth`, `ui`, `devices`, `diagram`, `optimization`
 - Sync direction: Redux → local state (on add/delete/load); local → Redux (on `onNodeDragStop`)
 - `screenToFlowPosition({ x: event.clientX, y: event.clientY })` — pass viewport coords, NOT element-relative coords
 - `fetchDevices()` is dispatched on DiagramEditor mount so SensorNode gets real MQTT devices
-- **Nodes (7)**: SolarPanel, DieselGenerator, Grid, Inverter, Battery, Load, Sensor
+- **Nodes (9)**: SolarPanel, SolarPanelAC, DieselGenerator, Grid, Inverter, Battery, Load, Sensor, WindTurbine + AcBus (barra AC decorativa y anclada, cambio 12.4)
 - **Double-click on node** → opens dispatch chart modal via `dispatchModalNodeId` in diagramSlice
 - **Single click** → opens DeviceConfigPanel (params editing), unchanged
 
@@ -189,7 +189,7 @@ Currently `model_builder.py` hardcodes `"solar"`/`"solar_panel_ac"` and `"diesel
 
 The `dispatch_plan` should emit entries per device using the `id` from topology (already done for diesel, fixed for solar, added for wind). New passive/dispatchable types would work with zero solver code changes — just add to `DEVICE_DEFINITIONS` + `TOPOLOGY_MAPPERS` frontend-side.
 
-Notas viento: solo genera si hay sensor eólico enlazado (`predictions_wind_kw`/`band`; no hay perfil .mat de viento). `factor_wind` por escenario (Soleado 1.0 / Nublado 0.85 / Lluvia 0.7). El residuo N2 eólico usa features propias SIN `ghi` (`residual_features_wind`: wind_speed_100m/10m, presión, temp, temporales) — recalibrar el sensor eólico tras cambiar features (mismatch de columnas del GBR). El bloque **Inversor es solo visual** (no tiene mapper, no entra al solver). La batería enlazada a sensor bess usa el SOC predicho como `initial_soc`.
+Notas viento: solo genera si hay sensor eólico enlazado (`predictions_wind_kw`/`band`; no hay perfil .mat de viento). `factor_wind` por escenario (Soleado 1.0 / Nublado 0.85 / Lluvia 0.7). El residuo N2 eólico usa features propias SIN `ghi` (`residual_features_wind`: wind_speed_100m/10m, presión, temp, temporales) — recalibrar el sensor eólico tras cambiar features (mismatch de columnas del GBR). El bloque **Inversor ENTRA al solver desde el cambio 13** (mapper `inverter` → `converters`: etapa en serie `P_ac = eta·P_dc` con tope `P_ac_max`; `efficiency` default 0.97 = referencia comercial declarada con fuente visible en el panel, borrable → sin eta no convierte + pre-flight `sin η`; banda P10/P50/P90 del cambio 06 se propaga ×eta en AC; `bus_dc: true` opt-in con balances DC/AC y panel AC = error atribuido). Detalle y criterios medidos en `integracion_plataforma/cambio_13_inversor_bus_dc/VERIFICACION.md`. La batería enlazada a sensor bess usa el SOC predicho como `initial_soc`.
 
 ### Dashboard — optimization charts
 When `optimization.latestResult` exists, the Dashboard tab renders full-width:

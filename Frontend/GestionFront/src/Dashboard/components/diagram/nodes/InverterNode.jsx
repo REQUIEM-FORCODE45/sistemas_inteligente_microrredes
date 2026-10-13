@@ -53,7 +53,7 @@ function InverterNode({ id, data, selected }) {
         <div className="flex justify-between text-[11px]">
           <span className="text-muted-foreground">Eficiencia</span>
           <span className="font-medium tabular-nums text-foreground">
-            {params.efficiency != null && params.efficiency !== '' ? `${(Number(params.efficiency) * 100).toFixed(0)}%` : '—'}
+            {Number(params.efficiency) > 0 ? `${(Number(params.efficiency) * 100).toFixed(0)}%` : '—'}
           </span>
         </div>
       </div>
