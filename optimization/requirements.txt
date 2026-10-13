@@ -29,9 +29,8 @@ lightgbm>=4.0.0          # MOS (forecast provider): corrector sobre NWP ECMWF
 pymongo>=4.6.0
 paho-mqtt>=2.0.0
 
-# --- Forecast TimesFM 2.5 (Fase 2; optativo segun hardware/GPU) ---
+# --- Stack HF (baselines Chronos, import lazy; TimesFM retirado 2026-10-12) ---
 # torch se instala aparte segun CUDA (ver HANDOFF_TECNICO_2).
-# ATENCION: timesfm[all] requiere ~2GB de disco; NO instalar en CI.
 transformers>=4.46.0
 accelerate>=1.0.0
 

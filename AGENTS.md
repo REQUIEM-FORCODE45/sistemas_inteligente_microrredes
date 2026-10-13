@@ -64,16 +64,17 @@ Backend runs on `http://localhost:3000` (Express). Redis via `docker compose up 
 
 | Service | Command | Port | Purpose |
 |---------|---------|------|---------|
-| Prediction API | `uvicorn prediction.main:app --port 8000` (from optimization/) | 8000 | Clima→modelos→P10/P50/P90; .mat / TimesFM |
+| Prediction API | `uvicorn prediction.main:app --port 8000` (from optimization/) | 8000 | Clima→modelos→P10/P50/P90; .mat / PatchTST |
 | Solver daemon | `python3 -m solver.main` (from optimization/) | — | Listens Redis, optional |
 | Solver batch | auto-spawned by Node.js via `child_process.exec` | — | One-shot, always runs |
 
-**Forecast providers** (`optimization/prediction/forecaster.py`, env `FORECASTER=openmeteo|timesfm|patchtst`):
+**Forecast providers** (`optimization/prediction/forecaster.py`, env `FORECASTER=openmeteo|patchtst|mos`):
 - `openmeteo` (default): NWP Open-Meteo. Con `past_days=1` + corte `start_from_now` el índice **arranca en la hora actual** (Open-Meteo entrega desde 00:00 local).
-- `timesfm`: TimesFM 2.5 (`google/timesfm-2.5-200m-pytorch`, CPU). Requiere `pip install torch --index-url https://download.pytorch.org/whl/cpu` + `pip install timesfm`. Contexto = histórico observado (Open-Meteo past_days, NO ERA5 → latencia) hasta la hora actual; salida anclada a `now`.
 - `patchtst`: modelo multivariado de Pasto (72 h, P10/P50/P90) en `optimization/prediction/patchtst/` (`patchtst.py` + `targets.py` son fijos; viven junto a `patchtst_best.pt`, `target_specs.json`, `norm_stats.csv`, `pasto_narino.yaml`, `predict_72h.py`). Contexto = Open-Meteo `past_days` (NO ERA5 archive) hasta la hora actual, arranca en `now`; horizonte **máx 72 h** (RuntimeError si se piden más). Requiere `torch` (CPU 2.1M params, ~2 s por predicción).
+- `mos`: MOS (ECMWF+ML).
+- TimesFM 2.5 **retirado** (2026-10-12, no viable por ahora): pedir `FORECASTER=timesfm` cae a `openmeteo` con warning; el historial vive en git.
 - Los perfiles `.mat` (`matlab_predictor.py`) se entregan **desplazados cíclicamente a la hora actual** (`SITE_TZ`, default America/Bogota).
-- TimesFM/PatchTST en CPU: primera llamada lenta (carga del modelo); timeouts del backend Node (mpcScheduler/predictionPipeline/Front.js) ya son ≥120s.
+- PatchTST en CPU: primera llamada lenta (carga del modelo); timeouts del backend Node (mpcScheduler/predictionPipeline/Front.js) ya son ≥120s.
 
 ### Endpoints (Front.js — new)
 

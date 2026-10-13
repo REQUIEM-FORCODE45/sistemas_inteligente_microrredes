@@ -69,7 +69,7 @@ def predict_power(hours: int = Query(default=24, ge=1, le=168),
                   site_id: str = Query(default="pasto_narino")):
     """Nuevo (Fase 2): pronostico de POTENCIA solar CALIBRADO.
 
-    Cadena clima (NWP/TimesFM/PatchTST) -> PvPlant calibrado (N1+N2)
+    Cadena clima (NWP/PatchTST) -> PvPlant calibrado (N1+N2)
     -> banda P10/P50/P90 [kW]. No rompe /predict/solar (sigue siendo el
     predictor de serie pura).
     """
@@ -170,7 +170,7 @@ def predict_sensor_endpoint(sensor_id: str = Query(...),
 
     Self-healing: si el sensor no tiene modelo calibrado, lo CALIBRA primero
     (asi al ligar un sensor en el diagrama la grafica sale sin pasos extra).
-    provider: openmeteo|timesfm|patchtst|mos (None = env FORECASTER).
+    provider: openmeteo|patchtst|mos (None = env FORECASTER).
     """
     from optimization.calibration.service import (is_calibrated, fit_from_sensor)
     calibrated_now = False
@@ -195,7 +195,7 @@ def predict_weather(hours: int = Query(default=48, ge=1, le=168),
     """Pronostico de CLIMA horario (10 vars contratadas) + proveedor.
 
     Es lo que alimenta los modelos calibrados; visible en el Dashboard.
-    provider: openmeteo|timesfm|patchtst|mos (None = env FORECASTER).
+    provider: openmeteo|patchtst|mos (None = env FORECASTER).
     """
     import pandas as pd
     from optimization.config.loader import load_site as _ls

@@ -266,7 +266,6 @@ export const App = () => {
               <div className="flex flex-col gap-6">
                 <div>
                   <h1 className="text-2xl font-bold tracking-tight">{t('nav.devices')}</h1>
-                  <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
                 </div>
                 <AddDeviceForm />
                 <DeviceList />

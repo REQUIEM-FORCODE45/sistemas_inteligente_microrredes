@@ -2,7 +2,7 @@
 """Forecast de POTENCIA solar calibrado (Fase 2): clima -> P10/P50/P90.
 
 Cadena cerrada (pendiente de HO#3):
-   climate forecast (NWP Open-Meteo | TimesFM 2.5 | PatchTST)
+   climate forecast (NWP Open-Meteo | PatchTST)
         -> PvPlant CALIBRADO (N1 K+params + N2 GBR residuos)
         -> potencia [kW] con banda de cuantiles P10/P50/P90
 

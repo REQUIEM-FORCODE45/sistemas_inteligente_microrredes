@@ -3,7 +3,7 @@ import { useDevices } from "../../../../Hooks/useDevices";
 
 export const SensorSelector = ({ selectedIds, onToggle }) => {
     const { devices, loading } = useDevices();
-    // NOTA: el clima no es un sensor (entrada externa Open-Meteo/TimesFM);
+    // NOTA: el clima no es un sensor (entrada externa Open-Meteo/PatchTST);
     // pasto_weather se excluye del selector de monitoreo en tiempo real.
     const plantDevices = (devices || []).filter((d) => String(d._id) !== 'pasto_weather');
 

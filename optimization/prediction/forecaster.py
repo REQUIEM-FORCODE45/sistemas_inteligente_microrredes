@@ -3,17 +3,15 @@
 
 Contrato de salida: DataFrame horario con las 10 variables climaticas
 contratadas (config/sites/*.yaml). Cualquier proveedor (NWP Open-Meteo,
-TimesFM 2.5, PatchTST) debe devolver el MISMO contrato para que la fisica
+PatchTST) debe devolver el MISMO contrato para que la fisica
 (PvPlant) y la calibracion (Fase 4) sean agnosticas al origin ML/NWP.
 
 Jerarquia actual:
   - OpenMeteoClimateForecaster  : operativo (NWP, sin GPU). El de produccion.
-  - TimesFMClimateForecaster    : TimesFM 2.5 (cargado lazy; requiere
-                                  'timesfm' + torch). Se intenta primero si
-                                  TIMESFM_MODEL_PATH esta seteado.
-  - PatchTSTClimateForecaster   : stub con la misma interfaz (desarrollo).
+  - PatchTSTClimateForecaster   : modelo multivariado 72h (Pasto, Narino).
 
-Seleccion via factory: FORECASTER=openmeteo|timesfm|patchtst (default openmeteo).
+Seleccion via factory: FORECASTER=openmeteo|patchtst|mos (default openmeteo).
+
 """
 from __future__ import annotations
 
@@ -84,115 +82,6 @@ class OpenMeteoClimateForecaster(ClimateForecaster):
         return ClimateForecast(data=df, horizon_h=len(df), provider=self.provider_name)
 
 
-class TimesFMClimateForecaster(ClimateForecaster):
-    """TimesFM 2.5 — forecast de clima de corto plazo (requiere import lazy).
-
-    NO carga en import (pesado); se importa en el primer .forecast().
-    Contrato: devuelve las 10 vars climaticas del sitio (config/sites/*.yaml)
-    en DataFrame horario tz-aware, con horizonte 'days'.
-
-    Metodologia: univariante por variable — para cada una de las 10 variables
-    se pronostica con el contexto reciente de la serie (ultimas <=CONTEXT_H
-    horas OBSERVADAS). El contexto ya NO es ERA5 (tiene ~7 dias de latencia):
-    se usa el forecast de Open-Meteo con past_days, cuyo historico observado
-    llega hasta la hora actual. La salida queda anclada a la HORA ACTUAL
-    (igual que el proveedor openmeteo).
-
-    Requisitos (maquina destino): pip install torch --index-url .../cpu
-    + pip install timesfm (TimesFM 2.5; API TimesFM_2p5_200M_torch).
-    """
-
-    provider_name = "timesfm"
-    MODEL_NAME = "google/timesfm-2.5-200m-pytorch"
-    CONTEXT_H = 512            # contexto por variable (TimesFM 2.5 hasta 16k)
-    MAX_CONTEXT_H = 1024
-
-    def __init__(self, site_cfg: dict = None, model_path: str | None = None,
-                 backend: str = "cpu"):
-        self.site_cfg = site_cfg or load_site(DEFAULT_SITE)["site"]
-        self.model_path = model_path or self.MODEL_NAME
-        self.backend = backend
-        self._model = None
-
-    def _load_lazy(self):
-        if self._model is not None:
-            return
-        try:
-            import torch
-            import timesfm as _tfm
-        except ImportError as exc:
-            raise RuntimeError(
-                "TimesFM 2.5 no instalado en esta maquina. "
-                "Instala: pip install torch --index-url "
-                "https://download.pytorch.org/whl/cpu  y  pip install timesfm "
-                "Usa FORECASTER=openmeteo mientras tanto.") from exc
-        torch.set_float32_matmul_precision("high")
-        if not torch.cuda.is_available():
-            torch.set_num_threads(max(4, os.cpu_count() or 4))
-        model = _tfm.TimesFM_2p5_200M_torch.from_pretrained(self.model_path)
-        model.compile(_tfm.ForecastConfig(
-            max_context=self.MAX_CONTEXT_H,
-            max_horizon=48,
-            normalize_inputs=True,
-            use_continuous_quantile_head=True,
-            force_flip_invariance=True,
-            infer_is_positive=True,
-            fix_quantile_crossing=True,
-        ))
-        self._model = model
-
-    @property
-    def variables(self) -> list:
-        return list(WEATHER_VARIABLES)
-
-    def _context_series(self) -> pd.DataFrame:
-        """Historico OBSERVADO reciente (hasta la hora actual) para el modelo.
-
-        Usa el forecast de Open-Meteo con past_days (no ERA5): su serie
-        pasada llega hasta 'ahora', asi el pronostico de TimesFM arranca en
-        la hora actual (y no ~7 dias atras por la latencia de ERA5).
-        """
-        client = OpenMeteoClient(latitude=self.site_cfg["latitude"],
-                                 longitude=self.site_cfg["longitude"],
-                                 timezone=self.site_cfg.get("timezone", "America/Bogota"))
-        hours = min(self.MAX_CONTEXT_H, self.CONTEXT_H)
-        past_days = hours // 24 + 1
-        df = client.fetch_forecast(past_days=past_days, forecast_days=1)
-        if df.empty:
-            raise RuntimeError("Contexto TimesFM vacio (Open-Meteo sin datos)")
-        # descartar la hora actual (observada) para que el forecast empiece ahi
-        now_hour = pd.Timestamp.now(tz=client.timezone).floor("h")
-        df = df.loc[df.index < now_hour]
-        return df
-
-    def forecast(self, days: float = 1.0) -> ClimateForecast:
-        self._load_lazy()
-        horizon = max(1, int(days * 24))
-        if horizon > 48:
-            raise RuntimeError("TimesFMCPU: horizonte maximo 48h")
-        ctx = self._context_series()
-        if len(ctx) < self.CONTEXT_H:
-            raise RuntimeError(
-                f"Contexto insuficiente: {len(ctx)}h < {self.CONTEXT_H}h")
-
-        # 1) pronostico univariante por variable (una serie 1D por variable)
-        inputs = ctx[self.variables].iloc[-self.CONTEXT_H:]
-        series_list = [inputs[col].to_numpy(dtype="float32")
-                       for col in self.variables]
-        point, _quantiles = self._model.forecast(
-            horizon=horizon, inputs=series_list)
-        # point: ndarray (n_series, horizon)
-
-        # 2) ensambla el contrato de 10 vars con index horario desde AHORA
-        idx = pd.date_range(ctx.index[-1] + pd.Timedelta(hours=1),
-                            periods=horizon, freq="h")
-        df = pd.DataFrame(point.T, index=idx, columns=self.variables)
-        for col in ["shortwave_radiation", "direct_normal_irradiance",
-                    "diffuse_radiation"]:
-            df[col] = df[col].clip(lower=0.0)
-        return ClimateForecast(data=df, horizon_h=horizon, provider=self.provider_name)
-
-
 class PatchTSTClimateForecaster(ClimateForecaster):
     """PatchTST — modelo multivariado 72h (Pasto, Nariño) con cuantiles.
 
@@ -203,9 +92,9 @@ class PatchTSTClimateForecaster(ClimateForecaster):
     targets.py, checkpoint .pt, specs, stats y el script predict_72h.py).
 
     El contexto (hasta la HORA ACTUAL) sale del forecast de Open-Meteo con
-    past_days (igual que TimesFM): NO usamos ERA5 archive (7 días de latencia)
+    past_days: NO usamos ERA5 archive (7 días de latencia)
     para que el pronóstico arranque en 'now' y no en días atrás. El modelo se
-    carga lazy (patrón TimesFM): solo torch en la primera llamada.
+    carga lazy: solo torch en la primera llamada.
 
     Max horizonte: 72 h (el modelo predice 72 h de una sola vez (B,H,C,Q)).
     """
@@ -290,7 +179,7 @@ class PatchTSTClimateForecaster(ClimateForecaster):
     def _context_df(self, anchor: pd.Timestamp | None = None) -> pd.DataFrame:
         """Contexto observado hasta la HORA ACTUAL (Open-Meteo forecast).
 
-        Igual que TimesFM: fetch_forecast(past_days=..., forecast_days=1) y
+        fetch_forecast(past_days=..., forecast_days=1) y
         recorte en la hora actual -> la ventana del modelo termina en now-1h
         y el pronóstico arranca exactamente en 'now' (no 00:00 ni días atrás).
 
@@ -420,13 +309,14 @@ class PatchTSTClimateForecaster(ClimateForecaster):
         return ClimateForecast(data=out, horizon_h=len(out), provider=self.provider_name)
 
 
-# --------------------------------------------------------------------------- #
 # NOTA (Cambio 02): "mos" NO se importa a nivel de módulo para evitar el
 # import circular mos_forecaster <-> forecaster (el import directo de
 # mos_forecaster fallaba). Se resuelve perezosamente en get_climate_provider.
+# NOTA (2026-10-12): "timesfm" RETIRADO (no viable por ahora). Quien pida
+# FORECASTER=timesfm cae a openmeteo con warning (ver get_climate_provider);
+# el historial de la clase vive en git. No re-agregar sin dato de viabilidad.
 _PROVIDERS = {
     "openmeteo": OpenMeteoClimateForecaster,
-    "timesfm": TimesFMClimateForecaster,
     "patchtst": PatchTSTClimateForecaster,
 }
 

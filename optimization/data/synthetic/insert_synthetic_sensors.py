@@ -42,7 +42,7 @@ logger = logging.getLogger("optimization.synthetic.backfill")
 
 # Tipo mongoose (enum de Device.js) por key de sensor sintetico.
 # NOTA (decision de arquitectura): el CLIMA no es un sensor de la planta; se
-# obtiene de Open-Meteo/TimesFM. 'weather' solo se genera con --include-weather.
+# obtiene de Open-Meteo/PatchTST. 'weather' solo se genera con --include-weather.
 SENSOR_TYPE: Dict[str, str] = {
     "weather": "meter",      # opcional (--include-weather)
     "solar_pv": "solar",
@@ -135,7 +135,7 @@ def main() -> int:
                         help="borra antes de insertar: colecciones de datos 'pasto_*' y dispositivos AuthorizedDevice 'pasto_*'")
     parser.add_argument("--include-weather", action="store_true",
                         help="genera tambien el sensor de clima sintetico (por defecto NO: "
-                             "el clima es entrada externa de Open-Meteo/TimesFM, no un sensor)")
+                             "el clima es entrada externa de Open-Meteo/PatchTST, no un sensor)")
     parser.add_argument("--mongouri", default=None)
     parser.add_argument("--db", default=None)
     args = parser.parse_args()

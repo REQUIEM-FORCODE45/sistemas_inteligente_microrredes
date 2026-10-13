@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Predictor de SENSORES a partir del clima pronosticado (bucle, Opcion A).
 
-Paso 3 del bucle: clima (NWP/TimesFM) -> modelo AJUSTADO por sensor ->
+Paso 3 del bucle: clima (NWP/PatchTST) -> modelo AJUSTADO por sensor ->
 serie P10/P50/P90 en las unidades del sensor (power_kw, soc_pct).
 
 Tipos:

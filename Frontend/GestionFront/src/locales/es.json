@@ -1,7 +1,6 @@
 {
   "dashboard": {
     "title": "Dashboard",
-    "subtitle": "Bucle completo: clima → modelos ajustados → predicción → optimización.",
     "totalCost": "Costo Total",
     "peakPower": "Potencia Pico Total",
     "optStatus": "Estado Optimización",
@@ -34,8 +33,7 @@
       "temperature": "Temperatura",
       "wind": "Viento 100 m",
       "humidity": "Humedad",
-      "precipitation": "Precipitación",
-      "note": "Con TimesFM 2.5 instalado, el selector usa el modelo zero-shot (contexto 512 h). Este pronóstico alimenta los modelos calibrados del bucle."
+      "precipitation": "Precipitación"
     },
     "generation": {
       "solar": "Generación solar calibrada (24 h)",

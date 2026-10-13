@@ -173,7 +173,7 @@ pip install -r optimization/requirements.txt
 
 Contenido de `optimization/requirements.txt`: `fastapi`, `uvicorn`, `pyomo`, `gurobipy`, `highspy`, `redis`, `pandas`, `pvlib`, `scikit-learn`, `pymongo`, `paho-mqtt`, `transformers`, `accelerate`, etc. Los modelos PatchTST (`prediction/patchtst/patchtst_best.pt` 9.2MB) ya están en el repo.
 
-> **No instalar `timesfm`** en Pi (`pip install timesfm` ~2GB). Solo si `FORECASTER=timesfm` y Pi con >4GB RAM.
+> TimesFM retirado (2026-10-12, no viable por ahora): no instalar nada de `timesfm` en Pi.
 
 ### 5.2 Variables para la predicción
 
@@ -181,7 +181,7 @@ La API lee `Backend/.env` vía `dev.sh` (`source ../Backend/.env`). Para pm2 exp
 
 ```bash
 export REDIS_URL=redis://localhost:6379
-export FORECASTER=patchtst   # openmeteo | patchtst | timesfm
+export FORECASTER=patchtst   # openmeteo | patchtst
 export SITE_TZ=America/Bogota
 ```
 
@@ -189,7 +189,6 @@ export SITE_TZ=America/Bogota
 |---|---|---|
 | `openmeteo` | ~100MB | Recomendado Pi 2GB, sin torch, solo NWP Open-Meteo |
 | `patchtst` | ~400-600MB | Recomendado Pi 4GB+, 2.1M params, primera inferencia ~2s |
-| `timesfm` | >1.5GB | No recomendado en Pi (200M params, descarga 800MB) |
 
 Añade swap si es Pi 2GB:
 

@@ -7,9 +7,8 @@ import pandas as pd
 import pytest
 
 from optimization.prediction.forecaster import (get_climate_provider,
-                                                TimesFMClimateForecaster,
-                                                PatchTSTClimateForecaster,
-                                                WEATHER_VARIABLES)
+                                                 PatchTSTClimateForecaster,
+                                                 WEATHER_VARIABLES)
 from optimization.prediction.power_forecast import power_forecast_from_climate
 from optimization.physics.pv import PvPlant
 
@@ -30,43 +29,10 @@ def test_factory_env_override(monkeypatch):
     assert prov.provider_name == "patchtst"
 
 
-def test_timesfm_forecast_mapea_contrato(monkeypatch):
-    """API TimesFM 2.5: forecast(horizon, inputs) -> (point, quantiles)."""
-    class FakeModel:
-        def forecast(self, horizon, inputs):
-            n = len(inputs)  # n_series = 10
-            point = np.zeros((n, horizon)) + 1.0
-            quants = np.zeros((n, horizon, 10))
-            return point, quants
-
-    def fake_load(self):
-        self._model = FakeModel()
-
-    monkeypatch.setattr(TimesFMClimateForecaster, "_load_lazy", fake_load)
-    tz = "America/Bogota"
-    ctx_idx = pd.date_range("2026-01-01", periods=600, freq="h", tz=tz)
-    ctx = pd.DataFrame(np.random.default_rng(0).normal(10, 3, (600, 10)),
-                       index=ctx_idx, columns=WEATHER_VARIABLES)
-
-    class FakeClient:
-        def __init__(self, *a, **k):
-            self.timezone = tz
-
-        def fetch_forecast(self, past_days, forecast_days):
-            return ctx
-
-    monkeypatch.setattr("optimization.prediction.forecaster.OpenMeteoClient",
-                        FakeClient)
-    prov = TimesFMClimateForecaster(site_cfg={"latitude": 1.21, "longitude": -77.28,
-                                              "timezone": tz})
-    fc = prov.forecast(days=1.0)
-    assert fc.provider == "timesfm"
-    assert fc.horizon_h == 24
-    assert list(fc.data.columns) == WEATHER_VARIABLES
-    assert fc.data.index[0] == ctx.index[-1] + pd.Timedelta(hours=1)
-    assert fc.data.index.tz is not None
-    assert (fc.data[["shortwave_radiation", "direct_normal_irradiance",
-                     "diffuse_radiation"]] >= 0).all().all()
+def test_timesfm_retirado_cae_a_openmeteo():
+    """TimesFM retirado (2026-10-12): pedirlo cae a openmeteo con warning."""
+    prov = get_climate_provider(name="timesfm")
+    assert prov.provider_name == "openmeteo_nwp"
 
 
 def test_openmeteo_forecast_pide_corte_desde_ahora(monkeypatch):
@@ -100,25 +66,6 @@ def test_openmeteo_forecast_pide_corte_desde_ahora(monkeypatch):
     assert fc.horizon_h == 24
     now = pd.Timestamp.now(tz=tz).floor("h")
     assert fc.data.index[0] == now
-
-
-def test_timesfm_sin_lib_mensaje_claro():
-    import builtins
-    real_import = builtins.__import__
-
-    def fake_import(name, *a, **k):
-        if name == "timesfm":
-            raise ImportError("No module named 'timesfm'")
-        return real_import(name, *a, **k)
-
-    with pytest.raises(RuntimeError, match="timesfm"):
-        old = builtins.__import__
-        builtins.__import__ = fake_import
-        try:
-            TimesFMClimateForecaster(site_cfg={"latitude": 1.2, "longitude": -77.3,
-                                               "timezone": "America/Bogota"}).forecast(1.0)
-        finally:
-            builtins.__import__ = old
 
 
 def test_patchtst_forecast_mapea_contrato(monkeypatch):
@@ -214,7 +161,7 @@ def test_patchtst_forecast_mapea_contrato(monkeypatch):
 
 
 def test_patchtst_max_horizonte_72h(monkeypatch):
-    """PatchTST: pedir mas de 72h -> RuntimeError claro (como TimesFM 48h)."""
+    """PatchTST: pedir mas de 72h -> RuntimeError claro."""
     def fake_load(self):
         self._model = None
         raise AssertionError("no debe llegar a cargar modelo")

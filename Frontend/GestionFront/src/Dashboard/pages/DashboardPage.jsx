@@ -15,7 +15,6 @@ import PlotlyMini from '../components/charts/PlotlyMini';
 
 const PROVIDERS = [
   { id: 'openmeteo', label: 'Open-Meteo (NWP)' },
-  { id: 'timesfm', label: 'TimesFM 2.5' },
   { id: 'patchtst', label: 'PatchTST' },
   { id: 'mos', label: 'MOS (ECMWF+ML)' },
 ];
@@ -32,7 +31,7 @@ const DEVICE_SENSOR_META = {
   grid: { label: 'Red', unit: 'kW', key: 'power_kw' },
   inverter: { label: 'Inversor', unit: 'kW', key: 'power_kw' },
   sensor_iot: { label: 'Sensor IoT', unit: '', key: 'value' },
-  // NOTA: el CLIMA no es un sensor (entrada externa Open-Meteo/TimesFM);
+  // NOTA: el CLIMA no es un sensor (entrada externa Open-Meteo/PatchTST);
   // se muestra en la tarjeta "Pronostico del clima", no aqui.
 };
 
@@ -77,7 +76,7 @@ function WeatherCard() {
           filas: Array.isArray(res.data?.values) ? res.data.values.length : 'no-array',
           error: res.data?.error || null,
         });
-        // HTTP 200 con status:'error' (ej. TimesFM sin instalar) -> mensaje real
+        // HTTP 200 con status:'error' (ej. PatchTST sin torch) -> mensaje real
         if (res.data?.status === 'error' || res.data?.error) {
           setError(res.data.error || `Proveedor ${provider} no disponible`);
           setLoading(false);
@@ -223,9 +222,6 @@ function WeatherCard() {
             {mini(t('dashboard.weather.humidity'), last('hum'), '%', '#3b82f6', traces.hum || [])}
             {mini(t('dashboard.weather.precipitation'), last('precip'), 'mm', '#8b5cf6', traces.precip || [])}
           </div>
-          <p className="text-[9px] text-muted-foreground mt-2">
-            {t('dashboard.weather.note')}
-          </p>
         </>
       )}
     </div>
@@ -645,9 +641,6 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight capitalize">{t('dashboard.title')}</h1>
-        <p className="text-muted-foreground">
-          {t('dashboard.subtitle')}
-        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

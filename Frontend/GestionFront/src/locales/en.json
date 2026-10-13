@@ -1,7 +1,6 @@
 {
   "dashboard": {
     "title": "Dashboard",
-    "subtitle": "Full loop: weather → tuned models → forecast → optimization.",
     "totalCost": "Total Cost",
     "peakPower": "Total Peak Power",
     "optStatus": "Optimization Status",
@@ -34,8 +33,7 @@
       "temperature": "Temperature",
       "wind": "Wind 100 m",
       "humidity": "Humidity",
-      "precipitation": "Precipitation",
-      "note": "With TimesFM 2.5 installed, the selector uses the zero-shot model (512 h context). This forecast feeds the loop's calibrated models."
+      "precipitation": "Precipitation"
     },
     "generation": {
       "solar": "Calibrated Solar Generation (24 h)",

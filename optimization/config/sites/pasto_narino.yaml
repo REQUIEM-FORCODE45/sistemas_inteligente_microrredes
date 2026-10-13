@@ -14,7 +14,7 @@ site:
   timezone: America/Bogota
 
 # ---------- Variables climáticas contratadas (10) ----------
-# Mismo contrato para TimesFM (Fase 2) y PatchTST (futuro).
+# Mismo contrato para Open-Meteo (NWP) y PatchTST.
 # shortwave_radiation:  GHI (W/m2)
 # direct_normal_irradiance: DNI (W/m2)
 # diffuse_radiation:    DHI (W/m2)
@@ -112,7 +112,7 @@ synthetic:
   shade_hour_end: 10
   # Sensores virtuales a poblar (nombre de coleccion / device type)
   # NOTA de arquitectura: el CLIMA no es un sensor de la planta; es la entrada
-  # externa del sistema (Open-Meteo NWP / TimesFM). 'weather' solo se genera
+  # externa del sistema (Open-Meteo NWP / PatchTST). 'weather' solo se genera
   # con --include-weather en el backfill (historico sintetico opcional).
   sensors:
     solar_pv: { dev_type: solar,  desc: "Medidor PM del PV" }

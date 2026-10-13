@@ -144,7 +144,7 @@ Para la generación de pronósticos multi-horizonte se emplea el modelo **PatchT
 - **Horizonte y cuantiles**: genera predicciones horarias para hasta 72 horas, con los cuantiles P10/P50/P90 para cada variable. El horizonte operativo del MPC es de 24 horas.
 - **Entrenamiento**: el modelo se entrenó de forma externa con reanálisis ERA5 del sitio (2020–2025) y se desplegó en el servicio de predicción como artefacto autocontenido (`patchtst_best.pt`, `target_specs.json`, `norm_stats.csv`).
 - **Ajuste de datos (calibración)**: los pronósticos climáticos de PatchTST alimentan un pipeline de ajuste de datos que calibra cada planta contra mediciones reales del sensor asociado: estimación de derating (escala K), calibración paramétrica del modelo físico PV (pvlib), corrección de residuos con gradient boosting y construcción de bandas de incertidumbre P10/P50/P90 por conformal prediction. Este pipeline transforma el pronóstico climático en potencia de generación calibrada por sensor, que es la entrada efectiva del optimizador.
-- **Proveedores intercambiables**: mediante el patrón `PredictorInterface`/`ClimateForecaster`, la plataforma soporta tres proveedores (Open-Meteo NWP, TimesFM y PatchTST) seleccionables por entorno. La configuración reportada en este documento emplea **PatchTST + ajuste de datos** como cadena de predicción en producción.
+- **Proveedores intercambiables**: mediante el patrón `PredictorInterface`/`ClimateForecaster`, la plataforma soporta dos proveedores (Open-Meteo NWP y PatchTST) seleccionables por entorno. TimesFM 2.5 se retiró (2026-10-12, no viable por ahora; el historial vive en git). La configuración reportada en este documento emplea **PatchTST + ajuste de datos** como cadena de predicción en producción.
 
 ### 4.3. API de predicción
 
@@ -473,8 +473,8 @@ Documentado para el capítulo de calibración probabilística.
 | Humedad [%] | 7.4–8.9 | 7.2–8.1 | 3.7–12.7 |
 
 Referencia HO2: TimesFM 2.5 logró GHI MAE 26–30 W/m² → los baselines quedan
-por debajo, como se espera; la integración TimesFM/PatchTST está cableada
-(`FORECASTER=timesfm`, contexto 512 h) y lista en la máquina con la pila ML.
+por debajo, como se espera. (TimesFM se retiró del forecast operativo el
+2026-10-12 — no viable por ahora; el dato HO2 queda como referencia histórica.)
 
 ## Endpoints y cadena de valor
 
@@ -509,7 +509,7 @@ Diagrama (nodo ↔ sensor mapeado) → trigger con sensor_mappings
   PASO 1  Ajuste: /predict/calibrate por activo (PV: N1/N2+conformal;
           BESS: eficiencias; Wind: K+GBR; Load: perfil) — auto solo si falta
           artefacto results/pasto_narino/calibrated/<sensor_id>.pkl
-  PASO 2  Predicción de clima (Open-Meteo/TimesFM)
+  PASO 2  Predicción de clima (Open-Meteo/PatchTST)
   PASO 3  Predicción de sensores: /predict/sensor → P10/P50/P90 por activo
   PASO 4  Optimización con esas predicciones (predictions_pv_kw/band, load)
   PASO 5  Visibilidad: progreso del bucle en el panel (calibrating →
@@ -518,7 +518,7 @@ Diagrama (nodo ↔ sensor mapeado) → trigger con sensor_mappings
 
 Hallazgos de la puesta en marcha:
 - **El clima NO es un sensor**: es la entrada externa del sistema (Open-Meteo
-  NWP operativo / TimesFM ML). Se eliminó `pasto_weather` (colección +
+  NWP operativo / PatchTST ML). Se eliminó `pasto_weather` (colección +
   dispositivo) y su generación por defecto en el backfill (`--include-weather`
   para historial sintético opcional); el clima se muestra en la tarjeta
   "Pronóstico del clima" con selector de proveedor, no entre los sensores.

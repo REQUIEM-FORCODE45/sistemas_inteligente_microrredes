@@ -6,7 +6,7 @@ climaticas contratadas** (ver config/sites/*.yaml). El clima es SIEMPRE
 "real" (proveedor de datos); lo sintetico es solo la planta/sensores.
 
 Integra con el resto del sistema (Fase 1a):
-  - El backend Node/MPC (abajo) y la prediccion (TimesFM) usan esta fuente.
+  - El backend Node/MPC (abajo) y la prediccion (openmeteo/PatchTST) usan esta fuente.
   - No requiere API key (gratuita, sin registro).
 """
 

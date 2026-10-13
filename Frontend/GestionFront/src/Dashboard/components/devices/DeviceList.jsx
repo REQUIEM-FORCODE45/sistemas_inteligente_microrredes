@@ -27,7 +27,7 @@ export const DeviceList = () => {
     const { devices, loading, shareSensor, unshareSensor } = useDevices();
     const [sharingSensor, setSharingSensor] = useState(null);
     // NOTA: el clima no es un sensor de la planta (entrada externa
-    // Open-Meteo/TimesFM); pasto_weather se excluye de la gestion de equipos.
+    // Open-Meteo/PatchTST); pasto_weather se excluye de la gestion de equipos.
     const plantDevices = (devices || []).filter((d) => String(d._id) !== 'pasto_weather');
 
     if (loading) return <p className="text-slate-500 text-sm">Cargando dispositivos...</p>;
