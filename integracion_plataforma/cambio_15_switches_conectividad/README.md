@@ -132,3 +132,20 @@ Sin artefactos de datos nuevos (spec de arquitectura). Ver `reference/README.md`
 > anteriores no cambian**. Confirmados: `bus_dc: false` · `switch_mode: "operador"` ·
 > **frontera AC-OPF aceptada** (tensión/impedancia no se simulan) · vista dual `Esquema`/`Editor` ·
 > `η` del inversor **declarable** (`null` si no se declara, sin inventar). **Nada queda bloqueado.**
+
+---
+
+## 8. Decisiones de diseño — REGISTRADAS (auditoría 2026-10-12)
+
+La spec no fijaba cuatro decisiones; el implementador las **asumió, justificó y declaró**. Revisadas
+por la auditoría y aceptadas, quedan como **contrato** (no como elección libre):
+
+| # | Decisión | Contrato |
+|---|---|---|
+| 1 | ¿Gatea por **dispositivo** o por **rama**? | **Por dispositivo `from`** (fallback `to` si es barra). Gateables: red, diésel, batería. Pasivos: factor. Extremos no gateables (load/bus/inverter/trafo/sensor) → **warning + sin efecto** (se avisa, no se ignora) |
+| 2 | ¿Seccionador como **nodo** o **atributo del edge**? | **Atributo del edge** (clic en la rama; símbolo sobre la rama). El MILP solo necesita la rama |
+| 3 | `switch_mode: "ambos"` | **Fuera de alcance** hasta que la spec defina la tabla → se **avisa** y se trata como operador |
+| 4 | Switch `solver` sobre un **pasivo** | Se **degrada a operador** + warning (evita la bilineal `factor·s`) |
+
+**Pendiente de cierre (auditoría §3.1)**: la evidencia pre-cambio debe **versionarse como artefacto**
+(`reference/resultados/`) y el ExpA2 en modo `impuesta` (sha256 de la tabla) pasa a **V-items**.

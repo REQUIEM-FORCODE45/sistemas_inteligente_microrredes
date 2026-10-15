@@ -126,3 +126,14 @@ Sin artefactos de datos nuevos (spec de arquitectura). Ver `reference/README.md`
 > anteriores no cambian**. Confirmados: `bus_dc: false` · `switch_mode: "operador"` ·
 > **frontera AC-OPF aceptada** (tensión/impedancia no se simulan) · vista dual `Esquema`/`Editor` ·
 > `η` del inversor **declarable** (`null` si no se declara, sin inventar). **Nada queda bloqueado.**
+
+---
+
+## 7. Criterio transversal añadido (auditoría del 15)
+
+- [ ] **C9 · `AGENTS.md` al día**: este incremento **debe** actualizar `AGENTS.md` (lista de nodos y
+  secciones de dispositivo) al estado real acumulado. Motivo: quedó desactualizado en **dos**
+  incrementos seguidos (14 y 15) porque **nada lo obligaba** — con los manifiestos pasó lo mismo y se
+  resolvió con un test; aquí se resuelve haciéndolo **criterio de cierre**. Quien lea `AGENTS.md` para
+  trabajar en el repo no puede recibir información falsa (p. ej. *"el inversor es solo visual"*, o un
+  conteo de nodos que ya no es cierto).
