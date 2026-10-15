@@ -151,7 +151,11 @@ Five reducers in `store.js`: `auth`, `ui`, `devices`, `diagram`, `optimization`
 - Sync direction: Redux → local state (on add/delete/load); local → Redux (on `onNodeDragStop`)
 - `screenToFlowPosition({ x: event.clientX, y: event.clientY })` — pass viewport coords, NOT element-relative coords
 - `fetchDevices()` is dispatched on DiagramEditor mount so SensorNode gets real MQTT devices
-- **Nodes (9)**: SolarPanel, SolarPanelAC, DieselGenerator, Grid, Inverter, Battery, Load, Sensor, WindTurbine + AcBus (barra AC decorativa y anclada, cambio 12.4)
+- **Nodes (10)**: SolarPanel, SolarPanelAC, DieselGenerator, Grid, Inverter, Battery, Load, Sensor, WindTurbine, Transformer + AcBus (barra AC decorativa y anclada, cambio 12.4). El **seccionador NO es un nodo**: es atributo del edge (`switch_state/mode/M/cost` en `edge.data`, cambio 15).
+- **Inversor modelado** (cambio 13, NO solo visual): serie `P_ac = eta·P_dc`, `bus_dc` opt-in; ver `integracion_plataforma/cambio_13_inversor_bus_dc/VERIFICACION.md`.
+- **Transformador** (cambio 14): pérdidas + tope en la rama de red, frontera AC-OPF declarada; ver `integracion_plataforma/cambio_14_transformador/VERIFICACION.md`.
+- **Switches** (cambio 15): `connections[]` al job (`switch_mode` operador/solver), topología elegible reportada; ver `integracion_plataforma/cambio_15_switches_conectividad/VERIFICACION.md`.
+- **Unifilar vivo** (cambio 16): badges por rama y hora (`ramaFlow` en `edges/PowerEdge.jsx`: caudal que cruza saliendo por la cola; `ens`/`curt` excluidos), hora mostrada (`diagram.horaMostrada`, default 12), animación direccional CSS (`flow-fwd/flow-rev`, apagable con `localStorage unifilar.anim`), vista dual Esquema|Editor (misma fuente Redux); ver `integracion_plataforma/cambio_16_unifilar_vivo/VERIFICACION.md`.
 - **Double-click on node** → opens dispatch chart modal via `dispatchModalNodeId` in diagramSlice
 - **Single click** → opens DeviceConfigPanel (params editing), unchanged
 

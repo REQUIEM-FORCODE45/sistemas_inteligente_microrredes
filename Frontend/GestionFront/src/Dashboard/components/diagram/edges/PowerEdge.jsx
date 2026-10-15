@@ -1,23 +1,60 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { BaseEdge, getSmoothStepPath, EdgeLabelRenderer } from '@xyflow/react';
 import { useSelector } from 'react-redux';
-import { DEVICE_DEFINITIONS, CURRENT_TYPE, flowWidthFor } from '../constants/deviceTypes';
+import { DEVICE_TYPE, CURRENT_TYPE, flowWidthFor } from '../constants/deviceTypes';
 
 // Cambio 12.4 — rama unifilar (variante B, copiada de la referencia):
 // derivación ortogonal (smoothstep), grosor ∝ kW, capa de flujo animada
 // (CSS puro, sin estado por frame), badge en el conector con sentido ▲/▼.
 // Rama abierta (extremo no modelado): tenue + discontinua + marca "sin modelo".
-function powerFor(dispatchPlan, nodeId) {
-  if (!dispatchPlan || !nodeId) return { kw: 0, dir: null };
-  const entries = dispatchPlan.filter((d) => d.device_id === nodeId);
-  if (entries.length === 0) return { kw: 0, dir: null };
-  const kw = Math.max(...entries.map((d) => Math.abs(d.power_kw || 0)));
-  const types = new Set(entries.map((d) => d.device_type));
-  let dir = '▲';
-  if (types.has('load')) dir = '▼';
-  else if (types.has('grid_export')) dir = '▼';
-  else if (types.has('battery_charge') && !types.has('battery_discharge')) dir = '▼';
-  return { kw, dir };
+// Cambio 16 (C4/C8) — el badge refleja SU rama: caudal que cruza el edge
+// saliendo por su COLA en la hora mostrada (si un extremo es la barra, la
+// cola es el otro). Familias con signo geométrico: + fluye source→target,
+// − al revés. `ens`/`curt` excluidos (auxiliares, no fluyen por la rama).
+const AUX_TYPES = new Set(['ens', 'curtailment']);
+function ramaFlow(plan, tailId, tailType, hour) {
+  if (!plan || !tailId) return { kw: 0, signed: 0 };
+  // La red emite filas con device_id literal "grid" (una sola red por
+  // diagrama, invariante previo del solver).
+  const rows = plan.filter((d) => (d.device_id === tailId || (tailType === 'grid' && d.device_id === 'grid'))
+    && d.hour === hour && !AUX_TYPES.has(d.device_type));
+  if (rows.length === 0) return { kw: 0, signed: 0 };
+  const pw = (t) => {
+    const e = rows.find((d) => d.device_type === t);
+    return e ? Math.abs(e.power_kw || 0) : 0;
+  };
+  switch (tailType) {
+    case 'grid': {
+      // import sale de la red (▲), export entra a la red (▼).
+      const net = pw('grid_import') - pw('grid_export');
+      return { kw: Math.abs(net), signed: net };
+    }
+    case 'battery': {
+      // descarga sale (▲), carga entra (▼).
+      const net = pw('battery_discharge') - pw('battery_charge');
+      return { kw: Math.abs(net), signed: net };
+    }
+    case 'transformer': {
+      // sale lo entregado: paso − pérdida (C8: 10.0 → 9.8, no el máximo).
+      const out = pw('transformer') - pw('transformer_loss');
+      return { kw: Math.abs(out), signed: out };
+    }
+    case 'inverter': {
+      // serie: P_ac; bus DC: AC − rev; dc/loss excluidos (no salen al AC).
+      const net = pw('inverter') - pw('inverter_rev');
+      return { kw: Math.abs(net), signed: net };
+    }
+    case 'load': {
+      // la carga consume: entra por la rama (▼).
+      const v = pw('load');
+      return { kw: v, signed: -v };
+    }
+    default: {
+      // solar/wind/diesel: generan, sale por la cola (▲).
+      const v = rows.reduce((s, d) => s + Math.abs(d.power_kw || 0), 0);
+      return { kw: v, signed: v };
+    }
+  }
 }
 
 function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, style, data, selected }) {
@@ -31,6 +68,9 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
   const latestResult = useSelector((state) => state.optimization.latestResult);
   const preflight = useSelector((state) => state.diagram.preflight);
   const edgeData = useSelector((state) => (state.diagram.edges || []).find((e) => e.id === id)?.data);
+  const srcType = useSelector((state) => (state.diagram.nodes || []).find((n) => n.id === source)?.data?.deviceType);
+  const tgtType = useSelector((state) => (state.diagram.nodes || []).find((n) => n.id === target)?.data?.deviceType);
+  const hora = useSelector((state) => state.diagram.horaMostrada ?? 12);
   const plan = latestResult?.dispatch_plan;
   const echo = latestResult?.device_echo || [];
   const topoConns = latestResult?.topology?.connections || [];
@@ -75,8 +115,21 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
   const isInvalid = data?.isInvalid;
   const errorMessage = data?.errorMessage;
 
-  const src = powerFor(plan, source);
-  const kw = src.kw;
+  // Cambio 16: la cola es el source, salvo barra en el source (entonces el
+  // otro extremo, p. ej. la carga). Todo se memoiza por (plan, hora): un
+  // recompute acotado por cambio de resultado/hora, nunca por frame (regla 5).
+  const tailIsSource = srcType !== DEVICE_TYPE.AC_BUS;
+  const tailId = tailIsSource ? source : target;
+  const tailType = tailIsSource ? srcType : tgtType;
+  const flow = useMemo(
+    () => {
+      const net = ramaFlow(plan, tailId, tailType, hora);
+      const signed = tailIsSource ? net.signed : -net.signed;
+      return { kw: net.kw, signed, fwd: signed >= 0 };
+    },
+    [plan, tailId, tailType, tailIsSource, hora],
+  );
+  const kw = flow.kw;
   const width = flowWidthFor(kw);
   const color = isInvalid
     ? 'var(--destructive)'
@@ -99,12 +152,15 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
     strokeWidth: ramaAbierta ? 2 : width,
     opacity: ramaAbierta ? 0.4 : undefined,
   };
+  // Cambio 16: animación direccional por sentido real (CSS puro, sin estado
+  // por frame — regla 4). Se respeta prefers-reduced-motion en el CSS.
+  const flowClass = `edge-flow ${flow.fwd ? 'flow-fwd' : 'flow-rev'}`;
 
   return (
     <>
       <BaseEdge id={id} path={edgePath} style={baseStyle} />
       {!ramaAbierta && kw > 0.01 && (
-        <path d={edgePath} fill="none" className="edge-flow" style={flowStyle} />
+        <path d={edgePath} fill="none" className={flowClass} style={flowStyle} />
       )}
       <EdgeLabelRenderer>
         <div
@@ -139,7 +195,7 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
           ) : (
             kw > 0.01 && (
               <div className="text-[9px] font-bold px-2 py-0.5 rounded-full border shadow-sm whitespace-nowrap bg-card" style={{ color, borderColor: color }}>
-                {src.dir} {kw.toFixed(1)} kW
+                {flow.signed >= 0 ? '+' : '−'}{kw.toFixed(1)} kW
               </div>
             )
           )}

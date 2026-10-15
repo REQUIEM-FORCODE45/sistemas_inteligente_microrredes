@@ -130,13 +130,33 @@
 @keyframes edge-flujo {
   to { stroke-dashoffset: -18; }
 }
+/* Cambio 16: sentido inverso (export/carga: el caudal va contra el trazado).
+   Misma técnica (dashoffset animado, sin JS por frame). */
+@keyframes edge-flujo-rev {
+  to { stroke-dashoffset: 18; }
+}
 .edge-flow {
   fill: none;
   stroke-dasharray: 9 9;
   animation: edge-flujo 1.15s linear infinite;
   pointer-events: none;
 }
+.edge-flow.flow-rev {
+  animation-name: edge-flujo-rev;
+}
+.edge-flow.flow-fwd {
+  animation-name: edge-flujo;
+}
+/* Cambio 16 (riesgo 2): animación desactivable desde el panel. */
+.no-anim .edge-flow {
+  animation: none;
+}
 .rf-dragging .edge-flow {
+  display: none;
+}
+/* Cambio 16 (C5): en vista Esquema no hay sugerencias de conexión
+   (los puertos se ocultan por CSS, cero JS). */
+.vista-esquema .react-flow__handle {
   display: none;
 }
 @media (prefers-reduced-motion: reduce) {

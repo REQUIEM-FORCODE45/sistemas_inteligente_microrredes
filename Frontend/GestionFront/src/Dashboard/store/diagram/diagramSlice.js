@@ -12,6 +12,9 @@ const initialState = {
   isDirty: false,
   dispatchModalNodeId: null,
   preflight: {},
+  // Cambio 16: hora mostrada del dispatch (1..24). Vista, no dato: no marca
+  // isDirty y nunca se escribe durante el arrastre (regla 1 de fluidez).
+  horaMostrada: 12,
 };
 
 const diagramSlice = createSlice({
@@ -187,6 +190,12 @@ const diagramSlice = createSlice({
       state.viewport = action.payload;
     },
 
+    // Cambio 16: hora mostrada del dispatch. No marca isDirty (vista).
+    setHoraMostrada(state, action) {
+      const h = Number(action.payload);
+      if (Number.isFinite(h)) state.horaMostrada = Math.min(24, Math.max(1, Math.round(h)));
+    },
+
     markSaved(state) {
       state.isDirty = false;
     },
@@ -220,6 +229,7 @@ export const {
   setNodePreflight,
   setViewport,
   markSaved,
+  setHoraMostrada,
   setDispatchModalNode,
   closeDispatchModal,
 } = diagramSlice.actions;

@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState } from 'react';
+import { useRef, useCallback, useState, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
@@ -9,7 +9,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { useSelector, useDispatch } from 'react-redux';
-import { clearSelection } from '@/Dashboard/store/diagram/diagramSlice';
+import { clearSelection, setHoraMostrada } from '@/Dashboard/store/diagram/diagramSlice';
 import { nodeTypes, useDragHandlers } from './DiagramCanvas';
 import { edgeTypes } from './edges/PowerEdge';
 import { useDiagram } from './hooks/useDiagram';
@@ -30,6 +30,23 @@ export default function DiagramEditor() {
   const [showSensorPanel, setShowSensorPanel] = useState(true);
   const [showOptimizationPanel, setShowOptimizationPanel] = useState(false);
   const [activeMainTab, setActiveMainTab] = useState('diagram');
+  // Cambio 16 (C5): vista dual sobre la MISMA fuente de estado (Redux).
+  // Esquema = diagnosticar/operar (sin arrastrar, sin editar); Editor = todo.
+  // Estado local: es vista, no dato (no toca isDirty ni el guardado).
+  const [vista, setVista] = useState('editor');
+  const esEsquema = vista === 'esquema';
+  // Cambio 16: al recibir un resultado, la hora mostrada cae a una hora que
+  // exista en el plan (prefiere 12). Una escritura acotada por resultado,
+  // nunca durante el arrastre (regla 1).
+  const planHoras = useSelector((state) => {
+    const p = state.optimization.latestResult?.dispatch_plan || [];
+    return [...new Set(p.map((d) => d.hour))].sort((a, b) => a - b).join(',');
+  });
+  useEffect(() => {
+    const hs = planHoras ? planHoras.split(',').map(Number) : [];
+    if (hs.length === 0) return;
+    dispatch(setHoraMostrada(hs.includes(12) ? 12 : hs[0]));
+  }, [planHoras, dispatch]);
 
   const isDirty = useSelector((state) => state.diagram.isDirty);
   const selectedElement = useSelector((state) => state.diagram.selectedElement);
@@ -109,6 +126,12 @@ export default function DiagramEditor() {
           <button onClick={() => setActiveMainTab('diagram')} className={`px-3 py-1.5 text-xs font-medium rounded ${activeMainTab==='diagram' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Diagrama</button>
           <button onClick={() => setActiveMainTab('results')} className={`px-3 py-1.5 text-xs font-medium rounded ${activeMainTab==='results' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Resultados MPC</button>
         </div>
+        {activeMainTab === 'diagram' && (
+          <div className="flex gap-1 ml-2" title="Esquema: diagnosticar (sin editar). Editor: todo. Misma fuente de estado.">
+            <button onClick={() => setVista('esquema')} className={`px-3 py-1.5 text-xs font-medium rounded ${esEsquema ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Esquema</button>
+            <button onClick={() => setVista('editor')} className={`px-3 py-1.5 text-xs font-medium rounded ${!esEsquema ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}>Editor</button>
+          </div>
+        )}
       </div>
       <div className="h-10 flex-shrink-0">
         <DiagramToolbar
@@ -123,6 +146,7 @@ export default function DiagramEditor() {
           isDirty={isDirty}
           showOptimizationPanel={showOptimizationPanel}
           onToggleOptimization={() => setShowOptimizationPanel((p) => !p)}
+          readOnly={esEsquema}
         />
       </div>
 
@@ -132,12 +156,14 @@ export default function DiagramEditor() {
         </div>
       ) : (
       <div className="flex-1 flex min-h-0">
-        <div className="w-[220px] flex-shrink-0">
-          <DevicePalette onDragStart={onDragStart} />
-        </div>
+        {!esEsquema && (
+          <div className="w-[220px] flex-shrink-0">
+            <DevicePalette onDragStart={onDragStart} />
+          </div>
+        )}
 
         <div
-          className="flex-1 relative bg-muted/20 dark:bg-muted/5"
+          className={`flex-1 relative bg-muted/20 dark:bg-muted/5${esEsquema ? ' vista-esquema' : ''}`}
           ref={reactFlowWrapper}
         >
           <SvgSymbolDefs />
@@ -150,15 +176,17 @@ export default function DiagramEditor() {
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOptions}
             onInit={onInit}
-            onDrop={handleDrop}
+            onDrop={esEsquema ? undefined : handleDrop}
             onDragOver={handleDragOver}
             onNodeDragStart={onNodeDragStartPause}
             onNodeDragStop={onNodeDragStopResume}
-            onConnect={handleConnect}
+            onConnect={esEsquema ? undefined : handleConnect}
             onNodeClick={handleNodeClick}
             onEdgeClick={handleEdgeClick}
             onPaneClick={handlePaneClick}
-            deleteKeyCode={['Delete', 'Backspace']}
+            deleteKeyCode={esEsquema ? null : ['Delete', 'Backspace']}
+            nodesDraggable={!esEsquema}
+            nodesConnectable={!esEsquema}
             multiSelectionKeyCode="Shift"
             selectionKeyCode="Shift"
             snapToGrid
@@ -231,17 +259,17 @@ export default function DiagramEditor() {
           )}
         </div>
 
-        {showOptimizationPanel ? (
+        {showOptimizationPanel && !esEsquema ? (
           <DiagramOptimizationPanel
             onClose={() => setShowOptimizationPanel(false)}
           />
-        ) : showSensorPanel ? (
+        ) : showSensorPanel && !esEsquema ? (
           <div className="w-[280px] flex-shrink-0">
             <SensorMappingPanel />
           </div>
         ) : null}
 
-        {selectedElement && (
+        {selectedElement && !esEsquema && (
           <DeviceConfigPanel
             onClose={() => dispatch(clearSelection())}
           />
