@@ -59,18 +59,27 @@ el `edge.data` antes de correr.
 Prioridad declarada: **`sin modelo` gana sobre `s=0`** si coinciden en una
 rama (aviso más fuerte: no se puede inferir nada).
 
-## C6 · Modo impuesto reproduce (sha256 congelado)
+## C6 · Modo impuesto reproduce (evidencia = artefacto, cierre §3.1)
 
-- Golden unitario `ca919694…` (job asimétrico anti-empates, obj 875.0):
-  `test_c6_modo_impuesto_reproduce_dispatch` PASA (sin llave `connections`,
-  `topology.connections == []`).
-- Evidencia pre-cambio: `a76c0828…` capturado en BASE_JOB antes de tocar el
-  solver (96 filas).
+- Evidencia pre-cambio versionada:
+  `reference/resultados/golden_impuesto.json` (plan 96 filas + objetivo 875.0
+  + `plan_sha256: ca919694…` + commit de captura `504e175`). **Recomputado con
+  el código ANTERIOR al cambio** (worktree en `504e175`, cuyo
+  `model_builder.py` no menciona `connections`): dio exactamente `ca919694…` /
+  `875.0`, así que el golden es evidencia pre-cambio de verdad, no texto.
+- `test_c6_modo_impuesto_reproduce_dispatch` **carga el artefacto** (ya no usa
+  constantes sueltas): primero valida su coherencia interna (re-hash del plan
+  == `plan_sha256`), luego reproduce el plan/objetivo actual y lo compara, con
+  `topology.connections == []`. PASA.
+- Nota de corrección (append, no borrado): la mención anterior a `a76c0828…`
+  ("capturado en BASE_JOB antes de tocar el solver") **queda reemplazada** por
+  este artefacto — ese hash solo vivía en este texto y no era reproducible
+  (hallazgo §3.1 de la auditoría, correcto).
 - `--topology-mode impuesta` (default): `_build_job` NO emite la llave
   `connections` (verificado en test); `solver` la añade solo a la rama de red
   (`M` = tope del modo). Sin Mongo en este entorno no se corre ExpA2: la
   equivalencia del modo impuesto es por construcción (código no tocado) +
-  golden unitario. Declarado.
+  golden versionado. Declarado (V8 en pendientes).
 
 ## C7 · Sin regresión + fluidez
 

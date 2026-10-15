@@ -1,0 +1,859 @@
+{
+ "capturado_el": "2026-10-15T14:47:50.639238+00:00",
+ "capturado_en_commit": "504e17521560b11dc3b19c68a686cd95f4f04583",
+ "descripcion": "Golden del modo impuesto (cambio 15, C6): dispatch del job canonico SIN connections, calculado con el codigo ANTERIOR al cambio (commit 504e175, model_builder.py sin 'connections'). El test test_switches.py::test_c6_modo_impuesto_reproduce_dispatch carga este artefacto en vez de constantes sueltas.",
+ "dispatch_plan": [
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 1,
+   "power_kw": 0.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "grid",
+   "device_type": "grid_import",
+   "hour": 1,
+   "power_kw": 5.75,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 2,
+   "power_kw": 0.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "grid",
+   "device_type": "grid_import",
+   "hour": 2,
+   "power_kw": 3.5,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 3,
+   "power_kw": 0.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 3,
+   "power_kw": 4.75,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 4,
+   "power_kw": 0.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 4,
+   "power_kw": 2.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 5,
+   "power_kw": 0.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 5,
+   "power_kw": 11.25,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 6,
+   "power_kw": 0.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 6,
+   "power_kw": 16.5,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 7,
+   "power_kw": 0.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 7,
+   "power_kw": 18.75,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 8,
+   "power_kw": 0.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 8,
+   "power_kw": 21.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 1,
+   "power_kw": 0.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "grid",
+   "device_type": "grid_import",
+   "hour": 1,
+   "power_kw": 5.75,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 2,
+   "power_kw": 0.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "grid",
+   "device_type": "grid_import",
+   "hour": 2,
+   "power_kw": 3.5,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 3,
+   "power_kw": 0.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 3,
+   "power_kw": 4.75,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 4,
+   "power_kw": 0.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 4,
+   "power_kw": 2.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 5,
+   "power_kw": 0.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 5,
+   "power_kw": 11.25,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 6,
+   "power_kw": 0.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 6,
+   "power_kw": 16.5,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 7,
+   "power_kw": 0.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 7,
+   "power_kw": 18.75,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 8,
+   "power_kw": 0.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 8,
+   "power_kw": 21.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 1,
+   "power_kw": 0.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "grid",
+   "device_type": "grid_import",
+   "hour": 1,
+   "power_kw": 5.75,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 2,
+   "power_kw": 0.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "grid",
+   "device_type": "grid_import",
+   "hour": 2,
+   "power_kw": 3.5,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 3,
+   "power_kw": 0.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 3,
+   "power_kw": 4.75,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 4,
+   "power_kw": 0.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 4,
+   "power_kw": 2.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 5,
+   "power_kw": 0.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 5,
+   "power_kw": 11.25,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 6,
+   "power_kw": 0.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 6,
+   "power_kw": 16.5,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 7,
+   "power_kw": 0.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 7,
+   "power_kw": 18.75,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "diesel_1",
+   "device_type": "diesel",
+   "hour": 8,
+   "power_kw": 0.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "curtailment",
+   "device_type": "curtailment",
+   "hour": 8,
+   "power_kw": 21.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 1,
+   "power_kw": 4.25,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 1,
+   "power_kw": 10.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 2,
+   "power_kw": 8.5,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 2,
+   "power_kw": 12.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 3,
+   "power_kw": 12.75,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 3,
+   "power_kw": 8.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 4,
+   "power_kw": 17.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 4,
+   "power_kw": 15.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 5,
+   "power_kw": 21.25,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 5,
+   "power_kw": 10.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 6,
+   "power_kw": 25.5,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 6,
+   "power_kw": 9.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 7,
+   "power_kw": 29.75,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 7,
+   "power_kw": 11.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 8,
+   "power_kw": 34.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 8,
+   "power_kw": 13.0,
+   "scenario": "Soleado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 1,
+   "power_kw": 4.25,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 1,
+   "power_kw": 10.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 2,
+   "power_kw": 8.5,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 2,
+   "power_kw": 12.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 3,
+   "power_kw": 12.75,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 3,
+   "power_kw": 8.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 4,
+   "power_kw": 17.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 4,
+   "power_kw": 15.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 5,
+   "power_kw": 21.25,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 5,
+   "power_kw": 10.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 6,
+   "power_kw": 25.5,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 6,
+   "power_kw": 9.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 7,
+   "power_kw": 29.75,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 7,
+   "power_kw": 11.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 8,
+   "power_kw": 34.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 8,
+   "power_kw": 13.0,
+   "scenario": "Nublado"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 1,
+   "power_kw": 4.25,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 1,
+   "power_kw": 10.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 2,
+   "power_kw": 8.5,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 2,
+   "power_kw": 12.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 3,
+   "power_kw": 12.75,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 3,
+   "power_kw": 8.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 4,
+   "power_kw": 17.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 4,
+   "power_kw": 15.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 5,
+   "power_kw": 21.25,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 5,
+   "power_kw": 10.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 6,
+   "power_kw": 25.5,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 6,
+   "power_kw": 9.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 7,
+   "power_kw": 29.75,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 7,
+   "power_kw": 11.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "solar_1",
+   "device_type": "solar",
+   "hour": 8,
+   "power_kw": 34.0,
+   "scenario": "Lluvia"
+  },
+  {
+   "cost": 0.0,
+   "device_id": "load_1",
+   "device_type": "load",
+   "hour": 8,
+   "power_kw": 13.0,
+   "scenario": "Lluvia"
+  }
+ ],
+ "job": {
+  "grid": {
+   "cost_fixed": 40,
+   "cost_variable": 60,
+   "max_export_kw": 0,
+   "max_import_kw": 400,
+   "min_import_kw": -300
+  },
+  "horizon": 8,
+  "job_id": "test",
+  "loads": [
+   {
+    "id": "load_1",
+    "max_kw": 80,
+    "min_kw": 0,
+    "type": "load"
+   }
+  ],
+  "predictions_load_total": [
+   10.0,
+   12.0,
+   8.0,
+   15.0,
+   10.0,
+   9.0,
+   11.0,
+   13.0
+  ],
+  "predictions_solar": [
+   0.1,
+   0.2,
+   0.30000000000000004,
+   0.4,
+   0.5,
+   0.6,
+   0.7000000000000001,
+   0.8
+  ],
+  "sources": [
+   {
+    "cost_a": 0,
+    "cost_b": 0,
+    "cost_c": 0,
+    "efficiency": 0.85,
+    "fuel_cost": 0,
+    "id": "solar_1",
+    "max_kw": 50,
+    "min_kw": 0,
+    "type": "solar"
+   },
+   {
+    "cost_a": 0.001,
+    "cost_b": 0.5,
+    "cost_c": 0.5,
+    "efficiency": 1.0,
+    "fuel_cost": 100,
+    "id": "diesel_1",
+    "max_kw": 300,
+    "min_kw": 50,
+    "type": "diesel"
+   }
+  ],
+  "storage": [
+   {
+    "capacity_kwh": 200,
+    "charge_efficiency": 0.95,
+    "discharge_efficiency": 0.95,
+    "id": "battery_1",
+    "initial_soc": 0.65,
+    "max_charge_kw": 50,
+    "max_discharge_kw": 50,
+    "max_kw": 100,
+    "min_kw": 0,
+    "soc_max": 0.95,
+    "soc_min": 0.2,
+    "type": "battery"
+   }
+  ],
+  "time_step_minutes": 60
+ },
+ "metodo": "BASE_JOB de optimization/tests/test_solver.py@504e175 + asimetria anti-empates (solar 0.1..0.8, loads [10,12,8,15,10,9,11,13]) + grid max_export_kw=0; sha256(json.dumps(dispatch_plan, sort_keys=True))",
+ "objective_value": 875.0,
+ "plan_sha256": "ca9196943a7878fb4ecceb0c2c5a6c9092afb44cfab9e9f118eaa1d744865d92",
+ "verificacion": "sha256(json.dumps(dispatch_plan, sort_keys=True))"
+}

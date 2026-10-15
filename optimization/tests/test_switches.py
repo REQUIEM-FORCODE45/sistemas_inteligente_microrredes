@@ -4,26 +4,38 @@
 C1 operador abre red -> 0 en todas las horas + eco. C2 solver abre con red
 cara y cierra con red barata + maniobras con costo. C3 todo abierto -> ENS
 declarado. C4 solver sin M -> error atribuido + fail-safe abierto. C6 modo
-impuesto reproduce el dispatch anterior (sha256 congelado, job asimetrico
-para evitar empates del solver).
+impuesto reproduce el dispatch anterior (artefacto golden versionado, job
+asimetrico para evitar empates del solver).
 """
 from __future__ import annotations
 
 import copy
 import hashlib
 import json
+import os
 
 from optimization.solver.model_builder import build_and_solve
 from optimization.tests.test_solver import BASE_JOB
 
 # C6: golden del modo impuesto (sin connections). Job asimetrico a proposito:
 # con entradas constantes el solver empata entre optimos y el sha baila.
+# La EVIDENCIA pre-cambio vive versionada (no en constantes sueltas) en
+# integracion_plataforma/cambio_15_switches_conectividad/reference/resultados/golden_impuesto.json
+# — calculada con el codigo ANTERIOR al cambio (ver "capturado_en_commit"
+# dentro del artefacto). Este test la CARGA.
 C6_JOB = dict(
     predictions_solar=[0.1 + 0.1 * h for h in range(8)],
     predictions_load_total=[10.0, 12.0, 8.0, 15.0, 10.0, 9.0, 11.0, 13.0],
 )
-C6_SHA = "ca9196943a7878fb4ecceb0c2c5a6c9092afb44cfab9e9f118eaa1d744865d92"
-C6_OBJ = 875.0
+_GOLDEN_C6 = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..",
+    "integracion_plataforma", "cambio_15_switches_conectividad",
+    "reference", "resultados", "golden_impuesto.json"))
+
+
+def _golden_c6():
+    with open(_GOLDEN_C6, encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 def _job(**kw):
@@ -45,10 +57,14 @@ def _grid_kw(plan):
 
 
 def test_c6_modo_impuesto_reproduce_dispatch():
+    golden = _golden_c6()
+    # coherencia interna del artefacto: el sha que declara es el del plan
+    # que trae (si alguien lo edita a mano, esto falla primero)
+    assert _canon(golden["dispatch_plan"]) == golden["plan_sha256"]
     out = build_and_solve(_job())
     assert out["status"] == "optimal"
-    assert _canon(out["dispatch_plan"]) == C6_SHA
-    assert out["objective_value"] == C6_OBJ
+    assert _canon(out["dispatch_plan"]) == golden["plan_sha256"]
+    assert out["objective_value"] == golden["objective_value"]
     assert out["topology"]["connections"] == []
 
 
