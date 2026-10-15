@@ -150,4 +150,54 @@ rama del trafo en el 14).
 
 | # | Estado |
 |---|---|
-| **15** | ✅ **Implementado y auditado** (`f9b2a37`): gate por dispositivo con `M` de la rama (**0 `1e6` nuevos**), fail-safe de `M` ausente, `sin modelo` > `s=0`, invariante **3/3** y **manifiestos PASS** (corridos por la auditoría) · 🟠 **C6 no cerrado**: la evidencia pre-cambio (`a76c0828`) **solo está en el texto** → versionarla como artefacto y añadir el ExpA2 impuesto a **V-items** · 🟠 **`AGENTS.md` desactualizado otra vez** (trafo + switches) → ahora es **criterio de cierre** en la spec del 16 · ✅ **4 huecos de la spec resueltos** por el implementador, registrados como contrato (§4) |
+| **15** | ✅ **Implementado y auditado** (`f9b2a37`): gate por dispositivo con **`M` de la rama** (**0 `1e6` nuevos**), fail-safe de `M` ausente, `sin modelo` > `s=0`, invariante **3/3** y **manifiestos PASS** (corridos por la auditoría) · 🟠 **C6 no cerrado**: la evidencia pre-cambio (`a76c0828`) **solo está en el texto** → versionarla como artefacto y añadir el ExpA2 impuesto a **V-items** · 🟠 **`AGENTS.md` desactualizado otra vez** (trafo + switches) → ahora es **criterio de cierre** en la spec del 16 · ✅ **4 huecos de la spec resueltos** por el implementador, registrados como contrato (§4) |
+
+---
+
+# 8. CIERRE DEL 15 (`737e85a`) — **CAMBIO 15 COMPLETO**
+
+## 8.1 El C6 quedó resuelto, y mejor de lo pedido
+
+El implementador **no se limitó a mover el hash a un JSON**: recomputó el golden **en un worktree del
+commit anterior** (`504e175`), cuyo `model_builder.py` **no menciona `connections`**, y obtuvo
+exactamente `ca919694…` / `875.0`. Es decir: **la evidencia pre-cambio está reproducida con el código
+anterior**, no copiada de un apunte.
+
+Artefacto: `reference/resultados/golden_impuesto.json` (15 604 B) con `capturado_en_commit`,
+`metodo`, `job` completo (sin `connections`), `dispatch_plan` (96 filas), `objective_value`,
+`plan_sha256` y `verificacion`. Declarado **en el manifiesto** ✓.
+
+**Verificado por esta auditoría, ejecutando**:
+
+| Prueba | Resultado |
+|---|---|
+| Recomputé `sha256(json.dumps(plan, sort_keys=True))` del artefacto | ✅ **coincide** con el `plan_sha256` declarado |
+| El `job` del artefacto **no** trae `connections` | ✅ (modo impuesto) |
+| ¿La captura es **pre-cambio**? | ✅ `git merge-base --is-ancestor 504e175 f9b2a37` → **es ancestro** ⇒ prueba **dura** por ascendencia de git, no por declaración |
+| El test **carga** el artefacto | ✅ y añade una validación que no pedí: **re-hash del plan == `plan_sha256`** → si alguien edita el JSON a mano, **falla primero** |
+| `test_manifiestos_reference` | ✅ **PASS** (el artefacto nuevo, declarado con sha256 completo) |
+
+**Y corrigió mi hallazgo como se debe**: dejó una *"nota de corrección (append, no borrado)"* que
+reemplaza la mención al hash irreproducible **sin borrarla** — respetando la regla append-only, y
+reconociendo la causa (*"ese hash solo vivía en este texto y no era reproducible"*).
+
+## 8.2 Lo que queda movido al 16 (acordado, no olvidado)
+
+`AGENTS.md` **no se actualizó aquí a propósito**: se le pidió para el **cambio 16**, donde ya es
+**criterio de cierre (C9)**. Y el ExpA2 con switches (modo `impuesta` por sha256 de la tabla + modo
+`solver` end-to-end) está registrado como **V8** en `docs/PENDIENTES_MPC_ESTADO.md`.
+
+## 8.3 Observación menor (sin impacto)
+
+El artefacto declara `capturado_el: 2026-10-15` mientras el commit de captura es del 12 — reloj del
+entorno del implementador. No afecta a nada (la prueba que vale es la **ascendencia de git**, que sí
+verifiqué), pero si se quiere trazabilidad perfecta, la fecha debería salir del commit.
+
+## 8.4 Estado
+
+**CAMBIO 15 COMPLETO**: el MPC ya puede **elegir** la configuración en vez de recibirla impuesta, con
+`M` de la rama (ni un `1e6` nuevo), fail-safe declarado si falta la cota, y el seccionador visible en
+el lienzo con su `s=0` recuperando el significado para el que se reservó.
+
+Siguiente y **último de la cola**: **cambio 16 (unifilar vivo)** — flujo por potencia, badges en el
+conector y vista dual, con **C8** (el badge refleja su rama) y **C9** (`AGENTS.md` al día) ya en su spec.
