@@ -1,5 +1,5 @@
 {
-  "version": "14",
+  "version": "15",
   "nota": "Fuente unica para validar en las dos capas: el solver valida contra este archivo y el frontend (PARAMS_SOLO_UI + test_mapper_coverage) verifica la cobertura. req=true = sin default utilizable.",
   "solar": {
     "params": {
@@ -124,5 +124,26 @@
     },
     "if_missing": {"power_factor": "limite NO aplicado + eco + pre-flight (cambio 14, prohibido asumir pf tipico)", "losses_pct": "sin perdidas + eco + pre-flight (cambio 14, prohibido asumir perdidas tipicas)", "s_max_kva": "sin tope del trafo (solo el de la red)"}
   },
-  "sensor_iot": {"soportado": false, "motivo": "se enlaza por sensor_mappings, no entra al modelo electrico"}
+  "sensor_iot": {"soportado": false, "motivo": "se enlaza por sensor_mappings, no entra al modelo electrico"},
+  "switch": {
+    "params": {
+      "switch_state": {"req": false, "default": "closed"},
+      "switch_mode": {"req": false, "default": "operador"},
+      "M": {"req": false, "default": null},
+      "switch_cost_cop": {"req": false, "default": 0.0}
+    },
+    "if_missing": {"M": "en modo solver: ERROR atribuido al switch, rama forzada ABIERTA (cambio 15, prohibido adivinar la cota); en modo operador: no se usa"}
+  },
+  "connection": {
+    "params": {
+      "from": {"req": true},
+      "to": {"req": true},
+      "kind": {"req": false, "default": "ac"},
+      "switch_state": {"req": false, "default": "closed"},
+      "switch_mode": {"req": false, "default": "operador"},
+      "M": {"req": false, "default": null},
+      "switch_cost_cop": {"req": false, "default": 0.0}
+    },
+    "if_missing": {"switch_state": "cerrado (conservador: conduce)", "switch_mode": "operador (el solver no maniobra solo)"}
+  }
 }

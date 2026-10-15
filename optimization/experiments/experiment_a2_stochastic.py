@@ -66,7 +66,8 @@ def _window(days_n: int, start_date: str | None) -> pd.DatetimeIndex:
 
 def run_cell(strat: str, gmax: float, days: pd.DatetimeIndex,
              pv_real: pd.Series, load_real: pd.Series,
-             provider, initial_soc: float) -> tuple[pd.DataFrame, pd.DataFrame]:
+             provider, initial_soc: float,
+             topology_mode: str = "impuesta") -> tuple[pd.DataFrame, pd.DataFrame]:
     """N días en lazo continuo para un (modo, estrategia).
 
     Devuelve (diaria una fila/día, horaria una fila/hora). Para mpc-pi se pasa
@@ -83,6 +84,7 @@ def run_cell(strat: str, gmax: float, days: pd.DatetimeIndex,
         trace = run_day(strat, d, pv_day, load_day, provider,
                         {"initial_soc": soc_carry,
                          "grid_max_kw": gmax,
+                         "topology_mode": topology_mode,
                          "ens_as_metric": True,
                          "pv_full": pv_real,
                          "load_full": load_real})
@@ -395,6 +397,11 @@ def main() -> int:
     ap.add_argument("--initial-soc", type=float, default=0.65)
     ap.add_argument("--modes", nargs="+", default=list(GRID_MODES),
                     choices=list(GRID_MODES))
+    # Cambio 15: modo de topologia (aditivo). "impuesta" = escenarios actuales
+    # sin tocar (default, C6). "solver" = el MPC elige isla/red con un
+    # seccionador (M = tope del modo); heur sigue con tope impuesto.
+    ap.add_argument("--topology-mode", type=str, default="impuesta",
+                    choices=["impuesta", "solver"])
     ap.add_argument("--strategies", nargs="+", default=STRATEGIES,
                     choices=STRATEGIES)
     ap.add_argument("--tag", type=str, default="",
@@ -444,7 +451,8 @@ def main() -> int:
             logger.info("Modo %s estrategia %s ...", mode, strat)
             prov = mpc_pi_provider if strat == "mpc-pi" else provider
             cell, hourly = run_cell(strat, gmax, days, pv_real, load_real,
-                                    prov, args.initial_soc)
+                                    prov, args.initial_soc,
+                                    args.topology_mode)
             cell.insert(0, "estrategia", strat)
             cell.insert(0, "modo", mode)
             cells.append(cell)

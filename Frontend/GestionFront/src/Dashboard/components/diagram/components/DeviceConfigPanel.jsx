@@ -5,6 +5,7 @@ import {
   updateNodeLabel,
   removeNode,
   removeEdge,
+  updateEdgeData,
 } from '@/Dashboard/store/diagram/diagramSlice';
 import { X, Save, Trash2, Pencil, Check } from 'lucide-react';
 import { DEVICE_DEFINITIONS } from '../constants/deviceTypes';
@@ -428,6 +429,95 @@ export default function DeviceConfigPanel({ onClose }) {
                 {selectedEdge.target?.slice(-6)}
               </span>
             </div>
+          </div>
+
+          {/* Cambio 15: seccionador de la rama. Estado + modo + M/costo.
+              Regla del 0: vaciar un number guarda 0 -> null = no declarado
+              (el mapper lo trata igual). Persiste en edge.data. */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Seccionador
+            </p>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-medium text-muted-foreground w-16">
+                Estado
+              </label>
+              <div className="flex gap-1 flex-1">
+                {['closed', 'open'].map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => dispatch(updateEdgeData({
+                      edgeId: selectedEdge.id,
+                      data: { switch_state: st },
+                    }))}
+                    className={`flex-1 px-2 py-1.5 text-[11px] rounded-md border font-medium transition-colors ${
+                      (selectedEdge.data?.switch_state || 'closed') === st
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'border-input bg-background text-foreground hover:border-foreground/20'
+                    }`}
+                  >
+                    {st === 'closed' ? 'Cerrado' : 'Abierto'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground">
+                Quién decide
+              </label>
+              <select
+                value={selectedEdge.data?.switch_mode || 'operador'}
+                onChange={(e) => dispatch(updateEdgeData({
+                  edgeId: selectedEdge.id,
+                  data: { switch_mode: e.target.value },
+                }))}
+                className="w-full px-2 py-1.5 text-[11px] rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring/40"
+              >
+                <option value="operador">Operador (el solver no maniobra)</option>
+                <option value="solver">Solver (elige por costo)</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground">
+                  M (kW, obligatoria en solver)
+                </label>
+                <input
+                  type="number"
+                  value={selectedEdge.data?.M ?? ''}
+                  placeholder="sin declarar"
+                  onChange={(e) => dispatch(updateEdgeData({
+                    edgeId: selectedEdge.id,
+                    data: { M: e.target.value === '' ? null : parseFloat(e.target.value) || 0 },
+                  }))}
+                  step="any"
+                  className="w-full px-2 py-1.5 text-[11px] rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring/40 tabular-nums"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground">
+                  Maniobra (COP)
+                </label>
+                <input
+                  type="number"
+                  value={selectedEdge.data?.switch_cost_cop ?? ''}
+                  placeholder="0.0"
+                  onChange={(e) => dispatch(updateEdgeData({
+                    edgeId: selectedEdge.id,
+                    data: { switch_cost_cop: e.target.value === '' ? null : parseFloat(e.target.value) || 0 },
+                  }))}
+                  step="any"
+                  className="w-full px-2 py-1.5 text-[11px] rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring/40 tabular-nums"
+                />
+              </div>
+            </div>
+            {(selectedEdge.data?.switch_mode === 'solver'
+              && !(Number(selectedEdge.data?.M) > 0)) && (
+              <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                Sin M el solver no puede maniobrar: error atribuido + rama
+                abierta (no se adivina la cota).
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

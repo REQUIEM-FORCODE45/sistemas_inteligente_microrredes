@@ -148,12 +148,16 @@ const TOPOLOGY_MAPPERS = {
   },
 };
 
-function diagramToOptimization(nodes) {
+function diagramToOptimization(nodes, edges) {
   const sources = [];
   const storage = [];
   const loads = [];
   // Cambio 13.1: convertidores (inversor) — grupo propio, no sources.
   const converters = [];
+  // Cambio 15: conexiones con seccionador desde los edges (hoy no se usan).
+  // Sin switches configurados, el array sale con defaults cerrado/operador y
+  // el solver lo trata igual que no traer connections (cero impacto).
+  const connections = [];
   // Cambio 10.3: mismo criterio que el mapper de red (evita el §2.2).
   const gridDefault = { max_import_kw: 400, max_export_kw: 300, min_import_kw: -300, cost_fixed: 40, cost_variable: 60 };
   let grid = null;
@@ -183,12 +187,36 @@ function diagramToOptimization(nodes) {
     }
   }
 
-  return { sources, storage, loads, converters, grid: grid || gridDefault, devices };
+  // Cambio 15: cada edge es una rama con seccionador. Defaults cerrado +
+  // operador (el solver lo trata igual que no traer connections). M/costo
+  // solo si el operador los declara en el panel del edge (regla del 0: al
+  // vaciar un number el panel guarda 0 -> null = no declarado).
+  const _num = (v) => {
+    const f = Number(v);
+    return f > 0 ? f : null;
+  };
+  for (const e of edges || []) {
+    if (!e || !e.source || !e.target) continue;
+    const ed = e.data || {};
+    connections.push({
+      id: e.id,
+      from: e.source,
+      to: e.target,
+      kind: ed.kind || ed.currentType || 'ac',
+      switch_state: ed.switch_state || 'closed',
+      switch_mode: ed.switch_mode || 'operador',
+      M: _num(ed.M),
+      switch_cost_cop: _num(ed.switch_cost_cop) || 0.0,
+    });
+  }
+
+  return { sources, storage, loads, converters, grid: grid || gridDefault, devices, connections };
 }
 
 export default function DiagramOptimizationPanel({ onClose }) {
   const dispatch = useDispatch();
   const diagramNodes = useSelector((state) => state.diagram.nodes);
+  const diagramEdges = useSelector((state) => state.diagram.edges);
   const sensorMappings = useSelector((state) => state.diagram.sensorMappings);
   const optimization = useSelector((state) => state.optimization);
   const socketRef = useRef(null);
@@ -314,7 +342,7 @@ export default function DiagramOptimizationPanel({ onClose }) {
       for (const w of preflightNodes(diagramNodes, TOPOLOGY_MAPPERS)) {
         dispatch(setNodePreflight({ id: w.id, preflight: w }));
       }
-      const topology = diagramToOptimization(diagramNodes);
+      const topology = diagramToOptimization(diagramNodes, diagramEdges);
       const res = await GridAPI.post('/front/optimization/trigger', {
         topology,
         sensor_mappings: sensorMappings,
@@ -328,7 +356,7 @@ export default function DiagramOptimizationPanel({ onClose }) {
     } finally {
       setTriggering(false);
     }
-  }, [diagramNodes, sensorMappings, dispatch]);
+  }, [diagramNodes, diagramEdges, sensorMappings, dispatch]);
 
   const statusBadge = () => {
     switch (optimization.status) {

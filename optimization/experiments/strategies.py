@@ -29,7 +29,8 @@ from optimization.experiments.config import (MICROGRID, HEUR,
 def _build_job(anchor: pd.Timestamp, band: pd.DataFrame, load_fc: pd.Series,
                horizon: int, scenarios: list | None,
                initial_soc: float | None = None,
-               grid_max_kw: float | None = None) -> dict:
+               grid_max_kw: float | None = None,
+               topology_mode: str = "impuesta") -> dict:
     """Payload del solver con la topologia de la microred (igual produccion).
 
     `initial_soc` es el SOC REAL del lazo cerrado en la hora de decision:
@@ -76,6 +77,16 @@ def _build_job(anchor: pd.Timestamp, band: pd.DataFrame, load_fc: pd.Series,
         "loads": [{"id": "load_1", "type": "load", "max_kw": 1000, "min_kw": 0}],
         # Cambio 13: inversor declarado de la microred (serie sobre el PV).
         "converters": [dict({"type": "inverter"}, **MICROGRID["inverter"])],
+        # Cambio 15: en modo solver el MPC elige la topologia de red
+        # (seccionador con M = tope impuesto). En impuesta (default) NO se
+        # envia la llave "connections": byte-identico al job anterior (C6).
+        **({"connections": [{
+            "id": "sw_grid", "from": "grid", "to": "bus_ac", "kind": "ac",
+            "switch_mode": "solver",
+            "M": float(grid_max_kw) if grid_max_kw is not None
+            else float(MICROGRID["grid"]["max_import_kw"]),
+            "switch_cost_cop": 0.0,
+        }]} if topology_mode == "solver" else {}),
         "grid": {
             "max_import_kw": (MICROGRID["grid"]["max_import_kw"]
                               if grid_max_kw is None else float(grid_max_kw)),
@@ -100,10 +111,12 @@ def mpc_first_action(band: pd.DataFrame, load_fc: pd.Series,
                      horizon: int, scenarios: list | None,
                      base_scenario: str,
                      initial_soc: float | None = None,
-                     grid_max_kw: float | None = None) -> dict:
+                     grid_max_kw: float | None = None,
+                     topology_mode: str = "impuesta") -> dict:
     """Resuelve el MPC y devuelve la primera accion del escenario base."""
     job = _build_job(band.index[0], band, load_fc, horizon, scenarios,
-                     initial_soc=initial_soc, grid_max_kw=grid_max_kw)
+                     initial_soc=initial_soc, grid_max_kw=grid_max_kw,
+                     topology_mode=topology_mode)
     out = build_and_solve(job)
     if out.get("status") != "optimal":
         raise RuntimeError(f"MPC no resolvio: {out.get('status')} {out.get('error')}")
@@ -129,31 +142,39 @@ def mpc_first_action(band: pd.DataFrame, load_fc: pd.Series,
 # --------------------------------------------------------------------------- #
 def strategy_smpc(band: pd.DataFrame, load_fc: pd.Series,
                   horizon: int = 24, initial_soc: float | None = None,
-                  grid_max_kw: float | None = None) -> dict:
+                  grid_max_kw: float | None = None,
+                  topology_mode: str = "impuesta") -> dict:
     """S-MPC: 3 escenarios anclados a cuantiles (default de produccion)."""
     return mpc_first_action(band, load_fc, horizon, None, "Nublado",
-                            initial_soc=initial_soc, grid_max_kw=grid_max_kw)
+                            initial_soc=initial_soc, grid_max_kw=grid_max_kw,
+                            topology_mode=topology_mode)
 
 
 def strategy_dmpc(band: pd.DataFrame, load_fc: pd.Series,
                   horizon: int = 24, initial_soc: float | None = None,
-                  grid_max_kw: float | None = None) -> dict:
+                  grid_max_kw: float | None = None,
+                  topology_mode: str = "impuesta") -> dict:
     """D-MPC: determinista (solo P50)."""
     return mpc_first_action(band, load_fc, horizon, D_SCEN, "Base",
-                            initial_soc=initial_soc, grid_max_kw=grid_max_kw)
+                            initial_soc=initial_soc, grid_max_kw=grid_max_kw,
+                            topology_mode=topology_mode)
 
 
 def strategy_mpc_pi(band: pd.DataFrame, load_fc: pd.Series,
                     horizon: int = 24, initial_soc: float | None = None,
-                    grid_max_kw: float | None = None) -> dict:
+                    grid_max_kw: float | None = None,
+                    topology_mode: str = "impuesta") -> dict:
     """MPC-PI: D-MPC con el forecast perfecto (serie realizada)."""
     return mpc_first_action(band, load_fc, horizon, D_SCEN, "Base",
-                            initial_soc=initial_soc, grid_max_kw=grid_max_kw)
+                            initial_soc=initial_soc, grid_max_kw=grid_max_kw,
+                            topology_mode=topology_mode)
 
 def strategy_oracle(band: pd.DataFrame, load_fc: pd.Series,
                     horizon: int = 24, initial_soc: float | None = None,
-                    grid_max_kw: float | None = None) -> dict:
-    return strategy_mpc_pi(band, load_fc, horizon, initial_soc, grid_max_kw)
+                    grid_max_kw: float | None = None,
+                    topology_mode: str = "impuesta") -> dict:
+    return strategy_mpc_pi(band, load_fc, horizon, initial_soc, grid_max_kw,
+                           topology_mode=topology_mode)
 
 
 def strategy_heur(pv_real: float, load_real: float, soc_kwh: float,

@@ -284,6 +284,8 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
       sources: topology.sources || [],
       storage: storageWithSoc,
       converters: topology.converters || [],
+      // Cambio 15: conexiones con seccionador (opt-in; sin ellas, igual).
+      connections: topology.connections || [],
       loads: topology.loads || [],
       grid: topology.grid || {},
       predictions_solar: hasSolar ? predictions.solar : null,

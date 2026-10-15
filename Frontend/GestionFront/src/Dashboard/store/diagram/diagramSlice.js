@@ -76,6 +76,17 @@ const diagramSlice = createSlice({
       }
     },
 
+    // Cambio 15: edita data del edge (seccionador: switch_state/mode/M/cost).
+    // Persiste igual que el resto (edges van en loadDiagram/save).
+    updateEdgeData(state, action) {
+      const { edgeId, data } = action.payload;
+      const edge = state.edges.find((e) => e.id === edgeId);
+      if (edge) {
+        edge.data = { ...edge.data, ...data };
+        state.isDirty = true;
+      }
+    },
+
     selectElement(state, action) {
       state.selectedElement = action.payload;
     },
@@ -197,6 +208,7 @@ export const {
   removeNode,
   addEdge,
   removeEdge,
+  updateEdgeData,
   selectElement,
   clearSelection,
   mapSensor,

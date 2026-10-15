@@ -79,6 +79,8 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
     soc = (params.get("initial_soc") or b["initial_soc"]) * cap
     # Exp A2 (escasez de red): limite de importacion del lazo. None = config.
     _gmax = params.get("grid_max_kw")
+    # Cambio 15: modo de topologia (aditivo; default impuesta = identico).
+    _topo = params.get("topology_mode", "impuesta")
     grid_max = (MICROGRID["grid"]["max_import_kw"]
                 if _gmax is None else float(_gmax))
     grid_min = (MICROGRID["grid"]["min_import_kw"]
@@ -116,17 +118,20 @@ def run_day(strategy: str, day_start: pd.Timestamp, pv_real: pd.Series,
             act = strat.strategy_smpc(lookahead, load_fc_24,
                                       initial_soc=soc / cap,
                                       grid_max_kw=None if _gmax is None
-                                      else grid_max)
+                                      else grid_max,
+                                      topology_mode=_topo)
         elif strategy == "dmpc":
             act = strat.strategy_dmpc(lookahead, load_fc_24,
                                       initial_soc=soc / cap,
                                       grid_max_kw=None if _gmax is None
-                                      else grid_max)
+                                      else grid_max,
+                                      topology_mode=_topo)
         elif strategy in ("mpc-pi", "oracle"):
             act = strat.strategy_mpc_pi(lookahead, load_fc_24,
                                         initial_soc=soc / cap,
                                         grid_max_kw=None if _gmax is None
-                                        else grid_max)
+                                        else grid_max,
+                                        topology_mode=_topo)
         elif strategy == "heur":
             act = strat.strategy_heur(pv_r, load_r, soc, t, cap,
                                       grid_max_kw=None if _gmax is None

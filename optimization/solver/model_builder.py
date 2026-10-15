@@ -101,6 +101,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     grid_raw = input_data.get("grid", {})
     # Cambio 13.1: convertidores (inversor). Opt-in: sin ellos, todo igual.
     converters = input_data.get("converters", []) or []
+    # Cambio 15: conexiones con seccionador. Opt-in: sin ellas, todo igual.
+    connections = input_data.get("connections", []) or []
     # Cambio 12.3: inventario crudo del diagrama para device_echo (C7).
     devices = input_data.get("devices", []) or []
     initial_diesel_kw = input_data.get("initial_diesel_kw", {}) or {}
@@ -136,6 +138,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             loads=loads,
             grid_raw=grid_raw,
             converters=converters,
+            connections=connections,
             initial_diesel_kw=initial_diesel_kw,
             site_fuel=site_fuel,
             devices=devices,
@@ -174,6 +177,9 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
 
     battery_soc = _extract_battery_soc(pyo_model, variables, horizon, s_ids, storage_list)
 
+    topology = _extract_topology(pyo_model, variables, horizon, s_ids,
+                                 scenarios)
+
     scenario_results = {}
     for si, s in enumerate(scenarios):
         scenario_total = 0.0
@@ -209,6 +215,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
         "cost_fixed_applied": variables.get("cost_fixed_applied"),
         "fuel_price_applied": variables.get("fuel_price_applied"),
         "device_echo": variables.get("device_echo", []),
+        "topology": topology,
         "scenario_results": scenario_results,
         "battery_soc_evolution": battery_soc,
         "total_hours": horizon,
@@ -234,6 +241,7 @@ def _build_pyomo_model(
     loads: list = None,
     grid_raw: dict = None,
     converters: list = None,
+    connections: list = None,
     initial_diesel_kw: dict = None,
     site_fuel: dict = None,
     devices: list = None,
@@ -249,6 +257,7 @@ def _build_pyomo_model(
     loads = loads or []
     grid_raw = grid_raw or {}
     converters = converters or []
+    connections = connections or []
     devices = devices or []
     predictions_solar = list(predictions_solar) if predictions_solar else []
     predictions_load_total = list(predictions_load_total) if predictions_load_total else []
@@ -504,6 +513,241 @@ def _build_pyomo_model(
         warnings.append("grid: max_export_kw no declarado, tope de export "
                         "derivado de min_import_kw")
 
+    # Cambio 15 — switches de conectividad (opt-in): cada connection gatea la
+    # rama del dispositivo `from` (fallback `to` si from es barra). s=1 cierra,
+    # s=0 abre. Sin connections: este bloque no hace nada (cero impacto).
+    # Regla del 0 unificada: M no > 0 = no declarada. En modo solver sin M ->
+    # ERROR atribuido + rama forzada ABIERTA (fail-safe: jamas conducir en
+    # silencio por una cota adivinada). "ambos" esta fuera de alcance (cambio
+    # 15): se avisa y se trata como operador.
+    def _pos(v):
+        try:
+            f = float(v) if v is not None and v != "" else None
+        except (TypeError, ValueError):
+            f = None
+        return f if (f is not None and f > 0) else None
+
+    _dev_tipo = {}
+    for _d in (devices or []):
+        if isinstance(_d, dict) and _d.get("id"):
+            _dev_tipo[_d["id"]] = _d.get("tipo")
+    _diesel_by_id = {d["id"]: _di for _di, d in enumerate(diesel_devices)
+                     if d.get("id")}
+    _bat_by_id = {}
+    for _bi, _b in enumerate(storage_list or []):
+        if isinstance(_b, dict) and _b.get("id"):
+            _bat_by_id[_b["id"]] = _bi
+    _solar_ids = {d["id"] for d in solar_devices if d.get("id")}
+    _wind_ids = {d["id"] for d in wind_devices if d.get("id")}
+    _nat_max = {"grid": max(max_import if max_import >= 0 else 0.0,
+                            max_export if max_export > 0 else 0.0)}
+
+    def _rama_de(ep):
+        """(kind, ref) gateable para un extremo, o (None, motivo)."""
+        if ep is None or ep == "":
+            return None, "sin extremo"
+        # La red no esta en sources: se resuelve por inventario (produccion)
+        # o por id ("grid" o prefijo "grid_", compat sin inventario).
+        if (ep == "grid" or _dev_tipo.get(ep) == "grid"
+                or (isinstance(ep, str) and ep.lower().startswith("grid_")
+                    and ep not in _diesel_by_id and ep not in _bat_by_id
+                    and ep not in _solar_ids and ep not in _wind_ids)):
+            return ("grid", None), None
+        if ep in _diesel_by_id:
+            return ("diesel", _diesel_by_id[ep]), None
+        if ep in _bat_by_id:
+            return ("battery", _bat_by_id[ep]), None
+        if ep in _solar_ids:
+            return ("solar", ep), None
+        if ep in _wind_ids:
+            return ("wind", ep), None
+        return None, "sin rama modelable (load/bus/inverter/trafo/sensor)"
+
+    switches = []
+    for _ci, _c in enumerate(connections or []):
+        if not isinstance(_c, dict):
+            continue
+        _cid = _c.get("id", f"sw_{_ci}")
+        _frm, _to = _c.get("from"), _c.get("to")
+        _mode = str(_c.get("switch_mode", "operador") or "operador").lower()
+        if _mode not in ("operador", "solver"):
+            warnings.append(
+                f"{_cid}: switch_mode '{_c.get('switch_mode')}' fuera de "
+                "alcance (cambio 15: solo operador|solver); se trata como operador")
+            _mode = "operador"
+        _st = _c.get("switch_state", "closed")
+        if isinstance(_st, bool):
+            _state0 = 1.0 if _st else 0.0
+        else:
+            _state0 = (0.0 if str(_st or "closed").lower()
+                       in ("open", "abierto", "0", "false") else 1.0)
+        _M = _pos(_c.get("M", None))
+        try:
+            _cost = float(_c.get("switch_cost_cop", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            warnings.append(f"{_cid}: switch_cost_cop invalido, se usa 0.0")
+            _cost = 0.0
+        if _cost < 0:
+            warnings.append(f"{_cid}: switch_cost_cop negativo, se usa 0.0")
+            _cost = 0.0
+        _tgt, _porque = _rama_de(_frm)
+        if _tgt is None and (_frm in ("bus_ac", None, "")
+                             or _dev_tipo.get(_frm) == "ac_bus"):
+            _tgt, _porque = _rama_de(_to)
+        _sw = {"id": _cid, "from": _frm, "to": _to,
+               "kind": _c.get("kind", "ac"),
+               "mode": _mode, "state0": _state0, "M": _M, "cost": _cost,
+               "target": _tgt, "error": None, "solver_idx": None,
+               "mode_efectivo": _mode}
+        if _tgt is None:
+            warnings.append(f"{_cid}: {_porque}; el switch no tiene efecto")
+            _sw["error"] = f"sin efecto: {_porque}"
+        elif _tgt[0] in ("solar", "wind") and _mode == "solver":
+            # Cambio 15: switch solver sobre pasivo (parametro, no variable)
+            # -> se degrada a operador con el estado inicial (evita bilineal;
+            # declarado en VERIFICACION como limite conocido).
+            warnings.append(
+                f"{_cid}: switch solver sobre pasivo {_tgt[1]} no soportado; "
+                f"se trata como operador "
+                f"({'abierto' if _state0 == 0.0 else 'cerrado'})")
+            _sw["mode"] = "operador"
+            _sw["mode_efectivo"] = "operador (degradado de solver)"
+        else:
+            _kind, _ref = _tgt
+            _nat = _nat_max.get(_kind)
+            if _nat is None:
+                if _kind == "diesel":
+                    _nat = diesel_devices[_ref]["max_kw"]
+                elif _kind == "battery":
+                    _bb = storage_list[_ref]
+                    _nat = max(float(_bb.get("max_charge_kw", 25)),
+                               float(_bb.get("max_discharge_kw", 25)))
+                else:
+                    _sd = next((d for d in solar_devices + wind_devices
+                                if d.get("id") == _ref), {})
+                    _nat = float(_sd.get("max_kw", 0.0))
+            _sw["nat_max"] = _nat
+            if _M is not None and _nat is not None and _nat > 0 and _M < _nat:
+                warnings.append(
+                    f"{_cid}: M={_M} < limite del equipo ({_nat}): tambien "
+                    "limita en cerrado (cota declarada, no inventada)")
+            if _mode == "solver" and _M is None:
+                _sw["error"] = ("modo solver sin M: error atribuido, rama "
+                                "forzada ABIERTA (no se adivina la cota)")
+                warnings.append(f"{_cid}: {_sw['error']}")
+        switches.append(_sw)
+
+    # Cambio 15: binarias de seccionador (solo si hay modo solver sin error;
+    # sin ellas, cero binarias nuevas). s=1 cierra, s=0 abre. SW_CHG mide la
+    # maniobra |s[t]-s[t-1]| (t=0 contra el estado inicial) para su costo.
+    _sw_solver = [sw for sw in switches
+                  if sw["mode"] == "solver" and sw["target"] is not None
+                  and sw["error"] is None]
+    for _si, _sw in enumerate(_sw_solver):
+        _sw["solver_idx"] = _si
+    if _sw_solver:
+        model.SW_S = pyo.Var(range(len(_sw_solver)), model.T, model.S,
+                             domain=pyo.Binary)
+        model.SW_CHG = pyo.Var(range(len(_sw_solver)), model.T, model.S,
+                               domain=pyo.NonNegativeReals)
+        for _si, _sw in enumerate(_sw_solver):
+            for t in model.T:
+                for s in model.S:
+                    _prev = (_sw["state0"] if int(t) == 0
+                             else model.SW_S[_si, t - 1, s])
+                    model.add_component(
+                        f"swchg_up_{_si}_{t}_{s}",
+                        pyo.Constraint(expr=model.SW_CHG[_si, t, s]
+                                       >= model.SW_S[_si, t, s] - _prev))
+                    model.add_component(
+                        f"swchg_dn_{_si}_{t}_{s}",
+                        pyo.Constraint(expr=model.SW_CHG[_si, t, s]
+                                       >= _prev - model.SW_S[_si, t, s]))
+
+    # Cambio 15: gates por rama. ("const", f) con f en {0.0, 1.0} para
+    # operador/error(fail-safe abierto); ("svar", sidx, M) para solver.
+    # Varias gates sobre la misma rama: en cotas se aplican todas (lineal);
+    # en pasivos multiplicativos se usa la primera + warning (evita bilineal).
+    _gates = {}
+    for _sw in switches:
+        if _sw["target"] is None:
+            continue
+        if _sw["error"] is not None:
+            _gates.setdefault(_sw["target"], []).append(("const", 0.0))
+        elif _sw["mode"] == "operador":
+            if _sw["state0"] == 0.0:
+                _gates.setdefault(_sw["target"], []).append(("const", 0.0))
+            # cerrado (1.0): no-op, sin restricciones nuevas
+        else:
+            _gates.setdefault(_sw["target"], []).append(
+                ("svar", _sw["solver_idx"], _sw["M"]))
+
+    def _sw_share(kind, devs, total):
+        """Factor de gate agregado por peso para pasivos (exacto: el reparto
+        es proporcional a weight en los tres modos). 1.0 si no hay gates."""
+        _num, _den, _hay = 0.0, total or 0.0, False
+        for _d in devs or []:
+            _f = _sw_factor(kind, _d.get("id"))
+            if _f != 1.0:
+                _hay = True
+            _num += (_d.get("weight", 0.0) or 0.0) * _f
+        if not _hay:
+            return 1.0
+        return (_num / _den) if _den else 0.0
+
+    def _sw_aplica(kind, ref, comp, idx, t, s, tag=""):
+        """Aplica gates a una variable acotada (red/diesel/bateria).
+
+        const 0.0 -> fija 0; cada svar -> P <= M*s (lineal, todas valen).
+        Devuelve True si hizo algo."""
+        _gs = _gates.get((kind, ref), [])
+        for _m, *_r in _gs:
+            if _m == "const":
+                comp[idx].fix(0.0)
+                return True
+            _si, _M = _r[0], _r[1]
+            model.add_component(
+                f"swgate_{kind}_{ref}_{_si}_{t}_{s}{tag}",
+                pyo.Constraint(expr=comp[idx] <= _M * model.SW_S[_si, t, s]))
+        return bool(_gs)
+
+    def _sw_factor(kind, dev_id):
+        """Factor de gate para pasivos (solar/wind): producto de consts.
+
+        Solo llegan consts aqui (los solver sobre pasivos se degradan a
+        operador en el parse). 1.0 = sin gates (cero impacto)."""
+        _f = 1.0
+        for _m, *_r in _gates.get((kind, dev_id), []):
+            if _m == "const":
+                _f *= _r[0]
+        return _f
+
+    _sw_grid_multi_warned = False
+
+    def _sw_grid_gate(t, s):
+        """Gate de la rama de red para el cargo fijo (1.0/0.0 o s).
+
+        Cambio 15: desconectado no paga cargo fijo de conexion (incentivo
+        economico real de la isla; declarado). Varias svar: primera + warning.
+        """
+        _gs = _gates.get(("grid", None), [])
+        _e = 1.0
+        _n = 0
+        for _m, *_r in _gs:
+            if _m == "const":
+                if _r[0] == 0.0:
+                    return 0.0
+            else:
+                _n += 1
+                if _n == 1:
+                    _e = model.SW_S[_r[0], t, s]
+        nonlocal _sw_grid_multi_warned
+        if _n > 1 and not _sw_grid_multi_warned:
+            _sw_grid_multi_warned = True
+            warnings.append("red: varias gates solver, el cargo fijo usa la "
+                            "primera (cambio 15: evita bilineal)")
+        return _e
+
     model.P_diesel = pyo.Var(
         pyo.RangeSet(0, num_diesel - 1) if num_diesel > 0 else pyo.RangeSet(0, 0),
         model.T, model.S,
@@ -526,6 +770,8 @@ def _build_pyomo_model(
             for t in model.T:
                 for s in model.S:
                     model.P_diesel[di, t, s].setub(d["max_kw"])
+                    # Cambio 15: gate del seccionador sobre el diesel.
+                    _sw_aplica("diesel", di, model.P_diesel, (di, t, s), t, s)
                     model.add_component(f"diesel_min_{di}_{t}_{s}",
                         pyo.Constraint(expr=model.P_diesel[di, t, s] >= d["min_kw"] * model.U_diesel[di, t, s]))
                     model.add_component(f"diesel_max_{di}_{t}_{s}",
@@ -616,8 +862,12 @@ def _build_pyomo_model(
                 _ub_imp = min(_ub_imp, trafo["cap_kw"])
                 _ub_exp = min(_ub_exp, trafo["cap_kw"])
             model.P_import[t, s].setub(_ub_imp)
+            # Cambio 15: gate del seccionador sobre la rama de red.
+            _sw_aplica("grid", None, model.P_import, (t, s), t, s)
             if _ub_exp > 0:
                 model.P_export[t, s].setub(_ub_exp)
+                # Cambio 15: el gate de red cubre import y export.
+                _sw_aplica("grid", None, model.P_export, (t, s), t, s, "_exp")
             else:
                 model.P_export[t, s].setub(0.0)
                 model.P_export[t, s].fix(0.0)
@@ -719,6 +969,10 @@ def _build_pyomo_model(
                     if (inverter is not None and inverter["bus_dc"]) else set()
                 pv_kw = sum(sd["max_kw"] * sd["efficiency"] * irrad * factor_pv
                             for sd in solar_devices if sd["id"] not in _excl)
+            # Cambio 15: gates sobre PV (factor por peso; 1.0 = sin gates).
+            _gsf = _sw_share("solar", solar_devices, total_solar_kw)
+            if _gsf != 1.0:
+                pv_kw = pv_kw * _gsf
             if t_idx == 0 and s_idx == s_ids[0]:
                 pv_first_kw = float(pv_kw)
 
@@ -747,6 +1001,10 @@ def _build_pyomo_model(
                            else 0.0) * factor_wind
             else:
                 wind_kw = 0.0
+            # Cambio 15: gates sobre eolica (igual que PV).
+            _gwf = _sw_share("wind", wind_devices, total_wind_kw)
+            if _gwf != 1.0:
+                wind_kw = wind_kw * _gwf
             if t_idx == 0 and s_idx == s_ids[0]:
                 wind_first_kw = float(wind_kw)
 
@@ -832,6 +1090,9 @@ def _build_pyomo_model(
                 for t_idx, t in enumerate(model.T):
                     model.P_charge[bi, t, s].setub(bmeta["max_charge"])
                     model.P_discharge[bi, t, s].setub(bmeta["max_discharge"])
+                    # Cambio 15: gate del seccionador sobre la bateria.
+                    _sw_aplica("battery", bi, model.P_charge, (bi, t, s), t, s, "_ch")
+                    _sw_aplica("battery", bi, model.P_discharge, (bi, t, s), t, s, "_dis")
                     model.SOC[bi, t, s].setlb(bmeta["soc_min"] * cap)
                     model.SOC[bi, t, s].setub(bmeta["soc_max"] * cap)
                     if t_idx == 0:
@@ -924,6 +1185,11 @@ def _build_pyomo_model(
                     if inverter["bidirectional"]:
                         model.nonant.add(model.P_inv_rev[t, s0] == model.P_inv_rev[t, s])
                         model.nonant.add(model.U_inv[t, s0] == model.U_inv[t, s])
+            # Cambio 15: el seccionador en t=0 tambien es primera etapa.
+            if _sw_solver:
+                for _si in range(len(_sw_solver)):
+                    for s in s_ids[1:]:
+                        model.nonant.add(model.SW_S[_si, t, s0] == model.SW_S[_si, t, s])
 
     # Cambio 08.3 — cargo fijo: cost_fixed (COP/hora de conexion, criterio
     # actual) vs cost_fixed_month (COP/mes, prorrateo a hora: /720). Como no
@@ -973,8 +1239,14 @@ def _build_pyomo_model(
                             total += prob * float(diesel_devices[di]["start_cost"]) * m.diesel_start[di, t, s_idx]
                         if penalize_stop[di]:
                             total += prob * float(diesel_devices[di]["stop_cost"]) * m.diesel_stop[di, t, s_idx]
-                total += prob * (grid_d + grid_e[int(t)] * m.P_import[t, s_idx] - export_tariff * m.P_export[t, s_idx])
+                total += prob * (grid_d * _sw_grid_gate(t, s_idx) + grid_e[int(t)] * m.P_import[t, s_idx] - export_tariff * m.P_export[t, s_idx])
                 total += prob * ens_penalty * m.ENS[t, s_idx]
+                # Cambio 15: costo de maniobra del seccionador (solo solver).
+                if _sw_solver:
+                    for _si, _sw in enumerate(_sw_solver):
+                        if _sw["cost"]:
+                            total += (prob * float(_sw["cost"])
+                                      * m.SW_CHG[_si, t, s_idx])
                 for bi, _ in enumerate(storage_list):
                     total += prob * battery_degradation_cost(
                         pyo, storage_list[bi] if bi < len(storage_list) else {},
@@ -1024,6 +1296,10 @@ def _build_pyomo_model(
         "inv_series": inv_series,
         # Cambio 14: el trafo viaja al eco y al plan (etapa sin variables).
         "trafo": trafo,
+        # Cambio 15: switches parseados + binarias (el extractor lee valores).
+        "switches": switches,
+        "SW_S": model.SW_S if _sw_solver else None,
+        "SW_CHG": model.SW_CHG if _sw_solver else None,
         # Cambio 13.2: la puerta es variable (el extractor lee su valor).
         "P_inv_dc": model.P_inv_dc if (
             inverter is not None and inverter["bus_dc"]) else None,
@@ -1053,7 +1329,8 @@ def _build_pyomo_model(
         devices, sources, storage_list, loads, grid_raw,
         diesel_devices, solar_devices, wind_devices, storage_vars,
         max_import, max_export, export_source, cost_fixed_applied,
-        export_tariff, ens_penalty, warnings, inverter=inverter, trafo=trafo)
+        export_tariff, ens_penalty, warnings, inverter=inverter, trafo=trafo,
+        switches=switches)
 
     return model, variables
 
@@ -1063,7 +1340,8 @@ def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
                                storage_vars, max_import, max_export,
                                export_source, cost_fixed_applied,
                                export_tariff, ens_penalty, warnings,
-                               inverter=None, trafo=None) -> list:
+                               inverter=None, trafo=None,
+                               switches=None) -> list:
     """Valida contra topology_schema.json y construye device_echo.
 
     Cubre TODOS los dispositivos del diagrama (devices); si el job no trae
@@ -1173,7 +1451,28 @@ def _build_device_echo_checked(devices, sources, storage_list, loads, grid_raw,
                 for k, v in modeled.items()]
     _excl = list((inverter or {}).get("ac_excluded", [])) \
         if isinstance(inverter, dict) else []
-    return build_device_echo(devices, modeled, warnings, excluidos=_excl)
+    _eco = build_device_echo(devices, modeled, warnings, excluidos=_excl)
+    # Cambio 15 (C1/C4): los switches entran al eco con su id de conexion
+    # (las ramas no son nodos del inventario). Error = fail-safe abierto.
+    for _sw in switches or []:
+        if not isinstance(_sw, dict):
+            continue
+        _pe = {"from": _sw.get("from"), "to": _sw.get("to"),
+               "kind": _sw.get("kind", "ac"),
+               "switch_mode": _sw.get("mode", "operador"),
+               "mode_efectivo": _sw.get("mode_efectivo", _sw.get("mode")),
+               "M": _sw.get("M"), "switch_cost_cop": _sw.get("cost", 0.0),
+               "rama": _sw.get("target")}
+        if _sw.get("error") is not None:
+            _eco.append({"device_id": _sw.get("id"), "tipo": "switch",
+                         "estado": "error", "motivo": _sw["error"],
+                         "params_efectivos": _pe})
+        else:
+            _pe["switch_state"] = ("closed" if _sw.get("state0", 1.0) > 0
+                                   else "open")
+            _eco.append({"device_id": _sw.get("id"), "tipo": "switch",
+                         "estado": "modelado", "params_efectivos": _pe})
+    return _eco
 
 
 def _extract_dispatch_plan(
@@ -1187,6 +1486,17 @@ def _extract_dispatch_plan(
 ) -> list[dict]:
     plan = []
     num_diesel = variables.get("num_diesel", 0)
+    # Cambio 15: gates const por dispositivo para el display de pasivos. En el
+    # modelo los pasivos solo reciben consts (los solver se degradaron en el
+    # parse): 0.0 si abierto o con error, 1.0 en otro caso.
+    _sw_f = {}
+    for _sw in variables.get("switches", []) or []:
+        if isinstance(_sw, dict) and _sw.get("target") is not None:
+            _k, _r = _sw["target"][0], _sw["target"][1]
+            if _k in ("solar", "wind"):
+                _abierto = (_sw.get("error") is not None
+                            or _sw.get("state0", 1.0) == 0.0)
+                _sw_f[(_k, _r)] = _sw_f.get((_k, _r), 1.0) * (0.0 if _abierto else 1.0)
 
     for s_idx in s_ids:
         sc_name = scenarios[s_idx]["name"]
@@ -1365,6 +1675,8 @@ def _extract_dispatch_plan(
                     "ac_excluded", []))
                 if sd["id"] in _excl:
                     pv_kw = 0.0
+                # Cambio 15: rama abierta por seccionador -> 0 en el display.
+                pv_kw *= _sw_f.get(("solar", sd["id"]), 1.0)
                 plan.append({
                     "device_id": sd["id"],
                     "device_type": "solar",
@@ -1383,6 +1695,8 @@ def _extract_dispatch_plan(
                     wind_kw = wind_total * wd.get("weight", 0.0) / total_wind_kw
                 else:
                     wind_kw = 0.0
+                # Cambio 15: igual que PV.
+                wind_kw *= _sw_f.get(("wind", wd["id"]), 1.0)
                 plan.append({
                     "device_id": wd["id"],
                     "device_type": "wind",
@@ -1516,6 +1830,28 @@ def _extract_cost_breakdown(
             return float(grid_e_raw)
     cost_per_hour = []
 
+    # Cambio 15: gate de red evaluado (1.0/0.0) para el cargo fijo. Misma
+    # regla que el objetivo: const-abierto manda sobre svar; sin gates, 1.0.
+    _sws_g2 = [w for w in (variables.get("switches", []) or [])
+               if isinstance(w, dict) and w.get("target") is not None
+               and w["target"][0] == "grid"]
+
+    def _gate_red(_t, _s_idx):
+        if any(w.get("error") is not None or (
+                w.get("mode") == "operador"
+                and w.get("state0", 1.0) == 0.0) for w in _sws_g2):
+            return 0.0
+        for w in _sws_g2:
+            if (w.get("mode") == "solver"
+                    and w.get("solver_idx") is not None
+                    and variables.get("SW_S") is not None):
+                try:
+                    return float(pyo.value(
+                        variables["SW_S"][w["solver_idx"], _t, _s_idx]))
+                except (ValueError, KeyError, TypeError):
+                    return 1.0
+        return 1.0
+
     for s_idx in s_ids:
         sc = scenarios[s_idx]
         for t in range(horizon):
@@ -1553,11 +1889,28 @@ def _extract_cost_breakdown(
             except (ValueError, KeyError):
                 imp = exp = 0.0
             hour_cost += grid_d + _grid_e(t) * imp - export_tariff * exp
+            # Cambio 15: cargo fijo solo si la red esta conectada.
+            _gg = _gate_red(t, s_idx)
+            if _gg != 1.0:
+                hour_cost += grid_d * (_gg - 1.0)
             try:
                 ens = float(pyo.value(variables["ENS"][t, s_idx]))
                 hour_cost += float(grid_raw.get("ens_penalty_cop_kwh", 5000.0)) * ens
             except (ValueError, KeyError):
                 pass
+            # Cambio 15: costo de maniobra (solo solver; 0 sin switches).
+            _sw_h = 0.0
+            _sw_by = {(_w.get("solver_idx"), _w.get("cost", 0.0))
+                      for _w in (variables.get("switches", []) or [])
+                      if isinstance(_w, dict) and _w.get("solver_idx") is not None}
+            if _sw_by and variables.get("SW_CHG") is not None:
+                try:
+                    _sw_h = sum(float(_c) * float(pyo.value(
+                        variables["SW_CHG"][_si, t, s_idx]))
+                        for _si, _c in _sw_by)
+                except (ValueError, KeyError, TypeError):
+                    _sw_h = 0.0
+            hour_cost += _sw_h
 
             cost_per_hour.append({
                 "hour": t + 1,
@@ -1569,9 +1922,79 @@ def _extract_cost_breakdown(
             })
 
     fixed_total = round(float(grid_d) * horizon * len(s_ids), 2)
+    # Cambio 15: con gate de red, el fijo reportado descuenta horas abiertas
+    # (misma regla que el objetivo y el hourly).
+    if _sws_g2:
+        _ft = sum(float(grid_d) * _gate_red(_t, _s_idx)
+                  for _s_idx in s_ids for _t in range(horizon))
+        fixed_total = round(_ft, 2)
     return {"hourly": cost_per_hour, "fixed_total": fixed_total,
             "fixed_source": variables.get("cost_fixed_applied", {}).get(
                 "fuente", "cost_fixed")}
+
+
+def _extract_topology(model: Any, variables: dict, horizon: int,
+                      s_ids: list, scenarios: list) -> dict:
+    """Cambio 15 (C2/C5): topologia por hora + maniobras + costo de switching.
+
+    Sin switches: {"connections": []}. Operador: estado constante. Solver:
+    schedule por hora y escenario leido de SW_S, maniobras donde cambia.
+    """
+    out_conns = []
+    maneuvers = []
+    total_cost = 0.0
+    _sw_by_idx = {}
+    for _sw in variables.get("switches", []) or []:
+        if not isinstance(_sw, dict):
+            continue
+        _e = {"id": _sw.get("id"), "from": _sw.get("from"),
+              "to": _sw.get("to"), "kind": _sw.get("kind", "ac"),
+              "switch_mode": _sw.get("mode", "operador"),
+              "mode_efectivo": _sw.get("mode_efectivo", _sw.get("mode")),
+              "M": _sw.get("M"), "switch_cost_cop": _sw.get("cost", 0.0)}
+        if _sw.get("error") is not None:
+            _e["estado"] = "error"
+            _e["motivo"] = _sw["error"]
+        if _sw.get("error") is not None:
+            _e["estado"] = "error"
+            _e["motivo"] = _sw["error"]
+        elif _sw.get("mode") == "solver" and _sw.get("solver_idx") is not None:
+            _si = _sw["solver_idx"]
+            _sw_by_idx[_sw.get("id")] = _si
+            _sched = {}
+            for _s_idx in s_ids:
+                _sc = scenarios[_s_idx]["name"]
+                _vals = []
+                for _t in range(horizon):
+                    try:
+                        _v = float(pyo.value(variables["SW_S"][_si, _t, _s_idx]))
+                    except (ValueError, KeyError, TypeError):
+                        _v = 1.0
+                    _vals.append(round(_v))
+                _sched[_sc] = _vals
+            _e["schedule"] = _sched
+            for _s_idx in s_ids:
+                _sc = scenarios[_s_idx]["name"]
+                for _t, _v in enumerate(_sched[_sc]):
+                    _ant = (_sched[_sc][_t - 1] if _t > 0
+                            else int(_sw.get("state0", 1.0)))
+                    if _v != _ant:
+                        maneuvers.append({"id": _sw.get("id"), "hour": _t + 1,
+                                          "scenario": _sc, "de": _ant, "a": _v})
+            try:
+                _chg = sum(float(pyo.value(variables["SW_CHG"][_si, _t, _s_idx]))
+                           * scenarios[_s_idx]["probability"]
+                           for _t in range(horizon) for _s_idx in s_ids)
+            except (ValueError, KeyError, TypeError):
+                _chg = 0.0
+            _e["switching_cost_cop"] = round(float(_sw.get("cost", 0.0)) * _chg, 2)
+            total_cost += _e["switching_cost_cop"]
+        else:
+            _e["switch_state"] = ("closed" if _sw.get("state0", 1.0) > 0
+                                  else "open")
+        out_conns.append(_e)
+    return {"connections": out_conns, "maneuvers": maneuvers,
+            "switching_cost_cop": round(total_cost, 2)}
 
 
 def _extract_battery_soc(
