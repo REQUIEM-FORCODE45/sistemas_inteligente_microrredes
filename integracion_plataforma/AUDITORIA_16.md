@@ -121,6 +121,44 @@ dato para el capítulo, se marca explícitamente como *no verificado*.
 
 ---
 
+## 4.bis CIERRE (`f84b878`) — los puntos 2 y 3 resueltos; el 1 sigue abierto
+
+### La tabla C3 (§3.2): **resuelta y bien**
+
+Pasó de *"trazo a mano"* a **MEDIDA por DOM en H1/H2/H3**. El trafo ahora da
+`9.8 / 9.6 / 9.4` — **siempre salida < entrada** (10.0→9.8, 9.8→9.6, 9.6→9.4, exactamente ×0.98). El error
+físicamente imposible desapareció, y el `VERIFICACION` deja constancia del borrador incorrecto y de la
+regla adoptada (*"lo que no se mida, no se tabula"*).
+
+### El badge de la carga (§3.3): **resuelto en el código**
+
+`ramaFlow` se dividió en `rowsFor(...)` + la elección de cola, y ahora la **cola es el extremo que
+tiene filas** (origen primero, **destino solo si es sumidero**). Verificado leyendo el código y el
+solver: el `dispatch_plan` emite la carga con **su `device_id` real** (`l_id` ∈ `load_ids`) y
+`device_type: "load"`, así que el fallback la encuentra.
+
+**Y encontró por su cuenta un bug que introdujo el propio fix**: el primer badge midió un `−9.7`
+**fantasma** en `batt→inv` a H3 (*"heredaba el flujo de otra rama"*) → restringió el fallback a
+sumideros (`load`) y **lo declaró como límite conocido**. Eso es exactamente lo que quiero: el fix no
+solo arregla, **no rompe en silencio**.
+
+### Dos observaciones menores (ninguna bloquea)
+
+1. **La captura no cubre el caso corregido.** Verifiqué con **dos zooms por región** (método que ya me
+   evitó un falso positivo en el 12.4): en `BUS AC→Carga` **no hay pill**. Pero **no es un defecto**: en
+   esa escena el consumo es **0 kW** y el solver **no emite fila `load` si `ld ≤ 0.001`** → sin fila,
+   sin badge, correcto. El `+21.0` de la tabla sale del DOM del **harness** (plan determinista), que es
+   otra escena. **Petición**: versionar también la captura del harness con carga, para que la evidencia
+   visual cubra el caso que se acaba de corregir (hoy solo lo cubre la medición DOM).
+2. `SINK_TYPES = useMemo(() => new Set(['load']), [])` dentro del componente: es una constante, y
+   `AUX_TYPES` ya vive a nivel de módulo. Sacarla al módulo quita un hook por rama y respeta la regla 2
+   del plan (*constantes de módulo*). Cosmético.
+
+### Lo que sigue abierto: **C1/C2 (§3.1)**
+
+Sigue **sin medir** y el commit no lo toca: el cambio **no puede cerrarse** hasta re-ejecutar la
+fluidez. Es el único pendiente real.
+
 ## 5. NO verificado aquí (declarado, no asumido)
 
 - **C1/C2** (fluidez post-cambio): no medidos por el implementador (entorno caído) → **condición de
