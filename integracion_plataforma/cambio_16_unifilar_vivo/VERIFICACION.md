@@ -31,26 +31,30 @@ Lo que sí queda, verificable por revisión + artefacto:
 - **La comparación de medianas queda pendiente de re-ejecutar** con el mismo
   harness cuando el entorno lo permita; no se afirma número post-cambio.
 
-## C3 · Flujo coherente (trazo a mano, método de la spec — 3 horas)
+## C3 · Flujo coherente (MEDIDO por DOM en H1/H2/H3)
 
 Plan del harness (determinista): red import 10.0/9.8/9.6 (H1/H2/H3); trafo
-paso 10.0 + pérdida 0.2; solar 10.0; inversor 9.7; batería descarga 4.0 @H1,
-carga 3.0 @H2, nada @H3; carga 21.0/22.0/23.0. Grosor `1.8+0.42·kW` (cap 7):
+paso 10.0/9.8/9.6 + pérdida 2 %; solar 10.0; inversor 9.7; batería descarga
+4.0 @H1, carga 3.0 @H2, nada @H3; carga 21.0/22.0/23.0. Cableado válido
+(batt→inv, no directo a bus: el validador lo exige). Grosor `1.8+0.42·kW`
+(cap 7). **Sets de badges leídos del DOM** (texto de pills, 3 horas):
 
-| rama (cola) | H1 | H2 | H3 |
+| rama (cola) | H1 medido | H2 medido | H3 medido |
 |---|---|---|---|
 | red→trafo (red) | `+10.0`, 6.0px, fwd | `+9.8`, 5.9px, fwd | `+9.6`, 5.8px, fwd |
-| trafo→bus (trafo) | `+9.8`, 5.9px, fwd | `+9.8`, fwd | `+9.8`, fwd |
+| trafo→bus (trafo) | `+9.8`, 5.9px, fwd | `+9.6`, 5.8px, fwd | `+9.4`, 5.7px, fwd |
 | solar→inv | `+10.0`, 6.0px, fwd | `+10.0`, fwd | `+10.0`, fwd |
 | inv→bus | `+9.7`, 5.9px, fwd | `+9.7`, fwd | `+9.7`, fwd |
 | batt→inv | `+4.0`, 3.5px, fwd | `−3.0`, 3.1px, **rev** | sin badge |
 | bus→carga | `+21.0`, 7px, fwd | `+22.0`, fwd | `+23.0`, fwd |
 
-- H1 **probado en captura** (`c16_editor.png`: +10.0/+9.8/+10.0/+9.7/+4.0 visibles).
-- Dirección H2 **medida en DOM**: `flow-rev:1, flow-fwd:5` (la carga es la única
-  al revés). H2/H3 en texto: derivados a mano del código + plan (mismo método
-  que prescribe la spec); el filtro `d.hour === hour` y el signo son el único
-  delta frente a H1 probado.
+- H1 además **probado en captura** (`c16_editor.png`: +10.0/+9.8/+10.0/+9.7/+4.0).
+- Dirección **medida en DOM** a H2: `flow-rev:1, flow-fwd:5` (solo la carga
+  va al revés). Todo físicamente consistente (salida < entrada siempre).
+- Corrección respecto al borrador: la primera tabla trazada a mano daba
+  salida 9.8 en H2/H3 (**imposible**, §3.2 de la auditoría, correcto); la de
+  arriba sale del DOM, no del razonamiento. Regla del proyecto desde aquí:
+  **lo que no se mida, no se tabula**.
 
 ## C4 · Badges (misma tabla)
 
@@ -61,12 +65,16 @@ excluidos del cómputo (auxiliares).
 
 ## C8 · El badge refleja SU rama (caso obligatorio + generalización)
 
-- Trafo con pérdidas 2 %: entrada `+10.0`, salida `+9.8` en H1/H2/H3 (tabla C3;
-  H1 en captura). Antes: `Math.max` daba 10.0/10.0.
+- Trafo con pérdidas 2 %, **medido en DOM las 3 horas**: entrada
+  `+10.0/+9.8/+9.6`, salida `+9.8/+9.6/+9.4` (siempre salida < entrada).
+  H1 además en captura. Antes: `Math.max` daba 10.0/10.0.
 - Generalizado en código: inversor serie sale `inverter` (9.7, visible H1);
   bus DC sale AC−rev (`inverter_rev` al revés); `inverter_dc`/pérdidas no salen
   al AC; vertido/`curt` no infla ningún badge; cada rama con seccionador usa su
   propio `device_id` (ya eran filas separadas desde el 15).
+- Fallback restringido a sumideros: el primer badge midió un `−9.7` fantasma
+  en `batt→inv` a H3 (heredaba el flujo de otra rama); desde entonces el
+  fallback al destino solo vale para `load`. Declarado como límite conocido.
 - `s=0`/`sin modelo`/`solver` intactos del 15 (prioridad declarada allí).
 
 ## C5 · Vista dual (verificado por DOM + identidad de fuente)

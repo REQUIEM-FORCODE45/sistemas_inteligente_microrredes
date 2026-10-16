@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { BaseEdge, getSmoothStepPath, EdgeLabelRenderer } from '@xyflow/react';
 import { useSelector } from 'react-redux';
-import { DEVICE_TYPE, CURRENT_TYPE, flowWidthFor } from '../constants/deviceTypes';
+import { CURRENT_TYPE, flowWidthFor } from '../constants/deviceTypes';
 
 // Cambio 12.4 — rama unifilar (variante B, copiada de la referencia):
 // derivación ortogonal (smoothstep), grosor ∝ kW, capa de flujo animada
@@ -12,12 +12,15 @@ import { DEVICE_TYPE, CURRENT_TYPE, flowWidthFor } from '../constants/deviceType
 // cola es el otro). Familias con signo geométrico: + fluye source→target,
 // − al revés. `ens`/`curt` excluidos (auxiliares, no fluyen por la rama).
 const AUX_TYPES = new Set(['ens', 'curtailment']);
-function ramaFlow(plan, tailId, tailType, hour) {
-  if (!plan || !tailId) return { kw: 0, signed: 0 };
-  // La red emite filas con device_id literal "grid" (una sola red por
-  // diagrama, invariante previo del solver).
-  const rows = plan.filter((d) => (d.device_id === tailId || (tailType === 'grid' && d.device_id === 'grid'))
+// Filas del plan para un extremo en una hora (misma regla que ramaFlow;
+// la red emite con device_id literal "grid").
+function rowsFor(plan, nodeId, nodeType, hour) {
+  if (!plan || !nodeId) return [];
+  return plan.filter((d) => (d.device_id === nodeId || (nodeType === 'grid' && d.device_id === 'grid'))
     && d.hour === hour && !AUX_TYPES.has(d.device_type));
+}
+function ramaFlow(plan, tailId, tailType, hour) {
+  const rows = rowsFor(plan, tailId, tailType, hour);
   if (rows.length === 0) return { kw: 0, signed: 0 };
   const pw = (t) => {
     const e = rows.find((d) => d.device_type === t);
@@ -115,19 +118,25 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
   const isInvalid = data?.isInvalid;
   const errorMessage = data?.errorMessage;
 
-  // Cambio 16: la cola es el source, salvo barra en el source (entonces el
-  // otro extremo, p. ej. la carga). Todo se memoiza por (plan, hora): un
-  // recompute acotado por cambio de resultado/hora, nunca por frame (regla 5).
-  const tailIsSource = srcType !== DEVICE_TYPE.AC_BUS;
-  const tailId = tailIsSource ? source : target;
-  const tailType = tailIsSource ? srcType : tgtType;
+  // Cambio 16, cierre §3.3: la cola es el extremo CON filas (origen primero).
+  // El fallback al destino SOLO vale para sumideros (load: su consumo entra
+  // por ESA rama). Sin esto, una rama inactiva heredaria el flujo de otra
+  // (p. ej. batt→inv en hora sin bateria mostraba el 9.7 del inversor).
+  const SINK_TYPES = useMemo(() => new Set(['load']), []);
   const flow = useMemo(
     () => {
-      const net = ramaFlow(plan, tailId, tailType, hora);
-      const signed = tailIsSource ? net.signed : -net.signed;
+      const srcRows = rowsFor(plan, source, srcType, hora);
+      const useSrc = srcRows.length > 0;
+      const useDst = !useSrc && SINK_TYPES.has(tgtType)
+        && rowsFor(plan, target, tgtType, hora).length > 0;
+      if (!useSrc && !useDst) return { kw: 0, signed: 0, fwd: true };
+      const tId = useSrc ? source : target;
+      const tType = useSrc ? srcType : tgtType;
+      const net = ramaFlow(plan, tId, tType, hora);
+      const signed = useSrc ? net.signed : -net.signed;
       return { kw: net.kw, signed, fwd: signed >= 0 };
     },
-    [plan, tailId, tailType, tailIsSource, hora],
+    [plan, source, target, srcType, tgtType, hora, SINK_TYPES],
   );
   const kw = flow.kw;
   const width = flowWidthFor(kw);
