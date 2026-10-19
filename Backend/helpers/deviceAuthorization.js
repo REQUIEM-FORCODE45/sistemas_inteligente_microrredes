@@ -25,6 +25,8 @@ const canAccessSensor = (sensor, userId, role = 'user') => {
 const canManageSensor = (sensor, userId, role = 'user') => {
     if (!sensor) return false;
     if (isAdmin(role)) return true;
+    // P4: fail-open cerrado — sin userId en el sensor, nadie gestiona.
+    if (!sensor.userId) return false;
     return toIdString(sensor.userId) === toIdString(userId);
 };
 

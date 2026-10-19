@@ -14,6 +14,19 @@ export default function SensorMappingPanel() {
 
   const [filter, setFilter] = useState('');
 
+  // P2: activos + los YA enlazados aunque esten inactivos (un diagrama
+  // guardado con un sensor desactivado debe seguir mostrando el mapping
+  // para poder quitarlo). Los inactivos van marcados, nunca en silencio.
+  const mappedIds = new Set(Object.values(sensorMappings || {}));
+  const mappableDevices = devices.filter((d) =>
+    d.status === 'active' || mappedIds.has(d._id),
+  );
+
+  const filteredDevices = mappableDevices.filter((d) =>
+    d.name?.toLowerCase().includes(filter.toLowerCase()) ||
+    d._id?.toLowerCase().includes(filter.toLowerCase()),
+  );
+
   const handleMap = useCallback(
     (nodeId, sensorId) => {
       dispatch(mapSensor({ nodeId, sensorId }));
@@ -26,11 +39,6 @@ export default function SensorMappingPanel() {
       dispatch(unmapSensor(nodeId));
     },
     [dispatch],
-  );
-
-  const filteredDevices = devices.filter((d) =>
-    d.name?.toLowerCase().includes(filter.toLowerCase()) ||
-    d._id?.toLowerCase().includes(filter.toLowerCase()),
   );
 
   // Cambio 12.4: la barra AC (decorativa, fuera del modelo) no se mapea —
@@ -83,6 +91,11 @@ export default function SensorMappingPanel() {
                   <span className="text-[11px] text-foreground truncate flex-1">
                     {device.name || device._id?.slice(-8)}
                   </span>
+                  {device.status && device.status !== 'active' && (
+                    <span className="text-[8px] font-semibold uppercase text-amber-600">
+                      {device.status}
+                    </span>
+                  )}
                   <span className="text-[9px] text-muted-foreground font-mono opacity-50">
                     {device._id?.slice(-4)}
                   </span>
@@ -108,6 +121,10 @@ export default function SensorMappingPanel() {
                 const mappedSensorId = sensorMappings[node.id];
                 const propagated = propagationDeps[node.id] && propagationDeps[node.id] !== mappedSensorId;
                 const Icon = def?.icon;
+                // P2: aviso declarado (cadena de confianza del cambio 12) si
+                // el sensor enlazado esta inactivo o en mantenimiento.
+                const mappedDevice = mappableDevices.find((d) => d._id === mappedSensorId);
+                const mappedStale = mappedDevice && mappedDevice.status && mappedDevice.status !== 'active';
 
                 return (
                   <div
@@ -140,6 +157,11 @@ export default function SensorMappingPanel() {
                                 Propagado desde aguas arriba
                               </p>
                             )}
+                            {mappedStale && (
+                              <p className="text-[8px] text-amber-600 mt-0.5 font-semibold">
+                                Este sensor no recibirá datos nuevos (estado: {mappedDevice.status})
+                              </p>
+                            )}
                           </div>
                           <button
                             onClick={() => handleUnmap(node.id)}
@@ -158,9 +180,9 @@ export default function SensorMappingPanel() {
                           className="w-full px-2 py-1 text-[10px] rounded-md border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-ring/40"
                         >
                           <option value="">Seleccionar sensor...</option>
-                          {devices.map((d) => (
+                          {mappableDevices.map((d) => (
                             <option key={d._id} value={d._id}>
-                              {d.name || d._id?.slice(-8)}
+                              {d.name || d._id?.slice(-8)}{d.status && d.status !== 'active' ? ` (${d.status})` : ''}
                             </option>
                           ))}
                         </select>

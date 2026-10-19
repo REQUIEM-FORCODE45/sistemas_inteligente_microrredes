@@ -443,6 +443,12 @@ function resetMpcCycle() {
   mpcRunning = false;
 }
 
+// P3: lectura del ultimo mapping conocido (para declarar referencias antes
+// de borrar un sensor). Solo lectura, no muta el ciclo.
+function getLastSensorMappings() {
+  return lastSensorMappings;
+}
+
 module.exports = {
   startMpcScheduler,
   stopMpcScheduler,
@@ -453,4 +459,5 @@ module.exports = {
   getMpcStatus,
   resetMpcCycle,
   sanitizeSensorMappings,
+  getLastSensorMappings,
 };
