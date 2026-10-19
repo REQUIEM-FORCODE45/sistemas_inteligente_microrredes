@@ -12,9 +12,13 @@ frames con rAF counter sobre `batt_1`, MutationObserver(style/transform) en
 
 ## C1/C2 · Fluidez post-cambio — NO medida en sesión (declarado)
 
-El entorno dejó de ejecutar headless-Chrome a mitad de la sesión (navegaciones
-colgadas incluso a páginas triviales; disco al 91–98 %, ver nota de entorno).
-Lo que sí queda, verificable por revisión + artefacto:
+Reintento 2026-10-15 con geckodriver + Firefox headless (6 pares
+intercalados, mismo harness): todas las corridas abortaron por entorno
+(navegaciones colgadas, `data:` OK pero la app no pinta; huérfanos de
+navegador acumulados; disco 91–98 %). El entorno dejó de ejecutar
+headless-Chrome a mitad de la sesión anterior (navegaciones colgadas incluso
+a páginas triviales; ver nota de entorno). Lo que sí queda, verificable por
+revisión + artefacto:
 - **C0 guardado** arriba, con escena y metodología reproducibles
   (`src/Dashboard/components/diagram/debug/fpsMeter.js` nuevo + el harness
   documentado abajo; el harness temporal se borra por precedente 12–15).

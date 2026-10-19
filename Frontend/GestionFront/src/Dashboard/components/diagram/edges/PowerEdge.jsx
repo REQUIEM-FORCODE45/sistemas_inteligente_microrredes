@@ -12,6 +12,9 @@ import { CURRENT_TYPE, flowWidthFor } from '../constants/deviceTypes';
 // cola es el otro). Familias con signo geométrico: + fluye source→target,
 // − al revés. `ens`/`curt` excluidos (auxiliares, no fluyen por la rama).
 const AUX_TYPES = new Set(['ens', 'curtailment']);
+// Sumideros: el fallback de cola al destino SOLO vale para estos tipos
+// (su consumo entra por ESA rama; ver cierre §3.3).
+const SINK_TYPES = new Set(['load']);
 // Filas del plan para un extremo en una hora (misma regla que ramaFlow;
 // la red emite con device_id literal "grid").
 function rowsFor(plan, nodeId, nodeType, hour) {
@@ -122,7 +125,6 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
   // El fallback al destino SOLO vale para sumideros (load: su consumo entra
   // por ESA rama). Sin esto, una rama inactiva heredaria el flujo de otra
   // (p. ej. batt→inv en hora sin bateria mostraba el 9.7 del inversor).
-  const SINK_TYPES = useMemo(() => new Set(['load']), []);
   const flow = useMemo(
     () => {
       const srcRows = rowsFor(plan, source, srcType, hora);
@@ -136,7 +138,7 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
       const signed = useSrc ? net.signed : -net.signed;
       return { kw: net.kw, signed, fwd: signed >= 0 };
     },
-    [plan, source, target, srcType, tgtType, hora, SINK_TYPES],
+    [plan, source, target, srcType, tgtType, hora],
   );
   const kw = flow.kw;
   const width = flowWidthFor(kw);
