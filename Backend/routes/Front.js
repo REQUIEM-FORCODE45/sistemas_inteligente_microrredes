@@ -1,5 +1,5 @@
 const express = require('express');
-const { registerNewSensor, getAllAuthorizedDevices, getSensorData, shareSensorWithUser, unshareSensorForUser, updateSensorStatus, deleteSensor } = require('../controllers/Front');
+const { registerNewSensor, getAllAuthorizedDevices, getSensorData, shareSensorWithUser, unshareSensorForUser, updateSensorStatus, deleteSensor, getSensorDeleteImpact } = require('../controllers/Front');
 const { validateJwt } = require('../middleware/validateJwt');
 const router = express.Router();
 
@@ -13,6 +13,7 @@ router.post('/sensors/:id/share', validateJwt, shareSensorWithUser);
 router.post('/sensors/:id/unshare', validateJwt, unshareSensorForUser);
 
 router.patch('/sensors/:id/status', validateJwt, updateSensorStatus);
+router.get('/sensors/:id/impact', validateJwt, getSensorDeleteImpact);
 router.delete('/sensors/:id', validateJwt, deleteSensor);
 
 router.post('/optimization/trigger', validateJwt, async (req, res) => {

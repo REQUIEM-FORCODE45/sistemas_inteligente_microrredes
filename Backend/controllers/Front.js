@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const { canAccessSensor, canManageSensor, buildAccessQuery } = require('../helpers/deviceAuthorization');
 const { authorizedSensors } = require('../helpers/securityManager');
 const { findDeviceById, updateDeviceSharedWith } = require('../helpers/deviceLookup');
+const { deleteImpact } = require('../services/sensorDeleteImpact');
 
 const sanitizeUser = (user) => {
     if (!user) return null;
@@ -316,21 +317,67 @@ exports.deleteSensor = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Solo el dueño o administradores pueden eliminar este sensor' });
         }
 
+        // P3: impacto ANTES de tocar nada. Con referencias vivas del MPC se
+        // exige ?force=true explicito; sin el, 409 con el detalle.
+        const impact = await deleteImpact(String(id));
+        if (impact.warnings.length && req.query.force !== 'true') {
+            return res.status(409).json({
+                success: false,
+                message: 'El sensor tiene referencias vivas (ver impact). Repita con ?force=true para borrar de todos modos.',
+                impact,
+            });
+        }
+
         const query = mongoose.isValidObjectId(id)
             ? { _id: new mongoose.Types.ObjectId(String(id)) }
             : { _id: String(id) };
 
+        // P3: archivar, no dropear. `_deleted_<id>_<timestamp>`; si no hay
+        // coleccion, nada que archivar (lecturas: 0). Si el rename falla, se
+        // declara (archivo: null) y NO se dropea.
+        let archivo = null;
+        if (mongoose.connection.db && impact.lecturas > 0) {
+            const stamp = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14);
+            archivo = `_deleted_${id}_${stamp}`;
+            try {
+                await mongoose.connection.db.renameCollection(String(id), archivo);
+            } catch (err) {
+                console.warn(`⚠️ No se pudo archivar lecturas de ${id}:`, err.message);
+                archivo = null;
+            }
+        }
+
         await AuthorizedDevice.collection.deleteOne(query);
         authorizedSensors.delete(String(id));
 
-        // Borra la coleccion de lecturas del sensor (puede no existir).
-        if (mongoose.connection.db) {
-            await mongoose.connection.db.dropCollection(String(id)).catch(() => { });
-        }
-
-        res.json({ success: true, message: 'Sensor eliminado correctamente' });
+        res.json({
+            success: true,
+            message: 'Sensor eliminado correctamente',
+            archivadas: impact.lecturas,
+            archivo,
+            warnings: impact.warnings,
+        });
     } catch (err) {
         console.error('❌ Error al eliminar sensor:', err);
         res.status(500).json({ success: false, message: 'No se pudo eliminar el sensor', error: err.message });
+    }
+};
+
+// P3: preflight de borrado para la UI (conteo + referencias sin borrar).
+exports.getSensorDeleteImpact = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sensor = await findDeviceById(id);
+        if (!sensor) {
+            return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
+        }
+        if (!canManageSensor(sensor, req.uid, req.role)) {
+            return res.status(403).json({ success: false, message: 'Solo el dueño o administradores pueden gestionar este sensor' });
+        }
+        const impact = await deleteImpact(String(id));
+        res.json({ success: true, impact });
+    } catch (err) {
+        console.error('❌ Error al calcular impacto de borrado:', err);
+        res.status(500).json({ success: false, message: 'No se pudo calcular el impacto', error: err.message });
     }
 };

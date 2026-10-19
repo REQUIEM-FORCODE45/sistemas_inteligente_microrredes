@@ -37,8 +37,10 @@ const StatusBadge = ({ status }) => (
 
 const MENU_HEIGHT = { normal: 200, confirm: 96 };
 
-const DeviceActionsMenu = ({ device, onStatus, onDelete, menuId, openMenuId, setOpenMenuId }) => {
+const DeviceActionsMenu = ({ device, onStatus, onDelete, onImpact, menuId, openMenuId, setOpenMenuId }) => {
     const [confirmDelete, setConfirmDelete] = useState(false);
+    // P3: preflight de borrado (conteo + referencias) para mostrarlo en la confirmacion.
+    const [impact, setImpact] = useState(null);
     const isOpen = openMenuId === menuId;
     const btnRef = useRef(null);
     const menuRef = useRef(null);
@@ -72,11 +74,12 @@ const DeviceActionsMenu = ({ device, onStatus, onDelete, menuId, openMenuId, set
             window.removeEventListener('scroll', onViewportChange, true);
             window.removeEventListener('resize', onViewportChange);
         };
-    }, [isOpen, confirmDelete]);
+    }, [isOpen, confirmDelete, impact]);
 
     const close = () => {
         setOpenMenuId(null);
         setConfirmDelete(false);
+        setImpact(null);
     };
 
     const handleStatus = async (status) => {
@@ -84,9 +87,17 @@ const DeviceActionsMenu = ({ device, onStatus, onDelete, menuId, openMenuId, set
         await onStatus(device._id, status);
     };
 
+    const askDelete = async () => {
+        setConfirmDelete(true);
+        setImpact({ loading: true });
+        const res = await onImpact(device._id);
+        setImpact(res.success ? { impact: res.impact } : { error: res.message });
+    };
+
     const handleDelete = async () => {
+        const force = !!(impact?.impact?.warnings?.length);
         close();
-        await onDelete(device._id);
+        await onDelete(device._id, force);
     };
 
     return (
@@ -136,7 +147,7 @@ const DeviceActionsMenu = ({ device, onStatus, onDelete, menuId, openMenuId, set
                                 </button>
                                 <div className="my-1 border-t border-slate-100" />
                                 <button
-                                    onClick={() => setConfirmDelete(true)}
+                                    onClick={askDelete}
                                     className="flex w-full items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
                                 >
                                     <Trash2 size={14} />
@@ -146,6 +157,22 @@ const DeviceActionsMenu = ({ device, onStatus, onDelete, menuId, openMenuId, set
                         ) : (
                             <div className="px-3 py-2">
                                 <p className="mb-2 text-xs font-semibold text-slate-700">¿Eliminar este sensor?</p>
+                                {impact?.loading && (
+                                    <p className="mb-2 text-[11px] text-slate-400">Calculando impacto…</p>
+                                )}
+                                {impact?.error && (
+                                    <p className="mb-2 text-[11px] text-amber-600">{impact.error}</p>
+                                )}
+                                {impact?.impact && (
+                                    <div className="mb-2 space-y-1">
+                                        <p className="text-[11px] text-slate-600">
+                                            Se archivarán {impact.impact.lecturas ?? 'un número desconocido de'} lecturas.
+                                        </p>
+                                        {(impact.impact.warnings || []).map((w, i) => (
+                                            <p key={i} className="text-[10px] text-amber-700">⚠ {w}</p>
+                                        ))}
+                                    </div>
+                                )}
                                 <div className="flex gap-2">
                                     <button
                                         onClick={handleDelete}
@@ -172,7 +199,7 @@ const DeviceActionsMenu = ({ device, onStatus, onDelete, menuId, openMenuId, set
 };
 
 export const DeviceList = () => {
-    const { devices, loading, shareSensor, unshareSensor, updateSensorStatus, deleteSensor } = useDevices();
+    const { devices, loading, shareSensor, unshareSensor, updateSensorStatus, deleteSensor, deleteImpact } = useDevices({ includeInactive: true });
     const [sharingSensor, setSharingSensor] = useState(null);
     const [openMenuId, setOpenMenuId] = useState(null);
     const [actionMsg, setActionMsg] = useState(null);
@@ -188,11 +215,23 @@ export const DeviceList = () => {
         else showMsg('error', res.message || 'No se pudo actualizar el estado.');
     };
 
-    const handleDelete = async (sensorId) => {
-        const res = await deleteSensor(sensorId);
-        if (res.success) showMsg('success', 'Sensor eliminado.');
-        else showMsg('error', res.message || 'No se pudo eliminar el sensor.');
+    const handleDelete = async (sensorId, force = false) => {
+        const res = await deleteSensor(sensorId, force);
+        if (res.success) {
+            const bits = ['Sensor eliminado.'];
+            if (res.archivadas !== undefined && res.archivadas !== null) {
+                bits.push(`${res.archivadas} lecturas archivadas${res.archivo ? ` en ${res.archivo}` : ''}.`);
+            }
+            for (const w of res.warnings || []) bits.push(w);
+            showMsg('success', bits.join(' '));
+        } else if (res.conflict) {
+            showMsg('error', res.message || 'El sensor tiene referencias vivas.');
+        } else {
+            showMsg('error', res.message || 'No se pudo eliminar el sensor.');
+        }
     };
+
+    const handleImpact = async (sensorId) => deleteImpact(sensorId);
 
     const handleModalShare = async (sensorId, payload) => {
         const result = await shareSensor(sensorId, payload);
@@ -272,6 +311,7 @@ export const DeviceList = () => {
                                     setOpenMenuId={setOpenMenuId}
                                     onStatus={handleStatusChange}
                                     onDelete={handleDelete}
+                                    onImpact={handleImpact}
                                 />
                             </td>
                         </tr>
