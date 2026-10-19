@@ -53,6 +53,32 @@ Sin JWT → **401** (validateJwt). Cobertura por índice: oni/roni 919 · nino 9
 - Harness de medición (`climate-harness.html`, `__harness.jsx`, `__fixture.json`) **eliminado** tras medir.
 - `data/clima/` (5 versiones, ~800 KB) en `.gitignore`: regenerable vía refresh desde `reference/`; el manifest es la verdad local y el espejo Mongo su réplica.
 
+## F1/F2/F3 — auditoria MVP (2026-10-19, medido ejecutando)
+
+Metodo: copias de los 2 servicios en sandbox `/tmp` (`STORE_DIR` propio aislado,
+symlinks a `reference/` + site YAML reales). Driver: script ad-hoc (no versionado,
+equivalente al `scripts/auditar_cambio05.js` de la auditoria).
+
+- **F1** (`antiguedad` en la respuesta degradada del servicio): `getContext` con
+  `https.get` stub-503 y **sin** version guardada → `stale:true, antiguedad:null`
+  (edad desconocida, honesto); tras `guardarVersion('clima_indices', …)` →
+  `stale:true, antiguedad=<descargado_en de la version>` (igualdad exacta con el
+  `registro.descargado_en`). Con red real → `stale:false, antiguedad:null`.
+  **5/5 PASS** (incluye re-chequeo de las 4 anclas: 2.37/−1.57/2.59/−1.11,
+  identicas al cross-check Python de la auditoria). Sin regresion: el campo usa
+  la misma convencion que `GET /climate/context` (ISO `descargado_en`).
+- **F2** (`verificarAnclas()` sin argumento): antes `TypeError`, ahora `[]`.
+  **PASS** (mismo run).
+- **F3** (arrays de 2076 con huecos): cubierto **por lectura** — `OniChart`,
+  `IndicesPanel` (A2/A3) consumen `sliceSeries`/`dataSpan`/`recentSpan` de
+  `window.js` (recorte al tramo con dato + filtros `!== null`), nunca el array
+  crudo. Sin cambio de codigo.
+
+Con esto el unico pendiente de la auditoria antes del cierre (**F1**) queda
+resuelto y medido; F2 tambien. Quedan como auto-reporte del implementador
+(§3 de la auditoria): `yarn build`/`lint`, V1–V5 en navegador y criterio 10
+(espejo Mongo).
+
 ## Archivos del MVP
 
 Nuevos: `Backend/services/climateContextService.js`, `climateStoreService.js`,

@@ -1,7 +1,9 @@
 // Contexto climatico visual — 05.1 (MVP).
 // Port JS de reference/scripts/descargar_indices.py (4 parsers) +
 // reference/scripts/explorar_indices_sitio.py:57-91 (RONI/MEI, TNI, ep_cp).
-// Sin dependencias: solo fs/path/https/crypto. Nunca inventa coordenadas.
+// Sin dependencias externas: solo fs/path/https/crypto (+ el servicio hermano
+// climateStoreService, lazy y opcional, solo para leer `antiguedad`).
+// Nunca inventa coordenadas.
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
@@ -168,6 +170,20 @@ function ultimoNoNulo(meses, vals) {
   return { mes: null, valor: null };
 }
 
+// F1 (auditoria MVP): edad del dato cuando la fuente externa falla —
+// `descargado_en` de la ultima version guardada en el manifiesto (misma
+// convencion que `GET /climate/context` a nivel HTTP). null = sin version
+// almacenada (edad desconocida) o dato fresco (nada que reportar).
+function antiguedadAlmacen() {
+  try {
+    const store = require('./climateStoreService');
+    const ult = store.ultimaVersion('clima_indices');
+    const ts = ult && ult.registro && ult.registro.descargado_en;
+    if (!ts || !Number.isFinite(Date.parse(ts))) return null;
+    return ts;
+  } catch (e) { return null; }
+}
+
 async function getContext({ remote = true } = {}) {
   if (cache && !remote) return cache;
   const { series, usadoRemoto } = await buildIndices({ remote });
@@ -189,6 +205,7 @@ async function getContext({ remote = true } = {}) {
   const payload = {
     generado: new Date().toISOString(),
     stale: !usadoRemoto,
+    antiguedad: usadoRemoto ? null : antiguedadAlmacen(),
     sitio,
     modo_vigente: {
       oni: lastOni.valor, roni: lastRoni.valor,
@@ -216,6 +233,7 @@ async function getContext({ remote = true } = {}) {
 
 // Anclas de credibilidad (criterio §7.2): deben cumplirse sobre la serie.
 function verificarAnclas(series) {
+  if (!series || !Array.isArray(series.mes)) return [];
   const idx = Object.fromEntries(series.mes.map((m, i) => [m, i]));
   const checks = [
     { etiqueta: '1997-98', mes: '1997-12-01', cond: (v) => v >= 2 },
