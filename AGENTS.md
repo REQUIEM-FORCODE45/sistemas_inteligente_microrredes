@@ -214,7 +214,7 @@ Results flow to **3 places** after a solver run:
 - `Hooks/` lives at project root next to `src/`, not inside it
 - ESLint ignores unused vars starting with `A-Z_`  
 - Node.js ≥ 20.19 preferred (20.17 works but logs warnings)
-- `fetchDevices` thunk is in `deviceSlice.js`, not `diagramSlice.js`
+- `fetchDevices` thunk is in `deviceSlice.js`, not `diagramSlice.js` — takes `{ includeInactive }` (default `false`); only DeviceList passes `true`, mode persists for internal refetch
 - React Flow v12 **does NOT export** `onNodeDoubleClick` — double-click implemented via timer in `handleNodeClick` (280ms threshold)
 - Redux `diagramSlice.dispatchModalNodeId` stores the double-clicked node ID (separate from `selectedElement`)
 
@@ -229,6 +229,7 @@ Results flow to **3 places** after a solver run:
 - MPC scheduler: `Backend/services/mpcScheduler.js` — auto-cycles every 15 min via `setInterval`
 - Optimization service: `Backend/services/optimizationService.js` — Redis bridge + BullMQ queue + `pollProgress` (5 min timeout)
 - ChangeStream service: `Backend/services/changeStreamService.js` — watches MongoDB for sensor inserts, retries every 30s with silent logging
+- Sensor management (S1): states `active` (only one that ingests MQTT whitelist) / `inactive` / `maintenance`; `GET /front/sensors?includeInactive=true` (default false — diagram/selectors get actives only); `PATCH /sensors/:id/status` + `DELETE /sensors/:id` (owner/admin via `canManageSensor`, no fail-open); delete **archives** readings to `_deleted_<id>_<ts>` (never `dropCollection`), `GET /sensors/:id/impact` preflight + `409` with `?force=true` override when MPC references exist
 
 ### Redis / Docker
 - `docker-compose.yml` requires `command: redis-server --protected-mode no`
