@@ -22,7 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 
 const corsOptions = {
     origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-token']
 };
 
@@ -39,7 +39,7 @@ const io = new Server(server, {
             callback(new Error(`Origen no permitido por CORS: ${origin}`));
           }
         },
-        methods: ['GET', 'POST'],
+        methods: ['GET', 'POST', 'PATCH', 'DELETE'],
         allowedHeaders: ['Content-Type', 'Authorization', 'x-token'],
         credentials: true,
     }

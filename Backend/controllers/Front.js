@@ -37,16 +37,23 @@ exports.registerNewSensor = async (req, res) => {
             });
         }
 
+        const allowedStatus = ['active', 'inactive', 'maintenance'];
+        const status = allowedStatus.includes(req.body.status) ? req.body.status : 'active';
+
         const newDevice = new AuthorizedDevice({
             name: req.body.name,
             type: req.body.type,
+            status,
             userId,
             sharedWith: []
         });
 
         await newDevice.save();
 
-        authorizedSensors.add(newDevice._id.toString());
+        // Solo los sensores 'active' ingresan a la lista blanca MQTT.
+        if (status === 'active') {
+            authorizedSensors.add(newDevice._id.toString());
+        }
 
         res.status(201).json({
             success: true,
@@ -121,7 +128,8 @@ exports.getAllAuthorizedDevices = async (req, res) => {
         if (ownerView && req.role !== 'admin') {
             return res.status(403).json({ success: false, message: 'Solo administradores pueden ver todos los sensores' });
         }
-        const filter = ownerView ? {} : buildAccessQuery(userId, req.role);
+        const includeInactive = req.query.includeInactive === 'true' || ownerView;
+        const filter = ownerView ? {} : buildAccessQuery(userId, req.role, { includeInactive });
         const devices = await AuthorizedDevice.find(filter)
             .populate('userId', 'name email role')
             .populate('sharedWith', 'name email role')
@@ -247,5 +255,82 @@ exports.unshareSensorForUser = async (req, res) => {
     } catch (err) {
         console.error('❌ Error al remover compartido:', err);
         res.status(500).json({ success: false, message: 'No se pudo actualizar el sensor', error: err.message });
+    }
+};
+
+exports.updateSensorStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        const allowed = ['active', 'inactive', 'maintenance'];
+        if (!status || !allowed.includes(status)) {
+            return res.status(400).json({ success: false, message: 'Estado inválido. Use active, inactive o maintenance.' });
+        }
+
+        const sensor = await findDeviceById(id);
+        if (!sensor) {
+            return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
+        }
+
+        if (!canManageSensor(sensor, req.uid, req.role)) {
+            return res.status(403).json({ success: false, message: 'Solo el dueño o administradores pueden modificar este sensor' });
+        }
+
+        if (typeof sensor.save === 'function') {
+            sensor.status = status;
+            await sensor.save();
+        } else {
+            const query = mongoose.isValidObjectId(id)
+                ? { _id: new mongoose.Types.ObjectId(String(id)) }
+                : { _id: String(id) };
+            await AuthorizedDevice.collection.updateOne(query, { $set: { status } });
+        }
+
+        // Sincroniza la lista blanca MQTT en caliente: solo los 'active' ingieren.
+        if (status === 'active') {
+            authorizedSensors.add(String(id));
+        } else {
+            authorizedSensors.delete(String(id));
+        }
+
+        const updated = await findDeviceById(id);
+        const raw = (updated && typeof updated.toObject === 'function')
+            ? updated.toObject()
+            : updated;
+        res.json({ success: true, message: 'Estado actualizado correctamente', data: buildDevicePayload(raw || {}) });
+    } catch (err) {
+        console.error('❌ Error al actualizar estado del sensor:', err);
+        res.status(500).json({ success: false, message: 'No se pudo actualizar el estado', error: err.message });
+    }
+};
+
+exports.deleteSensor = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sensor = await findDeviceById(id);
+        if (!sensor) {
+            return res.status(404).json({ success: false, message: 'Sensor no encontrado' });
+        }
+
+        if (!canManageSensor(sensor, req.uid, req.role)) {
+            return res.status(403).json({ success: false, message: 'Solo el dueño o administradores pueden eliminar este sensor' });
+        }
+
+        const query = mongoose.isValidObjectId(id)
+            ? { _id: new mongoose.Types.ObjectId(String(id)) }
+            : { _id: String(id) };
+
+        await AuthorizedDevice.collection.deleteOne(query);
+        authorizedSensors.delete(String(id));
+
+        // Borra la coleccion de lecturas del sensor (puede no existir).
+        if (mongoose.connection.db) {
+            await mongoose.connection.db.dropCollection(String(id)).catch(() => { });
+        }
+
+        res.json({ success: true, message: 'Sensor eliminado correctamente' });
+    } catch (err) {
+        console.error('❌ Error al eliminar sensor:', err);
+        res.status(500).json({ success: false, message: 'No se pudo eliminar el sensor', error: err.message });
     }
 };

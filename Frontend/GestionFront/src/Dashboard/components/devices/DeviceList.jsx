@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+// Dashboard/components/devices/DeviceList.jsx
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { useDevices } from '../../../../Hooks/useDevices';
-import { Copy, Share2 } from 'lucide-react';
+import { Copy, Share2, MoreHorizontal, Power, PowerOff, Wrench, Trash2, Check, X } from 'lucide-react';
 import { ShareSensorModal } from './ShareSensorModal';
 
 const CopyButton = ({ text }) => {
@@ -23,14 +24,175 @@ const CopyButton = ({ text }) => {
     );
 };
 
-export const DeviceList = () => {
-    const { devices, loading, shareSensor, unshareSensor } = useDevices();
-    const [sharingSensor, setSharingSensor] = useState(null);
-    // NOTA: el clima no es un sensor de la planta (entrada externa
-    // Open-Meteo/PatchTST); pasto_weather se excluye de la gestion de equipos.
-    const plantDevices = (devices || []).filter((d) => String(d._id) !== 'pasto_weather');
+const StatusBadge = ({ status }) => (
+    <span
+        className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase
+            ${status === 'active' ? 'bg-green-100 text-green-700' :
+                status === 'inactive' ? 'bg-red-100 text-red-700' :
+                    'bg-yellow-100 text-yellow-700'}`}
+    >
+        {status}
+    </span>
+);
 
-    if (loading) return <p className="text-slate-500 text-sm">Cargando dispositivos...</p>;
+const MENU_HEIGHT = { normal: 200, confirm: 96 };
+
+const DeviceActionsMenu = ({ device, onStatus, onDelete, menuId, openMenuId, setOpenMenuId }) => {
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const isOpen = openMenuId === menuId;
+    const btnRef = useRef(null);
+    const menuRef = useRef(null);
+
+    // position:fixed colocado escribiendo el DOM (sin setState en el effect).
+    // Escapa al overflow-hidden de la tabla y al scroll de la página: no se corta.
+    useLayoutEffect(() => {
+        if (!isOpen) return undefined;
+
+        const place = () => {
+            const btn = btnRef.current;
+            const menu = menuRef.current;
+            if (!btn || !menu) return;
+            const r = btn.getBoundingClientRect();
+            const h = menu.offsetHeight
+                || (confirmDelete ? MENU_HEIGHT.confirm : MENU_HEIGHT.normal);
+            let top = r.bottom + 6;
+            if (top + h > window.innerHeight - 8) {
+                top = Math.max(8, r.top - h - 6);
+            }
+            menu.style.top = `${top}px`;
+            menu.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
+        };
+
+        place();
+        const onViewportChange = () => place();
+        // capture=true: también reacciona al scroll del contenedor interno.
+        window.addEventListener('scroll', onViewportChange, true);
+        window.addEventListener('resize', onViewportChange);
+        return () => {
+            window.removeEventListener('scroll', onViewportChange, true);
+            window.removeEventListener('resize', onViewportChange);
+        };
+    }, [isOpen, confirmDelete]);
+
+    const close = () => {
+        setOpenMenuId(null);
+        setConfirmDelete(false);
+    };
+
+    const handleStatus = async (status) => {
+        close();
+        await onStatus(device._id, status);
+    };
+
+    const handleDelete = async () => {
+        close();
+        await onDelete(device._id);
+    };
+
+    return (
+        <div>
+            <button
+                ref={btnRef}
+                onClick={() => (isOpen ? close() : setOpenMenuId(menuId))}
+                className="flex items-center rounded-lg border border-slate-200 p-1.5 text-slate-500 transition-colors hover:border-primary hover:text-primary"
+                title="Configurar sensor"
+            >
+                <MoreHorizontal size={16} />
+            </button>
+
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={close} />
+                    <div
+                        ref={menuRef}
+                        style={{ position: 'fixed', top: '-9999px', right: '-9999px', zIndex: 50 }}
+                        className="w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                    >
+                        {!confirmDelete ? (
+                            <>
+                                <button
+                                    onClick={() => handleStatus('active')}
+                                    disabled={device.status === 'active'}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                                >
+                                    <Power size={14} className="text-green-600" />
+                                    Activar
+                                </button>
+                                <button
+                                    onClick={() => handleStatus('inactive')}
+                                    disabled={device.status === 'inactive'}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                                >
+                                    <PowerOff size={14} className="text-red-500" />
+                                    Desactivar
+                                </button>
+                                <button
+                                    onClick={() => handleStatus('maintenance')}
+                                    disabled={device.status === 'maintenance'}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-transparent"
+                                >
+                                    <Wrench size={14} className="text-yellow-600" />
+                                    Mantenimiento
+                                </button>
+                                <div className="my-1 border-t border-slate-100" />
+                                <button
+                                    onClick={() => setConfirmDelete(true)}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                                >
+                                    <Trash2 size={14} />
+                                    Eliminar
+                                </button>
+                            </>
+                        ) : (
+                            <div className="px-3 py-2">
+                                <p className="mb-2 text-xs font-semibold text-slate-700">¿Eliminar este sensor?</p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleDelete}
+                                        className="flex items-center gap-1 rounded-lg bg-red-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-red-700"
+                                    >
+                                        <Check size={12} />
+                                        Sí
+                                    </button>
+                                    <button
+                                        onClick={close}
+                                        className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                                    >
+                                        <X size={12} />
+                                        No
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
+export const DeviceList = () => {
+    const { devices, loading, shareSensor, unshareSensor, updateSensorStatus, deleteSensor } = useDevices();
+    const [sharingSensor, setSharingSensor] = useState(null);
+    const [openMenuId, setOpenMenuId] = useState(null);
+    const [actionMsg, setActionMsg] = useState(null);
+
+    const showMsg = (type, text) => {
+        setActionMsg({ type, text });
+        setTimeout(() => setActionMsg(null), 4000);
+    };
+
+    const handleStatusChange = async (sensorId, status) => {
+        const res = await updateSensorStatus(sensorId, status);
+        if (res.success) showMsg('success', 'Estado actualizado.');
+        else showMsg('error', res.message || 'No se pudo actualizar el estado.');
+    };
+
+    const handleDelete = async (sensorId) => {
+        const res = await deleteSensor(sensorId);
+        if (res.success) showMsg('success', 'Sensor eliminado.');
+        else showMsg('error', res.message || 'No se pudo eliminar el sensor.');
+    };
 
     const handleModalShare = async (sensorId, payload) => {
         const result = await shareSensor(sensorId, payload);
@@ -48,8 +210,23 @@ export const DeviceList = () => {
         return result;
     };
 
+    // Solo bloquea la tabla en la carga inicial; los refetch tras una accion
+    // no deben vaciar la lista.
+    if (loading && devices.length === 0) {
+        return <p className="text-slate-400 italic">Cargando dispositivos...</p>;
+    }
+
+    // NOTA: el clima no es un sensor de la planta (entrada externa
+    // Open-Meteo/PatchTST); pasto_weather se excluye de la gestion de equipos.
+    const plantDevices = (devices || []).filter((d) => String(d._id) !== 'pasto_weather');
+
     return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            {actionMsg && (
+                <div className={`px-6 py-2 text-xs ${actionMsg.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                    {actionMsg.text}
+                </div>
+            )}
             <table className="w-full text-left">
                 <thead className="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
                     <tr>
@@ -58,6 +235,7 @@ export const DeviceList = () => {
                         <th className="px-6 py-4">Topic (ID)</th>
                         <th className="px-6 py-4">Estado</th>
                         <th className="px-6 py-4">Compartir</th>
+                        <th className="px-6 py-4">Acciones</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -72,14 +250,7 @@ export const DeviceList = () => {
                                 <CopyButton text={d._id} />
                             </td>
                             <td className="px-6 py-4">
-                                <span
-                                    className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase
-                                        ${d.status === 'active' ? 'bg-green-100 text-green-700' :
-                                            d.status === 'inactive' ? 'bg-red-100 text-red-700' :
-                                                'bg-yellow-100 text-yellow-700'}`}
-                                >
-                                    {d.status}
-                                </span>
+                                <StatusBadge status={d.status} />
                             </td>
                             <td className="px-6 py-4">
                                 <button
@@ -93,11 +264,21 @@ export const DeviceList = () => {
                                     {d.sharedWith?.length ? `${d.sharedWith.length} usuarios` : 'Privado'}
                                 </p>
                             </td>
+                            <td className="px-6 py-4">
+                                <DeviceActionsMenu
+                                    device={d}
+                                    menuId={d._id}
+                                    openMenuId={openMenuId}
+                                    setOpenMenuId={setOpenMenuId}
+                                    onStatus={handleStatusChange}
+                                    onDelete={handleDelete}
+                                />
+                            </td>
                         </tr>
                     ))}
                     {plantDevices.length === 0 && (
                         <tr>
-                            <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                            <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">
                                 No hay dispositivos registrados.
                             </td>
                         </tr>

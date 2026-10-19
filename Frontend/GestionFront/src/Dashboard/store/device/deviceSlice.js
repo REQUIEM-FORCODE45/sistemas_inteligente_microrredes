@@ -7,22 +7,53 @@ export const fetchDevices = createAsyncThunk(
     'devices/fetchAll',
     async (_, { rejectWithValue }) => {
         try {
-            const response = await GridAPI.get('/front/sensors');
+            // includeInactive: la UI de gestion necesita ver tambien los
+            // sensores inactivos/en mantenimiento para poder reactivarlos.
+            const response = await GridAPI.get('/front/sensors', { params: { includeInactive: true } });
             return response.data.data;
         } catch (error) {
-            return rejectWithValue(error.response?.data?.msg || 'Error al cargar dispositivos');
+            return rejectWithValue(error.response?.data?.message || 'Error al cargar dispositivos');
         }
     }
 );
 
 export const registerDevice = createAsyncThunk(
     'devices/register',
-    async (deviceData, { rejectWithValue }) => {
+    async (deviceData, { rejectWithValue, dispatch }) => {
         try {
             const response = await GridAPI.post('/front/register_sensor', deviceData);
-            return response.data.sensor;
+            // Refresca la lista completa (owner/sharedWith poblados) para que el
+            // sensor nuevo aparezca de inmediato con su topic copiable.
+            await dispatch(fetchDevices());
+            return response.data;
         } catch (error) {
-            return rejectWithValue(error.response?.data?.msg || 'Error al registrar dispositivo');
+            return rejectWithValue(error.response?.data?.message || 'Error al registrar dispositivo');
+        }
+    }
+);
+
+export const updateSensorStatus = createAsyncThunk(
+    'devices/updateStatus',
+    async ({ id, status }, { rejectWithValue, dispatch }) => {
+        try {
+            const response = await GridAPI.patch(`/front/sensors/${id}/status`, { status });
+            await dispatch(fetchDevices());
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Error al actualizar el estado del dispositivo');
+        }
+    }
+);
+
+export const deleteSensor = createAsyncThunk(
+    'devices/delete',
+    async (id, { rejectWithValue, dispatch }) => {
+        try {
+            const response = await GridAPI.delete(`/front/sensors/${id}`);
+            await dispatch(fetchDevices());
+            return { id, ...response.data };
+        } catch (error) {
+            return rejectWithValue(error.response?.data?.message || 'Error al eliminar el dispositivo');
         }
     }
 );
@@ -59,15 +90,17 @@ const deviceSlice = createSlice({
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(registerDevice.fulfilled, (state, action) => {
+            .addCase(registerDevice.fulfilled, (state) => {
                 state.loading = false;
                 state.successMsg = 'Dispositivo registrado correctamente.';
-                if (action.payload) state.devices.push(action.payload);
             })
             .addCase(registerDevice.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
             });
+            // updateSensorStatus / deleteSensor no escriben el error/success
+            // global: son acciones locales del DeviceList, que muestra su
+            // propio aviso (evita que AddDeviceForm reciba mensajes ajenos).
     }
 });
 

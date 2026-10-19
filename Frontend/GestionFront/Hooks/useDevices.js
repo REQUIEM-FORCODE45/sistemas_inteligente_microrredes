@@ -2,7 +2,7 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { useEffect } from 'react';
 import GridAPI from '../src/api/grid-api.js';
-import { fetchDevices, registerDevice, clearMessages } from '../src/Dashboard/store/device/deviceSlice';
+import { fetchDevices, registerDevice, updateSensorStatus as updateSensorStatusThunk, deleteSensor as deleteSensorThunk, clearMessages } from '../src/Dashboard/store/device/deviceSlice';
 
 export const useDevices = () => {
     const dispatch = useDispatch();
@@ -37,9 +37,21 @@ export const useDevices = () => {
         }
     };
 
+    const updateSensorStatus = async (sensorId, status) => {
+        const result = await dispatch(updateSensorStatusThunk({ id: sensorId, status }));
+        if (result.error) return { success: false, message: result.payload };
+        return { success: true };
+    };
+
+    const deleteSensor = async (sensorId) => {
+        const result = await dispatch(deleteSensorThunk(sensorId));
+        if (result.error) return { success: false, message: result.payload };
+        return { success: true };
+    };
+
     const refreshDevices = () => dispatch(fetchDevices());
 
     const clearMsgs = () => dispatch(clearMessages());
 
-    return { devices, loading, error, successMsg, addDevice, shareSensor, unshareSensor, refreshDevices, clearMsgs };
+    return { devices, loading, error, successMsg, addDevice, shareSensor, unshareSensor, updateSensorStatus, deleteSensor, refreshDevices, clearMsgs };
 };

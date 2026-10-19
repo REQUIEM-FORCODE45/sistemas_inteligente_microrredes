@@ -28,8 +28,8 @@ const canManageSensor = (sensor, userId, role = 'user') => {
     return toIdString(sensor.userId) === toIdString(userId);
 };
 
-const buildAccessQuery = (userId, role) => {
-    const base = { status: 'active' };
+const buildAccessQuery = (userId, role, { includeInactive = false } = {}) => {
+    const base = includeInactive ? {} : { status: 'active' };
     if (isAdmin(role)) return base;
     const normalizedUserId = mongoose.Types.ObjectId.isValid(userId)
         ? mongoose.Types.ObjectId(userId)
