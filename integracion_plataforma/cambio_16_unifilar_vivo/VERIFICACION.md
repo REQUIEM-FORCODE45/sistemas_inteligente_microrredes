@@ -24,11 +24,13 @@ tick cancelable + lectura intermedia). Causa raíz de los intentos fallidos
 confirmada y resuelta: la app es **auth-gated** (`sensor_user`, no solo el
 token) — el seed siembra token + usuario + evita `/auth` (abortaría honesto).
 
-- **C0 re-basado (OFF = `.no-anim`)**: mediana **17.75 fps** → umbral **16.86**.
-- **ON (capa viva)**: mediana **19.85 fps** → **PASA** (19.85 ≥ 16.86;
-  degradación −11.8 %, mejora dentro de ruido).
-- muts mediana OFF 47 / ON 42; redux residual 1–4 en ambos brazos (selección
-  + sync de dragstop + fondo; la regla "0 durante el gesto" intacta).
+- **C0 re-basado (OFF = `.no-anim`)**: mediana **17.75 fps** (rango 15.9–23.9,
+  dispersión alta, mediana robusta) → umbral **16.86**.
+- **ON (capa viva)**: mediana **19.85 fps** (rango 18.5–21.3) → **PASA**
+  (19.85 ≥ 16.86; mejora dentro de ruido).
+- muts mediana OFF 47 / ON 42; redux **4 en OFF / 1 en ON en los 6 pares**
+  (patrón sistemático, no variable: selección en mousedown + sync de dragstop
+  + fondo; sin escrituras durante el gesto y ON no es peor).
 - Por diseño (12.4/16, verificado en el run con ANIM-CHECK
   `on=edge-flujo/off=none`): durante el arrastre `.rf-dragging .edge-flow`
   es `display:none` en ambos brazos — la animación no compite con el gesto.
