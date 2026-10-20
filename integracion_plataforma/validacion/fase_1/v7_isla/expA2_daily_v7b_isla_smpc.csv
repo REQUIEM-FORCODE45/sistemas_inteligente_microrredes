@@ -1,0 +1,2 @@
+modo,estrategia,fecha,pv_kwh,costo_total,costo_norm,diesel_L,diesel_h,ens_kwh,ens_h,deficit_kwh,deficit_max_kw,soc_start_kwh,soc_min_kwh,soc_final_kwh,import_kwh,export_kwh,curtailed_kwh,viol
+isla,smpc,2026-08-03,140.41031661398156,906527.7654438227,908373.9553385596,308.69547750720005,17,7.674469403758451,4,7.674469403758451,3.3780882472609193,130.0,63.07789473684209,106.92262631578949,0.0,0.0,21.683630075048097,0

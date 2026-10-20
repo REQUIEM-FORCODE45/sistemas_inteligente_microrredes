@@ -1,0 +1,16 @@
+| archivo | bytes | sha256 |
+|---|---|---|
+| `sonda_threads.json` | 541 | `41b67144857f41b85d674701d37f8ee901df031be44f207eff3f1371c227b3b7` |
+| `v7_isla/expA2_daily_v7a_isla_smpc.csv` | 412 | `12a62c05cde4faf298b95bff035bc169b77fff63d421e264bbffd25dbb321ebd` |
+| `v7_isla/expA2_daily_v7b_isla_smpc.csv` | 419 | `2a46104fce7bf4ffb870ade2d43f5929e18a64484f90b94334b3958e151df238` |
+| `v7_isla/resultado.json` | 914 | `2317291048aef644d0081b64f0307e5fef50f6275a0976b21c3c1c0a50905300` |
+| `v7_grid30/expA2_daily_v7a_grid30_dmpc.csv` | 390 | `e2c4141fe2fca2dad87b0cf919d86e55328f3a984bc9b50dc8caea6891add5c6` |
+| `v7_grid30/expA2_daily_v7a_grid30_smpc.csv` | 413 | `e9da27660d4c02c9b8356b28cba84937d7a7c2eef9ed271ed0e1ad3311e88902` |
+| `v7_grid30/expA2_daily_v7b_grid30_dmpc.csv` | 413 | `f63dea4935b9dfd481c894241a19b7f4cb20c54610255f6b89f2ddb2648d9035` |
+| `v7_grid30/expA2_daily_v7b_grid30_smpc.csv` | 420 | `230e2202c7b3d76fab415317c68e96fd27a10acf5843babcd20eb6beb9d2a94c` |
+| `v7_grid30/resultado.json` | 1652 | `e7ca7f4912736f7086a586427afc10a87b92979e80485ef5ec9cce808b32260f` |
+| `v3_fuente/expA2_daily_v3_era5_dmpc.csv` | 420 | `d99ad6964b7604e386c51b85f47f5c0dd97708ac885f2b3df0bba5065ff74190` |
+| `v3_fuente/expA2_daily_v3_era5_smpc.csv` | 416 | `a8939ff6fd3f666a2f6356a220fcfdf8ae13232d0e847c2cd083901ca8ef820e` |
+| `v3_fuente/expA2_daily_v3_mongo_dmpc.csv` | 420 | `d99ad6964b7604e386c51b85f47f5c0dd97708ac885f2b3df0bba5065ff74190` |
+| `v3_fuente/expA2_daily_v3_mongo_smpc.csv` | 416 | `a8939ff6fd3f666a2f6356a220fcfdf8ae13232d0e847c2cd083901ca8ef820e` |
+| `v3_fuente/resultado.json` | 1274 | `1d196c3352f9084aee545f703a4043ae377a3e335c99ab4d438d764924cc1132` |
