@@ -52,7 +52,11 @@ async function api(method, p, token, body, qs = '') {
 }
 
 before(async () => {
-  await mongoose.connect(ENV.MONGO_URL, { dbName: ENV.MONGO_DB_NAME, serverSelectionTimeoutMS: 20000 });
+  // BD propia de test (nunca la de desarrollo): aunque un fallo a medias
+  // dejara restos, la BD de trabajo queda intacta.
+  const testDb = `${ENV.MONGO_DB_NAME}_test`;
+  console.log(`# BD de test: ${testDb}`);
+  await mongoose.connect(ENV.MONGO_URL, { dbName: testDb, serverSelectionTimeoutMS: 20000 });
   const app = express();
   app.use(express.json());
   app.use('/api/front', require('../routes/Front'));
