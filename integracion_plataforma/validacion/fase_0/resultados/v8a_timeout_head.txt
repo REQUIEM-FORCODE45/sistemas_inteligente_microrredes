@@ -1,0 +1,20 @@
+INFO optimization.experiments.expA2: Periodo A2: 2026-08-03 00:00:00-05:00 -> 2026-08-05 23:00:00-05:00 (3 dias) | modos ['grid30'] | estr ['smpc', 'dmpc']
+WARNING optimization.experiments.data_loader: PV Mongo vacio; usando planta calibrada sobre ERA5
+INFO optimization.experiments.expA2: Demanda: 1050.6 kWh/dia | PV: 138.5 kWh/dia | SOC ini 0.65
+INFO optimization.experiments.expA2: Modo grid30 estrategia smpc ...
+/home/david/sistema_inteligente_microrredes/optimization/prediction/patchtst/patchtst.py:126: UserWarning: enable_nested_tensor is True, but self.use_nested_ten
+  self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=e_layers)
+INFO gurobipy: Read LP format model from file /tmp/tmpjgxkawpd.pyomo.lp
+INFO gurobipy: Reading time = 0.02 seconds
+INFO gurobipy: x1: 2036 rows, 2095 columns, 6661 nonzeros
+INFO gurobipy: Gurobi Optimizer version 13.0.2 build v13.0.2rc1 (linux64 - "Ubuntu 22.04.5 LTS")
+INFO gurobipy: 
+INFO gurobipy: CPU model: 12th Gen Intel(R) Core(TM) i5-12450H, instruction set [SSE2|AVX|AVX2]
+INFO gurobipy: Thread count: 4 physical cores, 4 logical processors, using up to 4 threads
+INFO gurobipy: 
+WARNING optimization.solver.solvers: Gurobi fallo: Model too large for size-limited license; visit https://gurobi.com/unrestricted for more information. Reinten
+INFO pyomo.contrib.appsi.solvers.highs: Running HiGHS 1.15.1 (git hash: 04024d7): Copyright (c) 2026 under MIT licence terms
+INFO pyomo.contrib.appsi.solvers.highs: Includes third-party software components, see THIRD_PARTY_NOTICES.md for full details
+INFO pyomo.contrib.appsi.solvers.highs: MIP has 2036 rows; 2094 cols; 6661 nonzeros; 792 integer variables (792 binary)
+INFO pyomo.contrib.appsi.solvers.highs: Coefficient ranges:
+INFO pyomo.contrib.appsi.solvers.highs:   Matrix  [9e-01, 3e+05]
