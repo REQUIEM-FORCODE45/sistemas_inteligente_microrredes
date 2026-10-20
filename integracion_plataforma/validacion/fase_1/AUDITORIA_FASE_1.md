@@ -48,14 +48,33 @@ diferencia (+2,4 vs +1,6) no es despreciable.
 
 ## 3. Hallazgos
 
-### 3.1 🔴 `v1_bandc/resultado.json` **no es JSON válido**
+### 3.1 🔴 `v1_bandc/resultado.json` **no es JSON válido** → ✅ **RESUELTO** (`6b422a4`)
 
 Doble coma en la posición 472: `... "diesel_L": 311.6}],, "dmpc": [...]`.
 
-Es un typo trivial, pero está en el **artefacto del resultado central de la tesis** (V1/V6) y hace que
-cualquier lectura automática reviente (me reventó a mí). Los **CSV sí son válidos**, así que el número
-está bien y lo verifiqué desde ellos — pero el artefacto que se cita tiene que parsear. **Arreglar y
-añadir al manifiesto**.
+Es un typo trivial, pero estaba en el **artefacto del resultado central de la tesis** (V1/V6) y hacía que
+cualquier lectura automática reventara (me reventó a mí). Los **CSV eran válidos**, así que el número
+estaba bien y lo verifiqué desde ellos.
+
+**Verificado por esta auditoría tras el arreglo**:
+
+| Prueba | Resultado |
+|---|---|
+| Los **16** JSON de `integracion_plataforma/validacion/` parsean | ✅ (comprobación propia, 0 malos) |
+| `test_validacion_json.py` (nuevo, runner nativo) | ✅ **PASS 2/2** |
+| **Prueba de fuego** (en copia fuera del repo, para no tocar el original): metí un JSON con doble coma | ✅ **FALLA y nombra el archivo**: `...malo.json: Expecting property name enclosed in double quotes: line 1 column 11` |
+| Sin el JSON roto | ✅ PASS |
+
+Y el test trae dos cosas que valen: **protección anti-falso-verde** (`test_hay_json_de_validacion`: si el
+glob deja de encontrar archivos, falla en vez de pasar en verde) y **el precedente escrito en el propio
+código** (*"llegó con una coma doble… lo detectó una auditoría a mano; este test lo detecta en CI"*). El
+aprendizaje queda donde se ejecuta, no en un documento que se olvida.
+
+### 3.1.bis 🟡 La métrica, declarada → ✅ **RESUELTO** (`2495969`)
+
+Cada tabla de la Fase 1 declara ahora **las dos**: `costo_norm` y, entre paréntesis, `costo_total` (en
+grid30: +1,62 % norm / **+2,38 % total**). También en las frases de *"lo afirmable"*. Verificado en el
+README y en los 4 `resultado.json`; el manifiesto se recalculó.
 
 ### 3.2 🟠 Hallazgo metodológico (el importante): el lazo tiene **±5 % de ruido de re-optimización**
 
