@@ -1,9 +1,22 @@
 | archivo | bytes | sha256 |
 |---|---|---|
+| `README.md` | 3184 | `f3803a70329e46bd520e2f48b6eae44839244b9d4f2495212dde8d3ac4aca8af` |
 | `sonda_threads.json` | 541 | `41b67144857f41b85d674701d37f8ee901df031be44f207eff3f1371c227b3b7` |
 | `v1_bandc/expA2_daily_v1_c_dmpc.csv` | 849 | `9e8165c8180b2331348268e885405b8ba180ecde6c4aa0d03fbd9539ffeae11a` |
 | `v1_bandc/expA2_daily_v1_c_smpc.csv` | 847 | `ec79ffae03f60d0a38f70bc49cdc7703f099b46e0d4666d4479be03bfa6fe8d7` |
 | `v1_bandc/resultado.json` | 1380 | `73ed0605e154762c4f4336b67353290efc8801828cdf03f7e0e0d2231c1096c9` |
+| `v5_lazo/ciclo_R0_1647.json` | 44791 | `8ea0dec1741fb71e657a3abb3a817fcbb121b0e49ad5bee78260360eb731d9b9` |
+| `v5_lazo/ciclo_R1_1702.json` | 44791 | `d82226d7bb993c83077557cd9239951e8184cc46c9a146d859957e8bf67e6f8f` |
+| `v5_lazo/ciclo_R2_1800.json` | 44918 | `4885e4b0c51323c5a3f2dc7413137de42292bbec8e58056d33c6b4eb575c2f2f` |
+| `v5_lazo/fastapi_load_1801Z.json` | 1523 | `b10db4f9a81d94918bdb710c9acf3776486b3261e8e7edfe4479b0ee6d99f5f9` |
+| `v5_lazo/fastapi_solar_1801Z.json` | 257 | `91065fe342f7610c8125f19eecb6ea431c6ca083ca939d955a3395eae9eb0656` |
+| `v5_lazo/resultado.json` | 1571 | `b63b299e53489526f7fc17f704c43d59db5a612b278f9150778139da8eb6c5d8` |
+| `v5_lazo/v5_forecast.json` | 206 | `0d057065fca2983c90e3485b56b553eb70901099c5be1ce432d1ff6767cc0c87` |
+| `v2_red/expA2_daily_v2_c_grid10_dmpc.csv` | 419 | `d32d8e12b1daef91f7b2bc3306cb44f76ee0112378c8fe90691bc16651538f07` |
+| `v2_red/expA2_daily_v2_c_grid10_smpc.csv` | 420 | `9e51a95a0b12e054ce433038384201b286882534338abd381aa341726c04acd5` |
+| `v2_red/expA2_daily_v2_c_grid30_dmpc.csv` | 390 | `e2c4141fe2fca2dad87b0cf919d86e55328f3a984bc9b50dc8caea6891add5c6` |
+| `v2_red/expA2_daily_v2_c_grid30_smpc.csv` | 413 | `e9da27660d4c02c9b8356b28cba84937d7a7c2eef9ed271ed0e1ad3311e88902` |
+| `v2_red/resultado.json` | 1169 | `55527d8135a316b73f2c90e8463389b316b0aba081a7fe0633ebd4c76efaba84` |
 | `v7_isla/expA2_daily_v7a_isla_smpc.csv` | 412 | `12a62c05cde4faf298b95bff035bc169b77fff63d421e264bbffd25dbb321ebd` |
 | `v7_isla/expA2_daily_v7b_isla_smpc.csv` | 419 | `2a46104fce7bf4ffb870ade2d43f5929e18a64484f90b94334b3958e151df238` |
 | `v7_isla/resultado.json` | 914 | `2317291048aef644d0081b64f0307e5fef50f6275a0976b21c3c1c0a50905300` |
