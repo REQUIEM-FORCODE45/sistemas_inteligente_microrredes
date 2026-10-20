@@ -24,6 +24,7 @@ cita: el implementador **copia** de aquí en vez de inventar iconografía.
 | `resultados/fps_baseline_c0.json` | 851 | `c22b0c66fce5da9ba8a1dce9c6705c89e4685dc2596e61032fddd1b0ea2b29c8` |
 | `resultados/fps_pares_2026-10-19.json` | 2496 | `719b4aad8eb8cd78682fa3ba451a8948b47b49af00ee4d2eb30ed36263eca835` |
 | `figuras/c16_editor.png` | 182941 | `bc922e0e9a229d759d8085c85fad29e05f6748fef180901dc9e285f7c14db618` |
+| `figuras/c16_carga.png` | 67405 | `0b5b4558dedf69893db9381b00c6fe52900c66c1feae49a39155fa09685c6c9b` |
 
 > Los sha256 son del **blob versionado (LF)**. En un checkout Windows con `core.autocrlf=true` el
 > archivo en disco puede diferir por CRLF: verificar con `git show HEAD:<path> | sha256sum`,
