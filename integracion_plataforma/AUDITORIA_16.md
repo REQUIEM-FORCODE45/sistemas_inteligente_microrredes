@@ -214,7 +214,7 @@ JWT). El seed siembra ambos y aborta honestamente si acaba en `/auth`. Ese era e
 | **P2** `includeInactive` por llamada | ✅ default `false`, y el modo **persiste** para los refetch internos (`getState().devices.includeInactive`); en el panel: **activos + los ya enlazados aunque estén inactivos** (el matiz que pedí: así un diagrama guardado conserva el mapping y se puede quitar), marcados y con el aviso *"Este sensor no recibirá datos nuevos (estado: X)"* |
 | **P4** fail-open | ✅ `if (!sensor.userId) return false;` |
 | **P6** registro | ✅ fila **S1** en el índice y bloque *Sensor management (S1)* en `AGENTS.md` |
-| **P5** tests | ⚠️ **NO verificados por mí**: sin `Backend/node_modules` ni Mongo aquí, `node --test` muere con `Cannot find module 'mongoose'`. El **"6/6"** del índice es **auto-reporte sin artefacto** → le pido el output versionado (regla del proyecto: toda cifra sale de un artefacto). Por lectura, el test es correcto y completo: 400 status inválido, 403 de extraño en PATCH **y** DELETE con sensor intacto, lista blanca sincronizada en ambos sentidos, `409` con mapping vivo + `?force=true`, y `archivadas: 1`. Corre **contra la BD real** con ids efímeros propios y limpieza en `after` → mejor una BD de test aparte. |
+| **P5** tests | ⚠️ **No ejecutables en este clon, por diseño**: esta copia es **solo de revisión** (el proyecto no está instalado aquí: sin `node_modules`, sin Mongo, sin venv) → `node --test` muere en `require('mongoose')`, y **eso no dice nada del test**. Lo que sí falta es que el **"6/6"** del índice es **auto-reporte sin artefacto** → pido el output versionado (él sí puede ejecutarlo; regla del proyecto: toda cifra sale de un artefacto). **Por lectura está completo y correcto**: 400 status inválido, 403 de extraño en PATCH **y** DELETE con sensor intacto, lista blanca sincronizada en ambos sentidos, `409` con mapping vivo + `?force=true`, y `archivadas: 1`. Corre **contra la BD real** con ids efímeros propios y limpieza en `after` → mejor una BD de test aparte. |
 
 #### Estado final
 
@@ -226,19 +226,22 @@ incrementos implementados y auditados. Lo único que resta es el **bloque de val
 
 ## 6. NO verificado aquí (declarado, no asumido)
 
-Lo que **sigue** sin verificar tras el cierre, para que nadie lo dé por hecho:
+Lo que **sigue** sin verificar tras el cierre, para que nadie lo dé por hecho. Nota de entorno: **este
+clon es solo de revisión** — el proyecto no está instalado aquí (sin `node_modules`, sin Mongo, sin
+venv del repo), así que nada que requiera ejecutar la plataforma se puede comprobar en esta máquina; lo
+que sí se ejecuta es Python puro (invariante de cobertura y manifiestos) y análisis estático.
 
-- **P5 del PR de sensores**: los 6 tests de autorización no se pudieron ejecutar aquí (falta
-  `Backend/node_modules` y Mongo) y el "6/6" es **auto-reporte sin artefacto** → pendiente el output
-  versionado. Auditados **por lectura** y son correctos.
+- **P5 del PR de sensores**: no ejecutable aquí por lo anterior (y no por un defecto del test). El
+  "6/6" es **auto-reporte sin artefacto** → pendiente el output versionado. Auditados **por lectura** y
+  son correctos.
 - **La captura del harness con carga** (§4.bis): el badge de la carga está medido por DOM, pero no hay
   evidencia visual de ese caso (la captura versionada tiene consumo 0 kW).
 - **El render del lienzo React Flow real**: solo tengo capturas + el SVG de referencia; aquí no se
   ejecuta el frontend.
 - **Roundtrip guardar/recargar contra backend** y **contraste instrumental del C6**: declarados por el
   implementador, no medidos.
-- La **suite Python** del repo no la corro (falta `pyomo`/`pymongo`); solo los tests puros
-  (invariante de cobertura y manifiestos), que sí ejecuto en cada auditoría y **pasan**.
+- La **suite Python** del repo no se ejecuta aquí (requiere `pyomo`/`pymongo`, que no están instalados
+  en esta copia de revisión); solo los tests puros, que sí corro en cada auditoría y **pasan**.
 
 ---
 

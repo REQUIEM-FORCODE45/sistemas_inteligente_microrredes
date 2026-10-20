@@ -135,6 +135,12 @@ prueba automática. No se exige montar un runner, pero sí conviene **declararlo
 lo barato y de mayor riesgo: **403 para no-dueño** y **200 para dueño** en `PATCH /sensors/:id/status`
 y `DELETE /sensors/:id`.
 
+> **Estado posterior**: se añadió `Backend/tests/sensores_autorizacion.test.js` con el runner nativo
+> `node --test` (auditado por lectura en `AUDITORIA_16.md` §5.bis). **Nota de entorno**: esta copia del
+> repo es **solo de revisión** — no está instalada (sin `node_modules`, sin Mongo), así que la
+> ejecución de esos tests corresponde al implementador y su salida debe quedar versionada como
+> artefacto; aquí no se pueden correr, y eso no dice nada sobre el test.
+
 ### 3.5 🟡 Detalles a declarar
 
 - `getAllAuthorizedDevices` fuerza `includeInactive` cuando `ownerView` → el **dueño/admin ve siempre
