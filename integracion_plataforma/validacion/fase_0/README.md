@@ -102,4 +102,4 @@ después de esta fase.
 
 ## Manifiesto
 
-Ver `manifest.json` (archivo | bytes | sha256 completo) de esta carpeta.
+Ver `MANIFEST.md` (archivo | bytes | sha256 completo) de esta carpeta.
