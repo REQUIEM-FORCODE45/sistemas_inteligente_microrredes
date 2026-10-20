@@ -1,0 +1,76 @@
+BLOQUE DE VALIDACION - ARRANCA LA FASE 0 (barata, y decide si hay que reescribir cifras).
+
+CONTEXTO: la cola de produccion 06-16 esta CERRADA y auditada (16 incluido, con C1/C2 medido y
+verificado). El PR de sensores esta aprobado con P2-P6 cerrados. Lo unico que queda de desarrollo es P7
+(cambio 05: build/lint, V1-V5 en navegador, espejo Mongo) y NO es urgente.
+
+Ahora empieza el BLOQUE DE VALIDACION (V1-V8). Plan completo: docs/PLAN_VALIDACION_V1_V8.md.
+Se empieza por la FASE 0 porque es barata (~1-1,5 h) y responde la pregunta que bloquea la redaccion del
+capitulo: CUALES DE LAS CIFRAS PUBLICADAS SIGUEN EN PIE.
+
+REGLA DE ORO (la de siempre, ahora mas importante que nunca):
+- Comparaciones justas: mismo periodo, mismo decode, mismos baselines. Se cambia UNA cosa y se declara.
+- Ninguna cifra a mano: toda cifra sale de un artefacto versionado. Lo que no se mida, se declara; no se
+  tabula.
+- Append-only: cada corrida crea version nueva con su manifiesto y sha256. Las corridas que salgan mal
+  NO se borran: se archivan como evidencia.
+- Si un criterio falla, NO se ajustan numeros para que pase: se reporta el resultado real.
+- Nada de codigo: este bloque solo MIDE. Si algo falla, se arregla el artefacto o se declara.
+
+=====================================================================
+TAREA 1 - V8a: los SWITCHES (cambio 15) alteraron algo con los defaults?
+=====================================================================
+Corre el ExpA2 en modo impuesta DOS veces:
+  (a) con el codigo ACTUAL,
+  (b) con el codigo PRE-15 (worktree en 504e175, cuyo model_builder.py no menciona connections) -
+      el mismo metodo que ya usaste para el golden del C6.
+Compara el sha256 de la TABLA DE COSTOS de las dos corridas.
+  - Identico -> el 15 no altera nada con los defaults (switch_mode impuesta, sin connections).
+  - Distinto -> PARA AHORA y reportalo: significa que el 15 toco algo que no debia, y no tiene sentido
+    medir nada mas hasta saber que fue.
+
+IMPORTANTE, no confundas las dos cosas:
+- Lo PUBLICADO en results/ es ANTERIOR al inversor (cambio 13), asi que NO puede ser el punto de
+  comparacion de V8a: con el job actual NO dara el mismo sha, y eso es ESPERADO.
+- Cada fase compara contra el codigo inmediatamente anterior al cambio que se prueba (worktree). El
+  efecto del 13 se mide aparte, en V7. Mezclar las dos comparaciones es como se fabrica un falso
+  positivo (la leccion de la base 28.6 del cambio 12).
+
+=====================================================================
+TAREA 2 - V7: cuanto cambia el INVERSOR (cambio 13)?
+=====================================================================
+Dos corridas de grid30 (3 dias) que solo se diferencien en el inversor:
+  (a) con inversor (eta 0.97),
+  (b) sin inversor.
+Mismas fechas, mismos dias, mismo solver, mismo periodo. Reporta delta de COSTO, ENS y LITROS de diesel.
+Presupuesto: si una corrida pasa de ~15 min, para y dilo (son 2 corridas; el total no deberia pasar de
+~30 min).
+OPCIONAL barato y util: el mismo par en ISLA. Ahi el PV ya se vierte ~74 %, asi que el delta deberia ser
+~0; si NO lo es, hay algo mas que el inversor y hay que mirarlo.
+
+=====================================================================
+TAREA 3 - V3: sensibilidad de fuente de PV en los dias con ENS
+=====================================================================
+Dias 08-03 y 08-05: correr variando la FUENTE de PV (las opciones que ya tiene el experimento) y ver si
+el ENS de esos dias es artefacto de la fuente o es real. 30-60 min. Si ya existe un resultado previo que
+lo responda, no lo repitas: cita el artefacto y verifica que siga siendo valido.
+
+=====================================================================
+QUE ENTREGAR
+=====================================================================
+integracion_plataforma/validacion/ (carpeta nueva, un incremento = una carpeta) con:
+- Un README con el comando exacto de cada corrida y el sha256 de cada artefacto.
+- Los CSV/JSON de resultados, versionados (append-only).
+- Una TABLA resumen: cifra publicada -> sigue valida? -> artefacto que lo prueba.
+- Declarado lo que no se pudo medir y por que.
+
+Y una nota corta: si V8a da identico y V7 da un delta pequeno y explicable por eta, entonces las cifras
+publicadas se pueden defender en el capitulo con una nota al pie; si el delta es grande, hay que rehacer
+los numeros del capitulo con el job nuevo. Esa es toda la decision que la Fase 0 tiene que habilitar.
+
+DESPUES DE LA FASE 0: V1 (ExpA2 14 d isla con banda C) y V2 (grid30/grid10/isla con banda C). Antes de
+lanzarlas, presupuesta HORAS, no minutos: la sonda del 2026-10-12 mostro que 1 dia de grid30 no termina
+en <280 s con HiGHS. No lances nada largo sin avisar.
+
+RECORDATORIO: git add solo de tus carpetas; push solo con autorizacion del dueno; manifiesto con sha256
+completo recalculado en el mismo commit.

@@ -1,0 +1,69 @@
+VALIDACION - ALCANCE REDUCIDO (esto es evidencia para la tesis, NO para produccion).
+
+CAMBIO DE CRITERIO DEL AUTOR: no se van a invertir decenas de horas. La validacion existe para el
+capitulo, no para operar el programa. Por lo tanto: cada corrida tiene que responder UNA pregunta que
+vaya al texto del capitulo, y se elige la ventana MAS CORTA que todavia responda. Si una corrida no
+cambia una frase del capitulo, no se corre.
+
+Plan completo en docs/PLAN_VALIDACION_V1_V8.md (seccion 11, nueva). Esto REEMPLAZA lo que te pedi antes:
+olvida el V7 de 3 dias y el V1 de 14 dias.
+
+=====================================================================
+EL PLAN (6 corridas, ~12-14 h de computo -> ~5-6 h de reloj en paralelo)
+=====================================================================
+Con ~110 s/solve:
+
+1) V7 inversor, grid30, 1 dia (2026-08-03), MISMO CODIGO con y sin converters, estrategias smpc+dmpc
+   -> 96 solves ~3 h
+   Reporta COSTO, ENS y LITROS. Y contesta: el delta es pequeno y explicable por eta, o hay que rehacer
+   las cifras del capitulo.
+
+2) V7 control en ISLA, 1 dia, 2 brazos, solo smpc -> 48 solves ~1,5 h
+   Aqui el PV ya se vierte ~74 %, asi que el delta DEBE ser ~0. Si no lo es, hay algo mas que el
+   inversor y quiero saberlo antes de escribir nada.
+
+3) V3 fuente de PV, 1 dia (2026-08-05, el del ENS grande: smpc 2.33 vs dmpc 6.19), isla, --pv-source
+   era5 vs mongo, 2 estrategias -> 48 solves ~1,5 h
+   Criterio: con la otra fuente, S-MPC < D-MPC se mantiene? Si se mantiene, el ENS no es artefacto de la
+   fuente. Si no, el hallazgo es al contrario y es igual de valioso.
+
+4) V1 + V6 banda C, VENTANA DE ESTRES: 3 dias (2026-08-03/04/05), isla, --band-mode C, smpc+dmpc
+   -> 144 solves ~4,5 h
+   Esto responde: con la banda corregida, el S-MPC se separa del D-MPC? Reporta ENS y costo por dia y
+   total, y el delta S vs D con su numero (no "mejora").
+
+5) V2 valor del estocastico con red: 1 dia grid10 + 1 dia grid30, banda C, 2 estrategias
+   -> 96 solves ~3 h
+   Reporta costo/ENS de S vs D en cada modo.
+
+6) V5 lazo en vivo: operacion real, sin corridas extra. Deriva plan->realidad entre ciclos, estabilidad
+   entre ciclos consecutivos, pronostico en vivo vs anclado. Esto no cuesta solver: es operar y registrar.
+
+PARALELIZACION (sin tocar el modelo):
+- Cada par modo x estrategia es INDEPENDIENTE (`--modes` y `--strategies` son listas separadas y el bucle
+  es "for mode ... for strat ..."). Lanza un proceso por par con `--tag` distinto para no pisar salidas.
+- Primero la sonda de 5 min: 1 proceso/4 threads vs 2 procesos/2 threads. Si gana 2x2, todo baja.
+- NUNCA por dias: el backtest propaga el SOC real de un dia al siguiente y --start-date lo reinicia a
+  0.65 -> resultado INVALIDO. Una corrida de N dias es secuencial por diseno.
+
+QUE DECLARAR EN CADA ARTEFACTO
+- La ventana medida (que dias) y que NO se afirma sobre el periodo completo de 14 dias.
+- Que las corridas usan PV calibrado porque Mongo esta vacio ("PV Mongo vacio; usando planta calibrada
+  sobre ERA5"): la comparacion es valida porque ambos brazos usan la misma entrada, pero el delta es
+  sobre la planta calibrada, no sobre la operacion real.
+- Lo que no se pudo medir y por que.
+
+QUE SE PUEDE AFIRMAR (y que no), para que el capitulo no diga de mas:
+- SI: "en la ventana de estres (3 dias con mayor deficit), con la banda corregida, el S-MPC reduce el ENS
+  frente al D-MPC, con este numero".
+- SI: "el efecto del inversor es X % en un dia representativo de grid30, y ~0 en isla".
+- NO: "en los 14 dias del periodo completo" (no se midio).
+- NO: significancia con p<0.05 (V4 sigue fuera, ya declarado).
+
+PENDIENTE MENOR DE LA FASE 0 (aprovecha el mismo commit)
+- `manifest.json` es MARKDOWN con extension .json -> renombralo a MANIFEST.md (o hazlo JSON valido). Los
+  4 sha256 estan correctos (los verifique). Y decide si test_manifiestos_reference lo cubre o no.
+
+ORDEN: sonda -> (1) y (2) en paralelo -> (3) en paralelo si cabe -> (4) -> (5) -> (6).
+Si algo falla, se arregla el artefacto o se declara; no se toca el modelo. Append-only con sha256.
+git add solo de tus carpetas. Push con autorizacion del dueno.
