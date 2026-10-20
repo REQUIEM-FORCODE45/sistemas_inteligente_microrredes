@@ -1,0 +1,43 @@
+VALIDACION - CIERRE DE LA FASE 1: DOS ARREGLOS Y NADA MAS.
+
+Auditoria: integracion_plataforma/validacion/fase_1/AUDITORIA_FASE_1.md.
+Recalcule TODOS los deltas desde los CSV y cuadran: V1/V6 ENS 14.384-19.514 = -5.130 kWh (-26.3%),
+costo -0.68%; V2 grid10 -1.82%/-5.326 kWh y grid30 +1.62% (norm)/-4.796; V3 era5 y mongo identicos en
+las 6 cifras; V7 norm -4.84%/-2.83%; V7c -0.30% y +1.321 kWh; sonda de hilos 1.34x con 2 procesos;
+reproducibilidad V2 vs V7a byte-identica. Aprobado.
+
+Y lo mejor del incremento no son los numeros: es lo que declaraste como NO atribuible (el inversor en el
+lazo cerrado, V3 sin dos fuentes, V5 como estabilidad y no como correccion). Eso es lo que hace que el
+capitulo se pueda defender.
+
+=====================================================================
+1) ARREGLA v1_bandc/resultado.json (no parsea)
+=====================================================================
+Doble coma en el caracter 472:
+
+  ... "diesel_L": 311.6}],, "dmpc": [ ...
+
+Es un typo, pero esta en el artefacto del resultado central de la tesis y hoy ninguna lectura
+automatica lo puede abrir. Corrigelo y recalcula su fila del manifiesto.
+
+Y para que no vuelva a pasar: anade una comprobacion automatica de que TODOS los .json de
+integracion_plataforma/validacion/ parsean (junto al test de manifiestos, o como test aparte con runner
+nativo). Con eso el proximo typo se cae en CI y no en una auditoria.
+
+=====================================================================
+2) DECLARA LA METRICA EN CADA TABLA
+=====================================================================
+En grid30 el delta de costo es +2.38 % sobre `costo_total` y +1.62 % sobre `costo_norm`. El README cita
+el normalizado sin decirlo, y +2.4 vs +1.6 no es lo mismo. En cada tabla del README y del resultado.json:
+di si es costo_total o costo_norm. Mismo criterio en V1 (-0.68 % total vs -0.62 % norm).
+
+=====================================================================
+3) LO QUE NO HAY QUE HACER
+=====================================================================
+No lances V4 ni el periodo de 14 dias. No publiques delta de costo por el inversor (no es atribuible) ni
+deltas de costo dentro del ruido del lazo (~+-5 %). No re-corras nada de la Fase 1: esta medido.
+
+DESPUES DE ESTOS DOS ARREGLOS: el bloque de validacion queda cerrado y solo queda P7 (cambio 05:
+yarn build/lint, V1-V5 en navegador, espejo Mongo) cuando retomes el eje climatico.
+
+RECORDATORIO: append-only con sha256; git add solo de tus carpetas; push con autorizacion del dueno.
