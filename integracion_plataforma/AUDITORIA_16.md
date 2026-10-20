@@ -161,13 +161,84 @@ fluidez. Es el único pendiente real.
 
 ## 5. NO verificado aquí (declarado, no asumido)
 
-- **C1/C2** (fluidez post-cambio): no medidos por el implementador (entorno caído) → **condición de
-  cierre abierta** (§3.1).
-- Texto de los badges de H2/H3 por DOM (trazado a mano, y con error demostrado en §3.2) — **y el de la
-  carga, que falta** (§3.3).
-- Apertura del modal por DOM y el roundtrip guardar/recargar contra backend (offline).
-- Contraste instrumental del C6.
-- La suite Python no cambió (el diff es frontend + docs + artefactos) → resultado heredado del 15.
+### 5.bis CIERRE DEFINITIVO (`bb0aaea`) — C1/C2 medido, **verificado por esta auditoría**
+
+#### Lo que verifiqué EJECUTANDO sobre el artefacto
+
+Recalculé las medianas desde `reference/resultados/fps_pares_2026-10-19.json` (12 corridas, 6 pares
+ON/OFF) **en vez de creer las cifras declaradas**:
+
+| | pares crudos (fps) | mediana mía | declarada | |
+|---|---|---|---|---|
+| **OFF** (C0 re-basado) | 15.9 · 18.2 · 17.3 · 23.9 · 20.8 · 17.2 | **17.75** | 17.75 | ✅ coincide |
+| **ON** (capa viva) | 19.8 · 19.9 · 19.6 · 18.5 · 21.3 · 21.3 | **19.85** | 19.85 | ✅ coincide |
+| **Umbral** | `17.75 × 0.95` | **16.86** | 16.86 | ✅ coincide |
+
+**Veredicto: PASA** (19.85 ≥ 16.86) ✅ — y lo verifiqué yo, no solo está declarado.
+
+**Y lo más importante: re-basó el C0.** El método cambió (Playwright + Chromium headless shell con
+`swiftshader`, 1366×768), así que midió un **C0 nuevo con el mismo método** (17.75) en vez de comparar
+contra el 16.6 viejo de `--disable-gpu`. Es exactamente la regla que le di, y evita el error de la base
+28.6 del cambio 12.
+
+**Sin deriva por orden** (la otra lección del 12): OFF `15.9 → 18.2 → 17.3 → 23.9 → 20.8 → 17.2` no
+muestra tendencia; ON `19.8 → 19.9 → 19.6 → 18.5 → 21.3 → 21.3` es estable. Pares intercalados, orden
+aleatorio intra-par y **página fresca por par**.
+
+**La causa raíz de los dos intentos fallidos era la que sospechábamos, y una cosa más**: es auth-gated
+por **`sensor_user` además del token** (`isAuthenticated = !!user` se hidrata del usuario, no solo del
+JWT). El seed siembra ambos y aborta honestamente si acaba en `/auth`. Ese era el "la app no pinta".
+
+#### Observaciones menores (ninguna bloquea el cierre)
+
+1. **El reparto de notificaciones Redux es sistemático, no variable**: OFF **4** y ON **1**, en los 6
+   pares. El `VERIFICACION` dice *"redux residual 1–4 en ambos brazos"*, que es **impreciso**: es 4 en
+   OFF y 1 en ON, siempre. No afecta al criterio (la regla "0 escrituras durante el gesto" se mantiene
+   y el brazo ON **no** es peor), pero conviene escribirlo exacto.
+2. **La dispersión de OFF es alta** (15.9–23.9): la mediana es robusta y la conclusión se sostiene,
+   pero ese rango debería quedar a la vista junto al veredicto, no solo en el JSON.
+3. Queda pendiente la **captura del harness con carga** (§4.bis) — el badge de la carga está medido por
+   DOM (`+21.0/+22.0/+23.0`), pero no hay evidencia visual de ese caso.
+
+#### Flecos del §4.bis que el implementador ya cerró
+
+- 🟡 `SINK_TYPES` al nivel de módulo → ✅ **hecho** (`e88ecbe`): constante de módulo, fuera del
+  componente y de las deps del `useMemo`.
+- 🟡 `AGENTS.md` desactualizado → ✅ **impecable** (C9 en §2).
+
+#### P2–P6 del PR de sensores (auditados en esta misma revisión, no son el cambio 16)
+
+| | Verificado |
+|---|---|
+| **P3** borrado no destructivo | ✅ **archiva** con `renameCollection` a `_deleted_<id>_<ts>`, exige `?force=true` ante referencias vivas (`409` + `impact`), y **si el rename falla deja `archivo: null` y NO dropea** (falla del lado seguro); el impacto se calcula con 3 fuentes y *"dato faltante se omite, nunca 0 inventado"*; Redis con timeout propio (3 s) porque el cliente tiene `maxRetriesPerRequest: null`; `GET /sensors/:id/impact` con JWT + `canManageSensor`; `mpcScheduler` solo expone un **getter de lectura** |
+| **P2** `includeInactive` por llamada | ✅ default `false`, y el modo **persiste** para los refetch internos (`getState().devices.includeInactive`); en el panel: **activos + los ya enlazados aunque estén inactivos** (el matiz que pedí: así un diagrama guardado conserva el mapping y se puede quitar), marcados y con el aviso *"Este sensor no recibirá datos nuevos (estado: X)"* |
+| **P4** fail-open | ✅ `if (!sensor.userId) return false;` |
+| **P6** registro | ✅ fila **S1** en el índice y bloque *Sensor management (S1)* en `AGENTS.md` |
+| **P5** tests | ⚠️ **NO verificados por mí**: sin `Backend/node_modules` ni Mongo aquí, `node --test` muere con `Cannot find module 'mongoose'`. El **"6/6"** del índice es **auto-reporte sin artefacto** → le pido el output versionado (regla del proyecto: toda cifra sale de un artefacto). Por lectura, el test es correcto y completo: 400 status inválido, 403 de extraño en PATCH **y** DELETE con sensor intacto, lista blanca sincronizada en ambos sentidos, `409` con mapping vivo + `?force=true`, y `archivadas: 1`. Corre **contra la BD real** con ids efímeros propios y limpieza en `after` → mejor una BD de test aparte. |
+
+#### Estado final
+
+**🏁 CAMBIO 16 CERRADO** (P1 satisfecho y verificado) → **COLA DE PRODUCCIÓN 06–16 COMPLETA**: los 11
+incrementos implementados y auditados. Lo único que resta es el **bloque de validación V1–V8** y el
+**P7** del cambio 05 (auto-reporte: build/lint, V1–V5, espejo Mongo).
+
+---
+
+## 6. NO verificado aquí (declarado, no asumido)
+
+Lo que **sigue** sin verificar tras el cierre, para que nadie lo dé por hecho:
+
+- **P5 del PR de sensores**: los 6 tests de autorización no se pudieron ejecutar aquí (falta
+  `Backend/node_modules` y Mongo) y el "6/6" es **auto-reporte sin artefacto** → pendiente el output
+  versionado. Auditados **por lectura** y son correctos.
+- **La captura del harness con carga** (§4.bis): el badge de la carga está medido por DOM, pero no hay
+  evidencia visual de ese caso (la captura versionada tiene consumo 0 kW).
+- **El render del lienzo React Flow real**: solo tengo capturas + el SVG de referencia; aquí no se
+  ejecuta el frontend.
+- **Roundtrip guardar/recargar contra backend** y **contraste instrumental del C6**: declarados por el
+  implementador, no medidos.
+- La **suite Python** del repo no la corro (falta `pyomo`/`pymongo`); solo los tests puros
+  (invariante de cobertura y manifiestos), que sí ejecuto en cada auditoría y **pasan**.
 
 ---
 
