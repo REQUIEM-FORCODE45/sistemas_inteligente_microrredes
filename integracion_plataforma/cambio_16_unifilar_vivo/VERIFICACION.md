@@ -10,30 +10,31 @@ frames con rAF counter sobre `batt_1`, MutationObserver(style/transform) en
 `.react-flow__viewport`, contador de notificaciones del store; Chrome headless
 `--disable-gpu` 1920×1080. Umbral C1: `16.6 × 0.95 = 15.8`.
 
-## C1/C2 · Fluidez post-cambio — NO medida en sesión (declarado)
+## C1/C2 · Fluidez post-cambio — MEDIDA 2026-10-19 ✅ (cierre)
 
-Reintento 2026-10-15 con geckodriver + Firefox headless (6 pares
-intercalados, mismo harness): todas las corridas abortaron por entorno
-(navegaciones colgadas, `data:` OK pero la app no pinta; huérfanos de
-navegador acumulados; disco 91–98 %). El entorno dejó de ejecutar
-headless-Chrome a mitad de la sesión anterior (navegaciones colgadas incluso
-a páginas triviales; ver nota de entorno). Lo que sí queda, verificable por
-revisión + artefacto:
-- **C0 guardado** arriba, con escena y metodología reproducibles
-  (`src/Dashboard/components/diagram/debug/fpsMeter.js` nuevo + el harness
-  documentado abajo; el harness temporal se borra por precedente 12–15).
-- **Cero costo por frame añadido, regla por regla**: la animación sigue 100 %
-  CSS (`flow-fwd/flow-rev`, sin JS por frame); los 3 `useSelector` nuevos por
-  edge devuelven refs estables (sin re-renders); el cómputo por edge es un
-  `useMemo` por cambio de plan/hora (acotado, nunca por frame); la hora se
-  escribe a Redux solo al recibir resultado o al cambiar el select (jamás en
-  drag); `nodeTypes/edgeTypes` siguen constantes de módulo; sin librerías
-  nuevas. El único dispatch añadido en caliente (`setHoraMostrada` al recibir
-  resultado) es UNA escritura acotada fuera del gesto.
-- Contador de renders Redux durante el arrastre: 0 por construcción (regla 1
-  intacta; el C0 ya daba 0 en gesto).
-- **La comparación de medianas queda pendiente de re-ejecutar** con el mismo
-  harness cuando el entorno lo permita; no se afirma número post-cambio.
+`reference/resultados/fps_pares_2026-10-19.json` (pares CRUDOS, manifiesto
+completo): **6 pares intercalados ON/OFF** en la misma build/sesión/navegador
+(orden aleatorio intra-par, página fresca por par), escena = 7 nodos + 6 ramas
++ dispatch_plan hora 12 (10.0/9.8/5.0/9.7/2.0/12.0 kW, la escena de la C0).
+
+Método (nuevo stack, C0 re-basado con el mismo): Playwright + Chromium
+headless shell (swiftshader) 1366×768; arrastre real con mouse **hasta 200
+frames** (método C0); medidor `fpsMeter` inyectado (parche solo-harness:
+tick cancelable + lectura intermedia). Causa raíz de los intentos fallidos
+confirmada y resuelta: la app es **auth-gated** (`sensor_user`, no solo el
+token) — el seed siembra token + usuario + evita `/auth` (abortaría honesto).
+
+- **C0 re-basado (OFF = `.no-anim`)**: mediana **17.75 fps** → umbral **16.86**.
+- **ON (capa viva)**: mediana **19.85 fps** → **PASA** (19.85 ≥ 16.86;
+  degradación −11.8 %, mejora dentro de ruido).
+- muts mediana OFF 47 / ON 42; redux residual 1–4 en ambos brazos (selección
+  + sync de dragstop + fondo; la regla "0 durante el gesto" intacta).
+- Por diseño (12.4/16, verificado en el run con ANIM-CHECK
+  `on=edge-flujo/off=none`): durante el arrastre `.rf-dragging .edge-flow`
+  es `display:none` en ambos brazos — la animación no compite con el gesto.
+- Intentos previos declarados (2026-10-15 geckodriver/Firefox, headless-Chrome
+  caído) quedan como historia: la causa era el gate de auth + sesiones largas
+  en el shell (cada par en página fresca lo evita).
 
 ## C3 · Flujo coherente (MEDIDO por DOM en H1/H2/H3)
 

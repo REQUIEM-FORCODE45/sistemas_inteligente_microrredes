@@ -1,0 +1,132 @@
+{
+ "fecha": "2026-10-19",
+ "metodo": "Playwright + Chromium headless shell (swiftshader --enable-unsafe-swiftshader) 1366x768; arrastre real con mouse hasta 200 frames (rAF, metodo C0); 6 pares intercalados ON/OFF en la misma build/sesion/navegador, orden aleatorio intra-par, pagina fresca por par; medidor fpsMeter inyectado (parche solo-harness: __kill/__frames); ANIM-CHECK on=edge-flujo off=none",
+ "escena": "7 nodos (red, trafo, solar, bus AC, bateria, inversor, carga), 6 ramas powerEdge, dispatch_plan hora 12 (10.0/9.8/5.0/9.7/2.0/12.0 kW, escena C0)",
+ "c0_rebasado_off_mediana": 17.75,
+ "umbral_c1": 16.86,
+ "on_mediana": 19.85,
+ "veredicto": "PASA",
+ "nota_diseno": "durante el arrastre .rf-dragging .edge-flow{display:none} en ambos brazos: la animacion no compite con el gesto por diseno (12.4/16); el par mide que activarla no degrada el gesto",
+ "pares_crudos": [
+  {
+   "par": 1,
+   "cond": "off",
+   "frames": 211,
+   "muts": 43,
+   "redux": 4,
+   "dt": 13233,
+   "fps": 15.9,
+   "moves": 50
+  },
+  {
+   "par": 1,
+   "cond": "on",
+   "frames": 215,
+   "muts": 42,
+   "redux": 1,
+   "dt": 10840,
+   "fps": 19.8,
+   "moves": 60
+  },
+  {
+   "par": 2,
+   "cond": "off",
+   "frames": 203,
+   "muts": 47,
+   "redux": 4,
+   "dt": 11173,
+   "fps": 18.2,
+   "moves": 55
+  },
+  {
+   "par": 2,
+   "cond": "on",
+   "frames": 218,
+   "muts": 42,
+   "redux": 1,
+   "dt": 10982,
+   "fps": 19.9,
+   "moves": 60
+  },
+  {
+   "par": 3,
+   "cond": "off",
+   "frames": 204,
+   "muts": 47,
+   "redux": 4,
+   "dt": 11789,
+   "fps": 17.3,
+   "moves": 55
+  },
+  {
+   "par": 3,
+   "cond": "on",
+   "frames": 205,
+   "muts": 42,
+   "redux": 1,
+   "dt": 10485,
+   "fps": 19.6,
+   "moves": 60
+  },
+  {
+   "par": 4,
+   "cond": "on",
+   "frames": 225,
+   "muts": 55,
+   "redux": 4,
+   "dt": 12186,
+   "fps": 18.5,
+   "moves": 60
+  },
+  {
+   "par": 4,
+   "cond": "off",
+   "frames": 206,
+   "muts": 42,
+   "redux": 1,
+   "dt": 8611,
+   "fps": 23.9,
+   "moves": 60
+  },
+  {
+   "par": 5,
+   "cond": "off",
+   "frames": 209,
+   "muts": 47,
+   "redux": 4,
+   "dt": 10038,
+   "fps": 20.8,
+   "moves": 55
+  },
+  {
+   "par": 5,
+   "cond": "on",
+   "frames": 206,
+   "muts": 42,
+   "redux": 1,
+   "dt": 9652,
+   "fps": 21.3,
+   "moves": 60
+  },
+  {
+   "par": 6,
+   "cond": "off",
+   "frames": 208,
+   "muts": 47,
+   "redux": 4,
+   "dt": 12080,
+   "fps": 17.2,
+   "moves": 55
+  },
+  {
+   "par": 6,
+   "cond": "on",
+   "frames": 202,
+   "muts": 42,
+   "redux": 1,
+   "dt": 9481,
+   "fps": 21.3,
+   "moves": 60
+  }
+ ]
+}
