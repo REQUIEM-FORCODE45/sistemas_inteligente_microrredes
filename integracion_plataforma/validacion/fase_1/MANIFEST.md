@@ -1,6 +1,9 @@
 | archivo | bytes | sha256 |
 |---|---|---|
 | `sonda_threads.json` | 541 | `41b67144857f41b85d674701d37f8ee901df031be44f207eff3f1371c227b3b7` |
+| `v1_bandc/expA2_daily_v1_c_dmpc.csv` | 849 | `9e8165c8180b2331348268e885405b8ba180ecde6c4aa0d03fbd9539ffeae11a` |
+| `v1_bandc/expA2_daily_v1_c_smpc.csv` | 847 | `ec79ffae03f60d0a38f70bc49cdc7703f099b46e0d4666d4479be03bfa6fe8d7` |
+| `v1_bandc/resultado.json` | 1380 | `73ed0605e154762c4f4336b67353290efc8801828cdf03f7e0e0d2231c1096c9` |
 | `v7_isla/expA2_daily_v7a_isla_smpc.csv` | 412 | `12a62c05cde4faf298b95bff035bc169b77fff63d421e264bbffd25dbb321ebd` |
 | `v7_isla/expA2_daily_v7b_isla_smpc.csv` | 419 | `2a46104fce7bf4ffb870ade2d43f5929e18a64484f90b94334b3958e151df238` |
 | `v7_isla/resultado.json` | 914 | `2317291048aef644d0081b64f0307e5fef50f6275a0976b21c3c1c0a50905300` |
