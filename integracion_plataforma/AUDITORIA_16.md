@@ -192,13 +192,18 @@ JWT). El seed siembra ambos y aborta honestamente si acaba en `/auth`. Ese era e
 #### Observaciones menores (ninguna bloquea el cierre)
 
 1. **El reparto de notificaciones Redux es sistemático, no variable**: OFF **4** y ON **1**, en los 6
-   pares. El `VERIFICACION` dice *"redux residual 1–4 en ambos brazos"*, que es **impreciso**: es 4 en
-   OFF y 1 en ON, siempre. No afecta al criterio (la regla "0 escrituras durante el gesto" se mantiene
-   y el brazo ON **no** es peor), pero conviene escribirlo exacto.
-2. **La dispersión de OFF es alta** (15.9–23.9): la mediana es robusta y la conclusión se sostiene,
-   pero ese rango debería quedar a la vista junto al veredicto, no solo en el JSON.
-3. Queda pendiente la **captura del harness con carga** (§4.bis) — el badge de la carga está medido por
-   DOM (`+21.0/+22.0/+23.0`), pero no hay evidencia visual de ese caso.
+   pares → ✅ **corregido** (`a932083`): el `VERIFICACION` ya dice *"4 en OFF / 1 en ON en los 6 pares
+   (patrón sistemático, no variable)"*.
+2. **La dispersión de OFF es alta** (15.9–23.9) → ✅ **corregido**: ahora el rango va junto al veredicto
+   (`mediana 17.75 (rango 15.9–23.9, dispersión alta, mediana robusta)` y `ON 19.85 (rango 18.5–21.3)`).
+3. **La captura del harness con carga** → ✅ **hecha** (`725d954`): `reference/figuras/c16_carga.png`
+   muestra la pill **`−21.0 kW`** en la rama que llega a la **Carga** (signo negativo = entra en la carga,
+   coherente con `case 'load'` → `signed = −v`), con su fila en el manifiesto y **sha256 verificado por
+   esta auditoría** contra el blob (`0b5b4558…` = declarado ✓).
+   🟡 *Observación*: en esa captura la **tarjeta** del nodo Carga dice *"Consumo 0 kW"* (lee los `params`
+   del nodo) mientras la pill muestra **−21.0** (lee el `dispatch_plan` del harness). Es correcto por
+   diseño —tarjeta = parámetros, pill = despacho—, pero en una captura de evidencia conviene que
+   coincidan o explicarlo: si no, parece que el badge está mal.
 
 #### Flecos del §4.bis que el implementador ya cerró
 
@@ -214,7 +219,7 @@ JWT). El seed siembra ambos y aborta honestamente si acaba en `/auth`. Ese era e
 | **P2** `includeInactive` por llamada | ✅ default `false`, y el modo **persiste** para los refetch internos (`getState().devices.includeInactive`); en el panel: **activos + los ya enlazados aunque estén inactivos** (el matiz que pedí: así un diagrama guardado conserva el mapping y se puede quitar), marcados y con el aviso *"Este sensor no recibirá datos nuevos (estado: X)"* |
 | **P4** fail-open | ✅ `if (!sensor.userId) return false;` |
 | **P6** registro | ✅ fila **S1** en el índice y bloque *Sensor management (S1)* en `AGENTS.md` |
-| **P5** tests | ⚠️ **No ejecutables en este clon, por diseño**: esta copia es **solo de revisión** (el proyecto no está instalado aquí: sin `node_modules`, sin Mongo, sin venv) → `node --test` muere en `require('mongoose')`, y **eso no dice nada del test**. Lo que sí falta es que el **"6/6"** del índice es **auto-reporte sin artefacto** → pido el output versionado (él sí puede ejecutarlo; regla del proyecto: toda cifra sale de un artefacto). **Por lectura está completo y correcto**: 400 status inválido, 403 de extraño en PATCH **y** DELETE con sensor intacto, lista blanca sincronizada en ambos sentidos, `409` con mapping vivo + `?force=true`, y `archivadas: 1`. Corre **contra la BD real** con ids efímeros propios y limpieza en `after` → mejor una BD de test aparte. |
+| **P5** tests | ✅ **CERRADO CON ARTEFACTO** (`8cc0f87`): `Backend/tests/README.md` versiona el **comando exacto**, la **salida TAP completa (6/6, exit 0)**, el **sha256 del test** y que corre contra **BD propia de test** (`<MONGO_DB_NAME>_test`, la de desarrollo intacta ✓). **Verificado por esta auditoría**: `git show HEAD:Backend/tests/sensores_autorizacion.test.js \| sha256sum` = `6ee951f4…` = **el declarado** ✓. Los tests no se ejecutan en este clon (solo revisión), pero ya no hace falta: la evidencia es un artefacto versionado y el hash cuadra. Cubre 400 inválido, 403 de extraño en PATCH **y** DELETE con sensor intacto, lista blanca sincronizada en ambos sentidos, `409` con mapping vivo + `?force=true`, `archivadas: 1` y el archivado a `_deleted_*`. 🟡 *Menor*: el README dice "sin dependencias" cuando quiere decir **sin dependencias nuevas** (usa mongoose/express del `Backend`). |
 
 #### Estado final
 
