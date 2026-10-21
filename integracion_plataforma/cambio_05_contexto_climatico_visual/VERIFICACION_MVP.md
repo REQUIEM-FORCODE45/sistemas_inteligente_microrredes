@@ -75,9 +75,11 @@ equivalente al `scripts/auditar_cambio05.js` de la auditoria).
   crudo. Sin cambio de codigo.
 
 Con esto el unico pendiente de la auditoria antes del cierre (**F1**) queda
-resuelto y medido; F2 tambien. Quedan como auto-reporte del implementador
-(§3 de la auditoria): `yarn build`/`lint`, V1–V5 en navegador y criterio 10
-(espejo Mongo).
+resuelto y medido; F2 tambien. Lo que quedaba como auto-reporte del
+implementador (§3 de la auditoria) se midio en el cambio 17 (2026-10-21):
+`yarn build` 2.64 s, `yarn lint` 0 en `src/climate/*`, V1–V5 redun PASS y
+criterio 10 `reconstruirEspejo()` = {total: 34, ok: 34, fallo: 0} — ver
+`cambio_17_clima_ux/VERIFICACION.md` (P7 cerrado).
 
 ## Archivos del MVP
 
