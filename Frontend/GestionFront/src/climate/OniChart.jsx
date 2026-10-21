@@ -35,7 +35,7 @@ export default function OniChart({ indices }) {
   const ventana = span ? `${span.x0.slice(0, 7)} → ${span.x1.slice(0, 7)}` : '';
   return (
     <div className="bg-card border rounded-xl p-6 shadow-sm">
-      <h3 className="font-semibold text-lg mb-1">A1 · ONI y RONI ({ventana})</h3>
+      <h3 className="font-semibold text-lg mb-1">Oscilación del Pacífico: ONI y RONI ({ventana})</h3>
       <p className="text-xs text-muted-foreground mb-4">CPC/NOAA · bandas ±0.5 °C · ventana adaptada al dato</p>
       <ClimateChart data={data} layout={layout} height={300} testId="chart-a1-oni" />
     </div>

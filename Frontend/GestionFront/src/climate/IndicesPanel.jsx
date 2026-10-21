@@ -51,13 +51,13 @@ export default function IndicesPanel({ indices }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="bg-card border rounded-xl p-6 shadow-sm">
-        <h3 className="font-semibold text-lg mb-1">A2 · Pacífico: cajas Niño 1+2/3/3.4/4 ({ventA2?.x0.slice(0, 7)} → {ventA2?.x1.slice(0, 7)})</h3>
+          <h3 className="font-semibold text-lg mb-1">Cajas Niño 1+2 / 3 / 3.4 / 4 ({ventA2?.x0.slice(0, 7)} → {ventA2?.x1.slice(0, 7)})</h3>
         <p className="text-xs text-muted-foreground mb-4">ERSSTv5 · anomalías · Niño 4 manda en Pasto (r=−0.23)</p>
         <ClimateChart data={cajas} layout={{ xaxis: { title: 'Mes' }, yaxis: { title: 'Anomalía (°C)', zeroline: true } }} height={300} testId="chart-a2-nino" />
       </div>
       <div className="bg-card border rounded-xl p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <h3 className="font-semibold text-lg">A3 · {def.label}</h3>
+          <h3 className="font-semibold text-lg">Índices de contexto: {def.label}</h3>
           <div className="flex flex-wrap items-center gap-2">
             <select
               data-testid="select-a3"

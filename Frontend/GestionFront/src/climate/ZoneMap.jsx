@@ -69,7 +69,7 @@ export default function ZoneMap({ geo, sitio }) {
   return (
     <div className="bg-card border rounded-xl p-6 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-        <h3 className="font-semibold text-lg">A5 · Mapa de calor de Nariño — {def.label}</h3>
+          <h3 className="font-semibold text-lg">Mapa de nubosidad de Nariño — {def.label}</h3>
         <div className="flex gap-2">
           {CAPAS.map((c) => (
             <button
