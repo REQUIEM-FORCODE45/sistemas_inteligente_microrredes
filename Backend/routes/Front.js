@@ -283,7 +283,27 @@ router.post('/prediction/forecast/comparison/run', validateJwt, async (req, res)
 // Endpoints bajo /api/front/climate con validateJwt (C2: cero toques a app.js).
 // Degradacion honesta: si la fuente externa falla, ultima version guardada
 // con stale:true + antiguedad; sin versiones -> 503 "sin datos", nunca ceros.
+// Cambio 17: refresh con dedup (version nueva SOLO si los datos cambiaron) +
+// auto-sync cada 24 h (arranca lazy) + build del mapa bajo demanda.
+const ensureClimateSync = (() => {
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    try { require('../services/climateSyncService').startClimateSync(); } catch (e) { /* sync opcional */ }
+  };
+})();
+
+async function guardarIndicesSiCambian(store, c) {
+  const datos = { indices: c.indices };
+  if (!store.hayCambios('clima_indices', datos)) return { registro: null, updated: false };
+  const registro = store.guardarVersion('clima_indices', datos,
+    { cobertura: `${c.indices.mes[0]}..${c.indices.mes[c.indices.mes.length - 1]}`, fuente: c.meta.fuente });
+  return { registro, updated: true };
+}
+
 router.get('/climate/context', validateJwt, async (req, res) => {
+  ensureClimateSync();
   try {
     const ctx = require('../services/climateContextService');
     const store = require('../services/climateStoreService');
@@ -296,8 +316,7 @@ router.get('/climate/context', validateJwt, async (req, res) => {
       }
       return res.status(503).json({ success: false, stale: true, message: 'Sin datos climaticos guardados' });
     }
-    store.guardarVersion('clima_indices', { indices: c.indices },
-      { cobertura: `${c.indices.mes[0]}..${c.indices.mes[c.indices.mes.length - 1]}`, fuente: c.meta.fuente });
+    await guardarIndicesSiCambian(store, c);
     const geo = store.ultimaVersion('clima_geo');
     c.climatologia_geo = geo?.registro
       ? { disponible: true, sha256: geo.registro.sha256,
@@ -331,25 +350,54 @@ router.get('/climate/figuras', validateJwt, async (req, res) => {
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 router.post('/climate/refresh', validateJwt, async (req, res) => {
+  ensureClimateSync();
   try {
     const ctx = require('../services/climateContextService');
     const store = require('../services/climateStoreService');
     const c = await ctx.getContext({ remote: true });
-    const reg = store.guardarVersion('clima_indices', { indices: c.indices },
-      { cobertura: `${c.indices.mes[0]}..${c.indices.mes[c.indices.mes.length - 1]}`, fuente: c.meta.fuente });
-    res.json({ success: true, version: reg, stale: c.stale });
+    if (c.stale) {
+      return res.json({ success: true, stale: true, updated: false,
+        message: 'Sin red: se mantiene la ultima version guardada' });
+    }
+    const { registro, updated } = await guardarIndicesSiCambian(store, c);
+    res.json({ success: true, version: registro, stale: false, updated });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.get('/climate/sync', validateJwt, async (req, res) => {
+  ensureClimateSync();
+  try {
+    const sync = require('../services/climateSyncService');
+    res.json({ success: true, ...sync.getSyncInfo() });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 // --- Mapa de calor de Narino A5 (blob ~100-500 KB: endpoint dedicado) -----
 // /context solo expone hash/disponibilidad en climatologia_geo (liviano).
 router.get('/climate/geo', validateJwt, async (req, res) => {
+  ensureClimateSync();
   try {
     const store = require('../services/climateStoreService');
     const ult = store.ultimaVersion('clima_geo');
     if (!ult?.cuerpo) {
-      return res.status(503).json({ success: false, message: 'Sin mapa de calor: genera con optimization/climate/build_clima_geo.py' });
+      return res.status(503).json({ success: false, message: 'Sin mapa de calor', necesita_generacion: true });
     }
     res.json({ success: true, meta: ult.registro, geo: ult.cuerpo.datos });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+// Cambio 17: build del mapa bajo demanda (el artefacto tarda; corre en
+// background y el estado se consulta aparte). Una sola corrida a la vez.
+router.post('/climate/geo/build', validateJwt, async (req, res) => {
+  ensureClimateSync();
+  try {
+    const build = require('../services/climateGeoBuild');
+    const r = build.startBuild();
+    if (r.already) return res.json({ success: true, started: false, message: 'Ya hay una generacion en curso', status: r.status });
+    res.json({ success: true, started: true, status: r.status });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+router.get('/climate/geo/build/status', validateJwt, async (req, res) => {
+  try {
+    const build = require('../services/climateGeoBuild');
+    res.json({ success: true, ...build.getStatus() });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
 

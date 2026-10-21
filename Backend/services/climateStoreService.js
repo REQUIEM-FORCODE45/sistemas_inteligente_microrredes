@@ -44,6 +44,9 @@ function guardarVersion(familia, datos, metaExtra = {}) {
     descargado_en: descargadoEn,
     cobertura: metaExtra.cobertura || null,
     sha256: hash,
+    // Cambio 17: hash SOLO del contenido (sin timestamp) para el dedup del
+    // refresh — una version nueva solo se anade si los datos cambiaron.
+    sha_contenido: sha16({ familia, datos }),
     fuente: metaExtra.fuente || 'CPC/NOAA · NCEI · PSL',
     licencia: 'CPC/NCEI/PSL dominio publico con cita; OSM/OpenTopoMap con atribucion',
     bytes: 0,
@@ -95,6 +98,16 @@ async function espejoMongo(registro, cuerpo) {
   } catch (e) { return false; }
 }
 
+// Cambio 17: true si datos difiere de la ultima version guardada (o no hay
+// ninguna). Sin sha_contenido en la ultima (versiones pre-17) se asume que
+// cambio una vez y luego se estabiliza solo.
+function hayCambios(familia, datos) {
+  const ult = ultimaVersion(familia);
+  if (!ult?.registro) return true;
+  if (!ult.registro.sha_contenido) return true;
+  return ult.registro.sha_contenido !== sha16({ familia, datos });
+}
+
 // Reconstruye el espejo Mongo desde cero a partir del manifest (criterio §7.10).
 async function reconstruirEspejo() {
   const m = readManifest();
@@ -108,4 +121,4 @@ async function reconstruirEspejo() {
   return { total: m.versiones.length, ok, fallo };
 }
 
-module.exports = { guardarVersion, listarVersiones, leerVersion, ultimaVersion, reconstruirEspejo, readManifest, STORE_DIR, FAMILIAS };
+module.exports = { guardarVersion, listarVersiones, leerVersion, ultimaVersion, reconstruirEspejo, readManifest, STORE_DIR, FAMILIAS, espejoMongo, hayCambios };

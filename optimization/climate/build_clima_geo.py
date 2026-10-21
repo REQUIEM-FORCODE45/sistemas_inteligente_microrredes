@@ -40,7 +40,9 @@ from scipy import stats
 ROOT = Path(__file__).resolve().parents[2]
 STORE = ROOT / "data" / "clima" / "clima_geo"
 MANIFEST = ROOT / "data" / "clima" / "manifest.json"
-CACHE = Path(__file__).resolve().parent / ".cache_clima_geo"
+CACHE = Path(os.environ.get("CLIMA_GEO_CACHE_DIR") or (Path(__file__).resolve().parent / ".cache_clima_geo"))
+# Cambio 17: CLIMA_GEO_CACHE_DIR permite mover el cache a un sitio durable
+# (data/clima/.cache_geo) cuando lo lanza el backend; por defecto igual que antes.
 
 GADM_URL = "https://geodata.ucdavis.edu/gadm/gadm4.1/json/gadm41_COL_1.json.zip"
 NINO_URL = "https://www.cpc.ncep.noaa.gov/data/indices/ersst5.nino.mth.91-20.ascii"
