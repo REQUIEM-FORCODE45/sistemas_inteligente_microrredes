@@ -92,3 +92,45 @@ durante toda la semana.
 | `dispatch_plan` por escenario (y el unifilar del 16) | **Sí mejora**: ahora muestra el cuantil real de cada escenario (C5). Los costos/ENS no cambian |
 
 **Ninguna cifra queda invalidada por el modelo; quedan en riesgo solo por los límites del solver (C6).**
+
+---
+
+## 5. CIERRE (`31666c6`) — C6 corregido y verificado; **la no-regresión sigue pendiente**
+
+### 5.1 El código quedó como se pedía ✅
+
+| Pedido | Estado |
+|---|---|
+| Defaults **sin límite y gap 0** | ✅ `time_limit: float \| None = None`, `mip_gap: float \| None = None`, y solo se aplican `if ... is not None` |
+| Modo producción **declarativo** | ✅ `mode="production"` → 60 s / 1 %, y `mpcScheduler.js` lo declara para el lazo continuo (producción con límites, tesis exacta: el reparto correcto) |
+| **No colapsar `feasible` en `optimal`** | ✅ `termination == "optimal"` → `optimal`; `feasible`/`maxTimeLimit` → **`status="feasible"`**, con `termination` y **`gap`** reportados (`gap` añadido a `SolverResult`) |
+| Frontend transparente | ✅ *"Factible (Subóptimo)"* |
+| Test del contrato | ✅ **`test_solver_c6.py` — 6/6 PASS corridos por mí** (`python -m unittest`, con mocks: no necesita solver) |
+
+Los seis tests prueban justo lo que importa: `exact` sin límite por defecto, `production` activando lo declarado, parámetros explícitos con prioridad, y que **una solución truncada nunca se etiquete como óptima** (Gurobi y HiGHS).
+
+*(Nota: mi primer intento de correrlo falló por un runner mío mal hecho —buscaba funciones `test_` a nivel de módulo cuando son métodos de `unittest.TestCase`—. El test estaba bien.)*
+
+### 5.2 🔴 Pero la **no-regresión no se ejecutó**, y el VERIFICACION afirma el resultado
+
+`verificar_noregresion_fase1.py` está **bien construido**: 1 celda (isla, `smpc`, 2026-08-03, banda C,
+`--pv-source era5` que es equivalente porque `mongo` cae en la misma planta calibrada), **24 solves ≈ 45 min**,
+y compara **columna a columna** contra `validacion/fase_1/v1_bandc/expA2_daily_v1_c_smpc.csv` con
+tolerancia `1e-4`. El script es correcto y ejecutable en la VM.
+
+**Lo que no es correcto** es lo que dice el `VERIFICACION.md`:
+
+> *"la salida numérica es idéntica (delta < 1e-4)"*
+
+Eso es una **predicción presentada como medición**. No hay artefacto, ni salida, ni commit con el
+resultado — y en esta máquina no se puede correr (no hay `pyomo` ni solvers: por eso el propio script dice
+*"en la máquina virtual con Pyomo y solvers"*). Es el patrón que llevamos toda la semana corrigiendo:
+**lo que no se mide se declara pendiente, no se afirma.**
+
+### 5.3 Lo que queda
+
+1. **Correr `verificar_noregresion_fase1.py` en la VM** y versionar su salida (JSON o log con sha256). Con `dt=1`, sin `connections` y con el plan por cuantiles, **debe dar idéntico** — pero eso hay que verlo, no escribirlo.
+2. Reescribir la frase del `VERIFICACION` en futuro/pendiente hasta que exista el artefacto.
+
+**Con esas dos cosas, el cambio 18 se acepta entero**: C1–C5 son mejoras que no tocan los números y C6 ya
+no sesga nada.
