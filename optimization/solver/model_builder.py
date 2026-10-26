@@ -153,14 +153,26 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     t_build = time.time() - t_build0
 
     solver_pref = input_data.get("solver", "gurobi")
+    solver_mode = input_data.get("solver_mode", "exact")
+    time_limit = input_data.get("time_limit") or input_data.get("time_limit_seconds")
+    mip_gap = input_data.get("mip_gap")
+
     t_solve0 = time.time()
-    result: SolverResult = solve(pyo_model, preferred=solver_pref)
+    result: SolverResult = solve(
+        pyo_model,
+        preferred=solver_pref,
+        time_limit=time_limit,
+        mip_gap=mip_gap,
+        mode=solver_mode,
+    )
     t_solve = time.time() - t_solve0
 
-    if result.status != "optimal":
+    if result.status not in ("optimal", "feasible"):
         return {
             "job_id": job_id,
             "status": result.status,
+            "termination": result.termination,
+            "mip_gap": result.gap,
             "error": result.error or f"Solver finalizo: {result.termination}",
             "solver_usado": getattr(result, "solver_usado", None),
             "timing_s": {"t_build": t_build, "t_solve": t_solve,
@@ -205,8 +217,10 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "job_id": job_id,
-        "status": "optimal",
-        "objective_value": round(result.objective, 2) if result.objective else None,
+        "status": result.status,
+        "termination": result.termination,
+        "mip_gap": result.gap,
+        "objective_value": round(result.objective, 2) if result.objective is not None else None,
         "dispatch_plan": dispatch_plan,
         "cost_breakdown": cost_breakdown,
         "solver_usado": getattr(result, "solver_usado", None),

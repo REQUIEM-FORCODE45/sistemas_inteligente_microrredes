@@ -13,6 +13,7 @@ export const OptimizationStatus = ({ result, status }) => {
   }
 
   const isOptimal = status === 'complete' || result?.status === 'optimal';
+  const isFeasible = result?.status === 'feasible';
   const isError = status === 'error' || result?.status === 'error';
   const isInfeasible = result?.status === 'infeasible';
   const isRunning = status === 'running';
@@ -26,6 +27,11 @@ export const OptimizationStatus = ({ result, status }) => {
           <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
             <CheckCircle2 className="w-5 h-5 text-green-500" />
             <span className="text-green-600 font-medium text-sm">Optimo</span>
+          </div>
+        ) : isFeasible ? (
+          <div className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            <span className="text-emerald-600 font-medium text-sm">Factible (Subóptimo)</span>
           </div>
         ) : isRunning ? (
           <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">

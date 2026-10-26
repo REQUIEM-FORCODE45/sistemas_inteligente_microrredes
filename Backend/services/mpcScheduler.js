@@ -299,6 +299,7 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
       time_step_minutes: 60,
       scenarios: null,
       solver: 'gurobi',
+      solver_mode: process.env.SOLVER_MODE || 'production',
     };
 
     const jobId = await enqueueOptimization(optimizationInput);

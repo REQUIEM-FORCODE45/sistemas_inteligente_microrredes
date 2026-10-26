@@ -91,6 +91,8 @@ export const OptimizationPanel = () => {
       case 'complete':
       case 'optimal':
         return { icon: CheckCircle2, text: 'Completado', color: 'text-green-500 bg-green-500/10 border-green-500/20' };
+      case 'feasible':
+        return { icon: CheckCircle2, text: 'Factible (Subóptimo)', color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' };
       case 'infeasible':
         return { icon: AlertCircle, text: 'Infactible', color: 'text-orange-500 bg-orange-500/10 border-orange-500/20' };
       case 'error':

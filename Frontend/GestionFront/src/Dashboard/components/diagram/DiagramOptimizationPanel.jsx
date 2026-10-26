@@ -371,7 +371,9 @@ export default function DiagramOptimizationPanel({ onClose }) {
         return { icon: RefreshCw, text: 'Optimizando...', cls: 'text-blue-500 bg-blue-500/10 border-blue-500/20' };
       case 'complete':
       case 'optimal':
-        return { icon: CheckCircle2, text: 'Completado', cls: 'text-green-500 bg-green-500/10 border-green-500/20' };
+        return { icon: CheckCircle2, text: 'Completado (Óptimo)', cls: 'text-green-500 bg-green-500/10 border-green-500/20' };
+      case 'feasible':
+        return { icon: CheckCircle2, text: 'Factible (Subóptimo)', cls: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' };
       case 'infeasible':
         return { icon: AlertCircle, text: 'Infactible', cls: 'text-orange-500 bg-orange-500/10 border-orange-500/20' };
       case 'error':
@@ -432,7 +434,7 @@ export default function DiagramOptimizationPanel({ onClose }) {
             <BadgeIcon className={`w-3 h-3 ${optimization.status === 'running' ? 'animate-spin' : ''}`} />
             {badge.text}
           </span>
-          {result?.status === 'optimal' && result.objective_value != null && (
+          {(result?.status === 'optimal' || result?.status === 'feasible') && result.objective_value != null && (
             <span className="text-[10px] text-muted-foreground font-mono">
               ${result.objective_value.toLocaleString?.() ?? result.objective_value}
             </span>
@@ -527,7 +529,7 @@ export default function DiagramOptimizationPanel({ onClose }) {
           </div>
         )}
 
-        {result?.status === 'optimal' && (
+        {(result?.status === 'optimal' || result?.status === 'feasible') && (
           <div className="text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1.5">
             <p>Resultados listos. Mira las gráficas en:</p>
             <ul className="list-disc pl-4 space-y-0.5">

@@ -1,6 +1,6 @@
 # Cambio 18 — Simulación MPC, Física de Batería y Robustez del Lazo
 
-Este cambio resuelve las inconsistencias de simulación física en el solver MILP (Pyomo) y subsana las fallas críticas de concurrencia y portabilidad en el backend de Node.js que bloqueaban la ejecución autónoma del MPC.
+Este cambio resuelve las inconsistencias de simulación física en el solver MILP (Pyomo) y subsana las fallas críticas de concurrencia y portabilidad en el backend de Node.js que bloqueaban la ejecución autónoma del MPC. Además, incorpora la resolución a las observaciones de la auditoría técnica sobre reproducibilidad en solvers (C6).
 
 ---
 
@@ -21,9 +21,15 @@ Este cambio resuelve las inconsistencias de simulación física en el solver MIL
 5. **Cuantiles de escenarios en `_extract_dispatch_plan`**:
    - Al emitir el plan de despacho horario, el código forzaba la curva solar y eólica a `P50` para todos los escenarios, desalineando el balance de potencia visual en Soleado (P90) y Lluvia (P10).
    - **Solución**: Lectura del cuantil específico de cada escenario (`sc.get("quantile") or "P50"`).
-6. **Protección y timeouts en solvers**:
-   - Ni Gurobi ni HiGHS tenían límites de tiempo configurados; y si Gurobi declaraba un problema como `infeasible`, caía inútilmente a re-resolver el mismo modelo infactible en HiGHS.
-   - **Solución**: `TimeLimit = 60s` y `MIPGap = 0.01` por defecto, detección y retorno temprano de infactibilidad comprobada, y aceptación de estados factibles por tiempo límite (`maxTimeLimit`).
+6. **Protección, reproducibilidad y gobernanza de solvers (C6 - Auditoría)**:
+   - La auditoría técnica identificó que prefijar un `TimeLimit = 60s` y `MIPGap = 1%` por defecto amenazaba la reproducibilidad del capítulo de la tesis (dado que un solve tarda ~50-95s y las diferencias analizadas en V1/V2 son de 0.6% a 2%), y que reportar soluciones factibles/truncadas como óptimas ocultaba la condición real del algoritmo.
+   - **Solución implementada**:
+     - **Modo 'exact' por defecto (reproducibilidad)**: `time_limit = None` (sin límite artificial) y `mip_gap = 0.0` (óptimo global exacto), preservando la compatibilidad matemática y numérica absoluta con las líneas base de la Fase 1.
+     - **Modo 'production' declarativo**: Habilitado explícitamente para el lazo continuo operativo en tiempo real (`mpcScheduler.js` inyecta `solver_mode: 'production'`, aplicando `time_limit = 60s` y `mip_gap = 0.01`).
+     - **Honestidad en el estado**: Las soluciones que alcanzan tiempo límite o gap conservan `status = "feasible"`, exponiendo el `termination` y `mip_gap` en el resultado, sin colapsar silenciosamente en `"optimal"`.
+     - **Detección temprana de infactibilidad**: Si Gurobi declara infactibilidad demostrada, `solve()` retorna inmediatamente evitando reintentos redundantes en HiGHS, y reporta fielmente `solver_usado`.
+     - **Frontend adaptado**: Los componentes de estado visualizan `feasible` como "Factible (Subóptimo)" distinguiéndolo claramente de "Óptimo".
+     - **Verificación de no-regresión**: Script `verificar_noregresion_fase1.py` para contrastar corridas de celda con las líneas base de la Fase 1.
 
 ---
 
@@ -32,13 +38,18 @@ Este cambio resuelve las inconsistencias de simulación física en el solver MIL
 | Componente | Archivo | Modificación |
 |---|---|---|
 | **Backend** | `Backend/helpers/pythonBin.js` | **Nuevo**: Helper cross-platform para resolución de binario Python |
-| **Backend** | `Backend/services/mpcScheduler.js` | Uso de `getPythonBin()` en spawn de solver `run_once.py` |
+| **Backend** | `Backend/services/mpcScheduler.js` | Uso de `getPythonBin()` en spawn de solver `run_once.py` e inyección de `solver_mode: 'production'` |
 | **Backend** | `Backend/services/climateGeoBuild.js` | Uso de `getPythonBin()` en spawn de `build_clima_geo` |
 | **Backend** | `Backend/services/experimentService.js` | Uso de `getPythonBin()` en spawn de `experiment_a` |
 | **Backend** | `Backend/services/forecastComparisonService.js` | Uso de `getPythonBin()` en spawn de `compare_providers` |
 | **Backend** | `Backend/services/optimizationService.js` | `activePollers` como `Map` concurrente por `jobId` |
-| **Solver** | `optimization/solver/model_builder.py` | Factor $\Delta t$, no-anticipatividad de `SW_S` en $t=0$, cuantiles de escenario en `dispatch_plan` |
-| **Solver** | `optimization/solver/solvers.py` | Timeouts (60s), tolerancia MIP (1%), corte temprano en infactibilidad |
+| **Solver** | `optimization/solver/model_builder.py` | Factor $\Delta t$, no-anticipatividad de `SW_S` en $t=0$, cuantiles de escenario en `dispatch_plan`, propagación de `solver_mode`, `time_limit`, `mip_gap` y no colapso de `feasible` |
+| **Solver** | `optimization/solver/solvers.py` | Modos `exact` (default sin límite y gap 0) y `production` (60s, 1%), reporte de `gap`, retención de `status="feasible"`, corte en infactibilidad |
+| **Solver Tests** | `optimization/tests/test_solver_c6.py` | **Nuevo**: Suite de pruebas unitarias sobre invariantes de C6 (defaults exactos, modo produccion, no colapso de feasible) |
+| **Frontend** | `Frontend/.../DiagramOptimizationPanel.jsx` | Soporte visual para estado `feasible` ("Factible (Subóptimo)") |
+| **Frontend** | `Frontend/.../OptimizationPanel.jsx` | Soporte visual para estado `feasible` |
+| **Frontend** | `Frontend/.../OptimizationStatus.jsx` | Soporte visual para estado `feasible` |
+| **Verificación** | `integracion_plataforma/cambio_18_.../verificar_noregresion_fase1.py` | **Nuevo**: Script de validación de no-regresión contra la línea base versionada de la Fase 1 |
 
 ---
 
@@ -49,4 +60,4 @@ Este cambio resuelve las inconsistencias de simulación física en el solver MIL
 - [x] **C3**: Dinámica de batería y función objetivo escaladas exactamente por $\Delta t = \text{time\_step} / 60.0$ (retrocompatible a $dt=1.0$ en corridas horarias).
 - [x] **C4**: No-anticipatividad en $t=0$ cubre todas las binarias de maniobra de seccionadores (`SW_S`).
 - [x] **C5**: `_extract_dispatch_plan` refleja el cuantil correspondiente de cada escenario (`P90`, `P50`, `P10`).
-- [x] **C6**: `solvers.py` parametriza `TimeLimit` y corta inmediatamente ante infactibilidad demostrada.
+- [x] **C6**: `solvers.py` y `model_builder.py` operan por defecto en modo `'exact'` (sin time limit, gap 0.0) garantizando reproducibilidad científica de la tesis; soportan modo `'production'` declarativo; preservan honestamente el estado `"feasible"` sin colapsarlo en `"optimal"`; y exponen `termination`, `mip_gap` y `solver_usado`.
