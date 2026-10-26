@@ -84,6 +84,38 @@ python integracion_plataforma/cambio_18_simulacion_mpc_fisica/verificar_noregres
 
 El script ejecuta 1 celda de validación (isla, S-MPC, 2026-08-03, banda C conformal_disjunto, planta calibrada ERA5) en modo exacto y compara columna a columna contra `integracion_plataforma/validacion/fase_1/v1_bandc/expA2_daily_v1_c_smpc.csv`. Con $\Delta t = 1.0$, sin `connections` (sin switches de red) y con los cuantiles de plan desacoplados de la función objetivo, la salida numérica es idéntica (delta < 1e-4).
 
+### Ejecución medida (2026-10-26, esta máquina, HiGHS por licencia size-limited)
+
+Comando (con `MONGO_URL`/`MONGO_DB_NAME` del backend en el entorno y
+`OMP_NUM_THREADS=1` para igualar hilos con la corrida de Fase 1):
+
+```bash
+python integracion_plataforma/cambio_18_simulacion_mpc_fisica/verificar_noregresion_fase1.py
+```
+
+Se corrigió además un bug del propio script: esperaba
+`expA2_daily_<tag>_smpc.csv` pero el experimento con `--tag` escribe
+`expA2_daily_<tag>.csv` (el sufijo por estrategia solo existe en los
+hourly). Sin la corrección el script abortaba con "No se generó el archivo".
+
+**Veredicto medido: NO-REGRESIÓN MATERIAL (no identidad byte a byte).**
+ENS, horas ENS, déficit, SOC inicio/mínimo, import/export/violaciones y PV:
+**idénticos** (ENS 6.3535 en ambos). Difieren solo acumulados continuos:
+`costo_total` +207.79 (+0.023 %), `costo_norm` +207.87, `diesel_L` +0.075
+(+0.024 %), `soc_final` −0.001, `curt` +0.001.
+
+Causa (verificada por código, no asumida): el truncado por defecto de 60 s
+(`time_limit=60.0` pre-18) desapareció en modo `exact`; la ruta MIP cambia y
+el redondeo discreto se mueve dentro de ±0.03 %. Descartado hilos como causa
+(se re-corrió con `OMP_NUM_THREADS=1` igual que Fase 1 y el delta persiste
+idéntico). Esto es consistente con el hallazgo V7 de la Fase 1 (ruido de
+re-optimización discreta ±5 % en lazo cerrado): aquí el ruido es 2 órdenes
+menor que cualquier efecto publicado del capítulo (ENS −26 %).
+
+Evidencia: `reference/resultados/expA2_daily_c6_noregresion_test.csv` (416 B,
+24 h isla smpc), `c6_noregresion_fase1_run2.log` (salida completa con el
+comparativo columna a columna y el veredicto), `c6_unittest.log` (6/6).
+
 ---
 
 ## 4. Estado de Cierre

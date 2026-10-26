@@ -64,7 +64,7 @@ def main():
         / "results"
         / "pasto_narino"
         / "experiments"
-        / f"expA2_daily_{tag}_smpc.csv"
+        / f"expA2_daily_{tag}.csv"
     )
 
     if not out_csv.exists():

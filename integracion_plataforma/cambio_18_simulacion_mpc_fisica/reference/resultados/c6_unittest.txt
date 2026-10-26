@@ -1,0 +1,17 @@
+test_default_mode_is_exact_and_unlimited (optimization.tests.test_solver_c6.TestSolverC6)
+Por defecto ('exact'), time_limit debe ser None y mip_gap 0.0 para reproducibilidad. ... ok
+test_explicit_parameters_override_mode (optimization.tests.test_solver_c6.TestSolverC6)
+Parametros explicitos tienen prioridad sobre los defaults del modo. ... ok
+test_feasible_is_never_collapsed_into_optimal_gurobi (optimization.tests.test_solver_c6.TestSolverC6)
+Una solucion truncada por maxTimeLimit NUNCA debe reportarse como 'optimal'. ... ok
+test_feasible_is_never_collapsed_into_optimal_highs (optimization.tests.test_solver_c6.TestSolverC6)
+En HiGHS, feasible y maxTimeLimit retienen status='feasible' con gap reportado. ... ok
+test_production_mode_activates_declared_limits (optimization.tests.test_solver_c6.TestSolverC6)
+En modo 'production', aplica limites declarados (60s, 1%). ... ok
+test_solver_result_fields (optimization.tests.test_solver_c6.TestSolverC6)
+SolverResult debe retener fielmente todos los metadatos de resolucion. ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.061s
+
+OK
