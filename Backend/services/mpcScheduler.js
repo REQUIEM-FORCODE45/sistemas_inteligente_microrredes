@@ -314,7 +314,8 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
     }
 
     const solverScript = path.join(__dirname, '..', '..', 'optimization', 'solver', 'run_once.py');
-    exec(`python3 ${solverScript}`, { cwd: path.resolve(__dirname, '..', '..') }, (err, stdout, stderr) => {
+    const { getPythonBin } = require('../helpers/pythonBin');
+    exec(`${getPythonBin()} ${solverScript}`, { cwd: path.resolve(__dirname, '..', '..') }, (err, stdout, stderr) => {
       if (err) {
         console.warn('  [MPC] Solver Python no disponible (ejecuta python -m solver.main):', err.message);
       }

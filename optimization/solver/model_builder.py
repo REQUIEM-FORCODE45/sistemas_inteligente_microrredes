@@ -1095,14 +1095,15 @@ def _build_pyomo_model(
                     _sw_aplica("battery", bi, model.P_discharge, (bi, t, s), t, s, "_dis")
                     model.SOC[bi, t, s].setlb(bmeta["soc_min"] * cap)
                     model.SOC[bi, t, s].setub(bmeta["soc_max"] * cap)
+                    dt = float(time_step) / 60.0
                     if t_idx == 0:
                         model.add_component(
                             f"soc_init_{bi}_{s}",
                             pyo.Constraint(
                                 expr=model.SOC[bi, t, s]
                                 == bmeta["initial_soc"] * cap
-                                + bmeta["charge_eff"] * model.P_charge[bi, t, s]
-                                - model.P_discharge[bi, t, s] / bmeta["discharge_eff"]
+                                + bmeta["charge_eff"] * model.P_charge[bi, t, s] * dt
+                                - (model.P_discharge[bi, t, s] / bmeta["discharge_eff"]) * dt
                             ),
                         )
                     else:
@@ -1112,8 +1113,8 @@ def _build_pyomo_model(
                             pyo.Constraint(
                                 expr=model.SOC[bi, t, s]
                                 == model.SOC[bi, t_prev, s]
-                                + bmeta["charge_eff"] * model.P_charge[bi, t, s]
-                                - model.P_discharge[bi, t, s] / bmeta["discharge_eff"]
+                                + bmeta["charge_eff"] * model.P_charge[bi, t, s] * dt
+                                - (model.P_discharge[bi, t, s] / bmeta["discharge_eff"]) * dt
                             ),
                         )
 
@@ -1178,6 +1179,9 @@ def _build_pyomo_model(
                     model.nonant.add(model.P_charge[bi, t, s0] == model.P_charge[bi, t, s])
                     model.nonant.add(model.P_discharge[bi, t, s0] == model.P_discharge[bi, t, s])
                     model.nonant.add(model.Z[bi, t, s0] == model.Z[bi, t, s])
+                if _sw_solver:
+                    for _si in range(len(_sw_solver)):
+                        model.nonant.add(model.SW_S[_si, t, s0] == model.SW_S[_si, t, s])
             # Cambio 13.2: la puerta tambien es primera etapa (t=0, E4).
             if inverter is not None and inverter["bus_dc"]:
                 for s in s_ids[1:]:
@@ -1226,21 +1230,22 @@ def _build_pyomo_model(
                     model.add_component(f"pw_diesel_{di}_{t}_{s_idx}", pw)
 
     def obj_rule(m):
+        dt = float(time_step) / 60.0
         total = 0.0
         for s_idx in s_ids:
             prob = scenarios[s_idx]["probability"]
             for t in model.T:
                 if num_diesel > 0:
                     for di in range(num_diesel):
-                        total += prob * m.DIESEL_COST[di, t, s_idx]
-                        total += prob * diesel_devices[di]["cost_c"] * diesel_devices[di]["fuel_cost"] * m.U_diesel[di, t, s_idx]
+                        total += prob * m.DIESEL_COST[di, t, s_idx] * dt
+                        total += prob * diesel_devices[di]["cost_c"] * diesel_devices[di]["fuel_cost"] * m.U_diesel[di, t, s_idx] * dt
                         # Cambio 08.4: penalizacion de transitorios (continuas).
                         if penalize_start[di]:
                             total += prob * float(diesel_devices[di]["start_cost"]) * m.diesel_start[di, t, s_idx]
                         if penalize_stop[di]:
                             total += prob * float(diesel_devices[di]["stop_cost"]) * m.diesel_stop[di, t, s_idx]
-                total += prob * (grid_d * _sw_grid_gate(t, s_idx) + grid_e[int(t)] * m.P_import[t, s_idx] - export_tariff * m.P_export[t, s_idx])
-                total += prob * ens_penalty * m.ENS[t, s_idx]
+                total += prob * (grid_d * _sw_grid_gate(t, s_idx) * dt + grid_e[int(t)] * m.P_import[t, s_idx] * dt - export_tariff * m.P_export[t, s_idx] * dt)
+                total += prob * ens_penalty * m.ENS[t, s_idx] * dt
                 # Cambio 15: costo de maniobra del seccionador (solo solver).
                 if _sw_solver:
                     for _si, _sw in enumerate(_sw_solver):
@@ -1250,8 +1255,8 @@ def _build_pyomo_model(
                 for bi, _ in enumerate(storage_list):
                     total += prob * battery_degradation_cost(
                         pyo, storage_list[bi] if bi < len(storage_list) else {},
-                        m.P_charge[bi, t, s_idx],
-                        m.P_discharge[bi, t, s_idx],
+                        m.P_charge[bi, t, s_idx] * dt,
+                        m.P_discharge[bi, t, s_idx] * dt,
                     )
             if storage_list:
                 for bi in range(len(storage_list)):
@@ -1657,11 +1662,12 @@ def _extract_dispatch_plan(
         sc_name = sc["name"]
         factor_pv = sc["factor_pv"]
         factor_wind = sc.get("factor_wind", 1.0)
+        sc_q = sc.get("quantile") or "P50"
         for t in range(horizon):
             irrad = predictions_solar[t] if t < len(predictions_solar) else 0.0
             for sd in solar_devices:
                 if predictions_pv_band:
-                    pv_total = _band_at(t, "P50") * factor_pv
+                    pv_total = _band_at(t, sc_q) * factor_pv
                     pv_kw = pv_total * sd.get("weight", 0.0) / total_solar_kw
                 elif predictions_pv_kw:
                     pv_total = (predictions_pv_kw[t] if t < len(predictions_pv_kw)
@@ -1687,7 +1693,7 @@ def _extract_dispatch_plan(
                 })
             for wd in wind_devices:
                 if predictions_wind_band:
-                    wind_total = _band_at(t, "P50", band=predictions_wind_band) * factor_wind
+                    wind_total = _band_at(t, sc_q, band=predictions_wind_band) * factor_wind
                     wind_kw = wind_total * wd.get("weight", 0.0) / total_wind_kw
                 elif predictions_wind_kw:
                     wind_total = (predictions_wind_kw[t] if t < len(predictions_wind_kw)

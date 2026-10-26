@@ -131,40 +131,50 @@ const shutdownOptimization = async () => {
   if (redisClient) await redisClient.quit().catch(() => {});
 };
 
-let progressPoller = null;
+const activePollers = new Map();
 
 const pollProgress = (jobId, onComplete, onStatus) => {
-  if (progressPoller) clearInterval(progressPoller);
+  if (activePollers.has(jobId)) {
+    clearInterval(activePollers.get(jobId));
+    activePollers.delete(jobId);
+  }
 
   let polls = 0;
   const MAX_POLLS = 150;
 
-  progressPoller = setInterval(async () => {
+  const timer = setInterval(async () => {
     polls++;
     const status = await getOptimizationStatus(jobId);
     if (onStatus) onStatus(status);
 
     if (status === 'completed' || status === 'failed') {
-      clearInterval(progressPoller);
-      progressPoller = null;
+      clearInterval(timer);
+      activePollers.delete(jobId);
       const result = await getOptimizationResult(jobId);
       if (onComplete) onComplete(result);
       return;
     }
 
     if (polls >= MAX_POLLS) {
-      clearInterval(progressPoller);
-      progressPoller = null;
+      clearInterval(timer);
+      activePollers.delete(jobId);
       console.log(`  [optimization] Timeout esperando job ${jobId} (${MAX_POLLS * 2}s)`);
       if (onComplete) onComplete({ jobId, status: 'timeout', error: 'Timeout de optimizacion' });
     }
   }, 2000);
+
+  activePollers.set(jobId, timer);
 };
 
-const cleanupPoll = () => {
-  if (progressPoller) {
-    clearInterval(progressPoller);
-    progressPoller = null;
+const cleanupPoll = (jobId = null) => {
+  if (jobId && activePollers.has(jobId)) {
+    clearInterval(activePollers.get(jobId));
+    activePollers.delete(jobId);
+  } else if (!jobId) {
+    for (const [, pollerTimer] of activePollers.entries()) {
+      clearInterval(pollerTimer);
+    }
+    activePollers.clear();
   }
 };
 

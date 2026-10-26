@@ -98,7 +98,8 @@ async function runExperimentA(days = 14) {
   await redis.set(RUNNING_KEY, '1');
   await redis.expire(RUNNING_KEY, 7200);
   const env = { ...process.env };
-  const cmd = `python3 -m optimization.experiments.experiment_a --days ${parseInt(days,10)}`;
+  const { getPythonBin } = require('../helpers/pythonBin');
+  const cmd = `${getPythonBin()} -m optimization.experiments.experiment_a --days ${parseInt(days,10)}`;
   const cwd = path.join(__dirname, '..', '..');
   exec(cmd, { cwd, env, timeout: 600000 }, async (err, stdout, stderr) => {
     try {

@@ -24,7 +24,8 @@ function startBuild() {
   const env = { ...process.env };
   // Cache durable y visible (en vez del .cache oculto del modulo).
   env[CACHE_ENV] = path.join(LOG_DIR, '.cache_geo');
-  const child = spawn('python3', ['-m', 'climate.build_clima_geo'],
+  const { getPythonBin } = require('../helpers/pythonBin');
+  const child = spawn(getPythonBin(), ['-m', 'climate.build_clima_geo'],
     { cwd: OPTIMIZATION_DIR, env, detached: true, stdio: ['ignore', logFd, logFd] });
   child.unref();
   estado = { state: 'running', started_at: new Date().toISOString(), finished_at: null, exit_code: null, log: logPath, sha: null, pid: child.pid };
