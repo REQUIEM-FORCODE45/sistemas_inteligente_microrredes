@@ -1,0 +1,62 @@
+{
+ "pageerrors": [],
+ "h5": {
+  "pvBadge": "PVDC · ▲ generandoCapacidad— WEficiencia—5kW",
+  "loadBadge": "CargaACestáticaCarga máx.—Consumo0 kW← 105kW",
+  "glyphs": [
+   "#s-sw-c",
+   "#s-sw-c",
+   "#s-sw-c",
+   "#s-sw-c",
+   "#s-sw-o",
+   "#s-sw-c",
+   "#s-grid",
+   "#s-trafo",
+   "#s-pv",
+   "#s-batt",
+   "#s-inv",
+   "#s-load"
+  ]
+ },
+ "h6": {
+  "pvBadge": "PVDC · ▲ generandoCapacidad— WEficiencia—6kW",
+  "loadBadge": "CargaACestáticaCarga máx.—Consumo0 kW← 106kW",
+  "glyphs": [
+   "#s-sw-c",
+   "#s-sw-c",
+   "#s-sw-c",
+   "#s-sw-c",
+   "#s-sw-c",
+   "#s-sw-c",
+   "#s-grid",
+   "#s-trafo",
+   "#s-pv",
+   "#s-batt",
+   "#s-inv",
+   "#s-load"
+  ]
+ },
+ "glifoH5open": true,
+ "glifoH6closed": true,
+ "dashboardCharts": 20,
+ "fluidez": [
+  {
+   "cond": "off",
+   "frames": 205,
+   "muts": 43,
+   "redux": 7,
+   "dt": 12154,
+   "fps": 16.9,
+   "moves": 50
+  },
+  {
+   "cond": "on",
+   "frames": 220,
+   "muts": 38,
+   "redux": 19,
+   "dt": 11097,
+   "fps": 19.8,
+   "moves": 55
+  }
+ ]
+}
