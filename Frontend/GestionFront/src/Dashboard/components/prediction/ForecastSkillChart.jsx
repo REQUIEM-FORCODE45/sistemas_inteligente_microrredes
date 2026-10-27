@@ -3,6 +3,7 @@ import Plotly from 'plotly.js-dist-min';
 import { CONTENDER_COLORS } from './forecastColors';
 
 // Barras agrupadas: MAE por variable a 24 h (o el horizonte dado).
+// Cambio 19 (C1): diffing con Plotly.react; purge solo al desmontar.
 export const ForecastSkillChart = ({ detalle, horizon = 24, height = 320 }) => {
   const ref = useRef(null);
   useEffect(() => {
@@ -21,8 +22,7 @@ export const ForecastSkillChart = ({ detalle, horizon = 24, height = 320 }) => {
       marker: { color: CONTENDER_COLORS[c] || '#6b7280' },
       offsetgroup: i,
     }));
-    Plotly.purge(ref.current);
-    Plotly.newPlot(ref.current, data, {
+    Plotly.react(ref.current, data, {
       barmode: 'group',
       xaxis: { title: `MAE por variable (h=${horizon})`, automargin: true, tickangle: -25, tickfont: { size: 9 } },
       yaxis: { title: 'MAE', automargin: true },
@@ -34,6 +34,7 @@ export const ForecastSkillChart = ({ detalle, horizon = 24, height = 320 }) => {
       legend: { orientation: 'h', y: -0.35, x: 0.5, xanchor: 'center' },
     }, { responsive: true, displaylogo: false });
   }, [detalle, horizon, height]);
+  useEffect(() => () => { if (ref.current) Plotly.purge(ref.current); }, []);
   if (!detalle || detalle.length === 0) return <p className="text-sm text-muted-foreground">Sin datos.</p>;
   return <div ref={ref} className="w-full" />;
 };

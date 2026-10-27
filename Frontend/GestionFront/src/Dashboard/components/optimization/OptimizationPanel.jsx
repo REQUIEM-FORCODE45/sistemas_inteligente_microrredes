@@ -10,7 +10,7 @@ import {
   setMpcStatus,
 } from '@/Dashboard/store/optimization/optimizationSlice';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
 
 export const OptimizationPanel = () => {
   const dispatch = useDispatch();

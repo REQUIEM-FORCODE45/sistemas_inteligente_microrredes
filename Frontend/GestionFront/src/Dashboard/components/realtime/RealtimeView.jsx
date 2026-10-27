@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ChevronDown, ChevronUp, Menu, X } from 'lucide-react';
 import GridAPI from '@/api/grid-api';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
 const DEFAULT_HISTORY = 20;
 const HISTORY_OPTIONS = [20, 50, 100, 200, 500];
 const EXCLUDED_KEYS = ['createAt', '_id', 'sensorId', 'timestamp'];

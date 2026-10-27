@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import Plotly from 'plotly.js-dist-min';
 
 // Grafica climatica a tamano completo (C3) con interaccion pro.
-// De PlotlyMini reutiliza SOLO el patron purge -> newPlot -> resize.
+// Cambio 19 (C1): diffing con Plotly.react en cada actualizacion; purge SOLO
+// al desmontar (cleanup). De PlotlyMini reutiliza el patron resize.
 // Minimos duras/C3 §3.7 y auditoria: >=380x260 en escritorio (>=640x480 el
 // mapa); en movil (>=375 px) la altura baja y el ancho lo manda el contenedor.
 // Sin modales, sin sparkline, con la barra de herramientas al hover.
@@ -47,8 +48,7 @@ export default function ClimateChart({ data, layout = {}, height = 300, minWidth
       yaxis,
     };
     try {
-      Plotly.purge(el);
-      Plotly.newPlot(el, data, base, BAR);
+      Plotly.react(el, data, base, BAR);
     } catch (e) {
       console.error('[ClimateChart] fallo al graficar:', e);
     }

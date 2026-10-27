@@ -372,26 +372,31 @@ export function getDeviceDispatchTypes(deviceType) {
   return def?.dispatchTypes || [];
 }
 
-export function getNodeBadgeInfo(dispatchPlan, nodeId, deviceType) {
+// Cambio 19 (C2): filtra por hora (1..24); por defecto 12 (horaMostrada).
+// Sin filtro, el primer match (hora 1) se mostraba fijo aunque el cable
+// mostrara otra hora.
+export function getNodeBadgeInfo(dispatchPlan, nodeId, deviceType, hora = 12) {
   if (!dispatchPlan || dispatchPlan.length === 0) return null;
+  const rows = dispatchPlan.filter((d) => d.hour === hora);
+  if (rows.length === 0) return null;
   const types = getDeviceDispatchTypes(deviceType);
   if (types.length === 0) return null;
   if (deviceType === DEVICE_TYPE.GRID) {
-    const imp = dispatchPlan.find((d) => d.device_id === 'grid' && d.device_type === 'grid_import');
-    const exp = dispatchPlan.find((d) => d.device_id === 'grid' && d.device_type === 'grid_export');
+    const imp = rows.find((d) => d.device_id === 'grid' && d.device_type === 'grid_import');
+    const exp = rows.find((d) => d.device_id === 'grid' && d.device_type === 'grid_export');
     if (exp) return { label: `↑ ${Math.abs(exp.power_kw)}kW exp`, color: types.find((t) => t.type === 'grid_export')?.color };
     if (imp) return { label: `↓ ${imp.power_kw}kW imp`, color: types.find((t) => t.type === 'grid_import')?.color };
     return null;
   }
   if (deviceType === DEVICE_TYPE.BATTERY) {
-    const dch = dispatchPlan.find((d) => d.device_id === nodeId && d.device_type === 'battery_discharge');
-    const ch = dispatchPlan.find((d) => d.device_id === nodeId && d.device_type === 'battery_charge');
+    const dch = rows.find((d) => d.device_id === nodeId && d.device_type === 'battery_discharge');
+    const ch = rows.find((d) => d.device_id === nodeId && d.device_type === 'battery_charge');
     if (dch) return { label: `−${dch.power_kw}kW`, color: types.find((t) => t.type === 'battery_discharge')?.color };
     if (ch) return { label: `+${ch.power_kw}kW`, color: types.find((t) => t.type === 'battery_charge')?.color };
     return null;
   }
   const primaryType = types[0].type;
-  const entry = dispatchPlan.find((d) => d.device_id === nodeId && d.device_type === primaryType);
+  const entry = rows.find((d) => d.device_id === nodeId && d.device_type === primaryType);
   if (!entry) return null;
   return { label: `${entry.power_kw}kW`, color: types[0].color };
 }

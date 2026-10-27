@@ -3,6 +3,7 @@ import Plotly from 'plotly.js-dist-min';
 import { CONTENDER_COLORS } from './forecastColors';
 
 // Overlay temporal: real vs cada contendiente (variable elegida).
+// Cambio 19 (C1): diffing con Plotly.react; purge solo al desmontar.
 export const ForecastOverlayChart = ({ series, variable = 'shortwave_radiation', height = 320 }) => {
   const ref = useRef(null);
   useEffect(() => {
@@ -26,8 +27,7 @@ export const ForecastOverlayChart = ({ series, variable = 'shortwave_radiation',
         line: { color: CONTENDER_COLORS[c] || '#6b7280', width: 1.5 },
       });
     });
-    Plotly.purge(ref.current);
-    Plotly.newPlot(ref.current, traces, {
+    Plotly.react(ref.current, traces, {
       xaxis: { title: 'Hora', automargin: true, tickfont: { size: 9 } },
       yaxis: { title: variable, automargin: true },
       margin: { l: 60, r: 20, t: 20, b: 50 },
@@ -38,6 +38,7 @@ export const ForecastOverlayChart = ({ series, variable = 'shortwave_radiation',
       legend: { orientation: 'h', y: -0.3, x: 0.5, xanchor: 'center' },
     }, { responsive: true, displaylogo: false });
   }, [series, variable, height]);
+  useEffect(() => () => { if (ref.current) Plotly.purge(ref.current); }, []);
   if (!series || !series.time) return <p className="text-sm text-muted-foreground">Sin serie de ejemplo.</p>;
   return <div ref={ref} className="w-full" />;
 };

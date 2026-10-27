@@ -112,6 +112,10 @@ function PowerEdge({ id, sourceX, sourceY, targetX, targetY, source, target, sty
       swSolver = false;
     } else if (topoSw.schedule) {
       swSolver = true;
+      // Cambio 19 (C3): el seccionador en modo solver refleja la maniobra
+      // programada para la hora mostrada (schedule[hora - 1]).
+      const swVal = topoSw.schedule?.[hora - 1];
+      swState = (swVal === 0 || swVal === false || swVal === 'open') ? 'open' : 'closed';
     }
   }
   const swOpen = swState === 'open';

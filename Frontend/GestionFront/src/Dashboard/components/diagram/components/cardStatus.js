@@ -3,13 +3,14 @@ import { useSelector } from 'react-redux';
 // Cambio 12.4 — estado de la tarjeta SOLO desde datos reales (dispatch_plan).
 // Sin datos no hay píldora (nada inventado). Sin estado de React por frame:
 // se calcula al recibir el resultado (regla 5 de fluidez).
+// Cambio 19 (C2): filtra por hora (1..24); por defecto 12 (horaMostrada).
 const OFF = '#94a3b8';
 
-export function useCardStatus(nodeId, deviceType) {
+export function useCardStatus(nodeId, deviceType, hora = 12) {
   const latestResult = useSelector((state) => state.optimization.latestResult);
   const plan = latestResult?.dispatch_plan;
   if (!plan || plan.length === 0 || !nodeId) return null;
-  const entries = plan.filter((d) => d.device_id === nodeId);
+  const entries = plan.filter((d) => d.device_id === nodeId && d.hour === hora);
   if (entries.length === 0) return null;
   const pw = (t) => {
     const e = entries.find((d) => d.device_type === t);

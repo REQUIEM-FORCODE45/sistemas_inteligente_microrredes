@@ -15,7 +15,7 @@ import { DEVICE_TYPE, DEVICE_DEFINITIONS, SOLVER_CATEGORY } from './constants/de
 import { setNodePreflight } from '@/Dashboard/store/diagram/diagramSlice';
 import { preflightNodes } from './utils/preflight';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
 
 const TOPOLOGY_MAPPERS = {
   [DEVICE_TYPE.SOLAR_PANEL]: (_node, params) => ({

@@ -10,10 +10,11 @@ import { useCardStatus } from '../components/cardStatus';
 function DieselGeneratorNode({ id, data, selected }) {
   const params = data.params || {};
   const accent = CATEGORY_ACCENT[data.deviceType];
-  const cardStatus = useCardStatus(id, data.deviceType);
+  const hora = useSelector((state) => state.diagram.horaMostrada ?? 12);
+  const cardStatus = useCardStatus(id, data.deviceType, hora);
 
   const latestResult = useSelector((state) => state.optimization.latestResult);
-  const badge = getNodeBadgeInfo(latestResult?.dispatch_plan, data.id, data.deviceType);
+  const badge = getNodeBadgeInfo(latestResult?.dispatch_plan, id, data.deviceType, hora);
   const currentDispatch = badge?.label || null;
   return (
     <div

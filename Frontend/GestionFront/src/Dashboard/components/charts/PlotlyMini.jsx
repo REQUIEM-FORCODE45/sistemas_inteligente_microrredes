@@ -2,9 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import Plotly from 'plotly.js-dist-min';
 
 // Mini-grafica Plotly reutilizable (dashboard).
-// REGLA DE ORO: un solo grafico por div -> antes de cada dibujo se hace
-// Plotly.purge(el). Asi NUNCA se acumulan graficas "montadas" sobre el mismo
-// contenedor (sintoma reportado: muchas graficas apiladas).
+// Cambio 19 (C1): diffing con Plotly.react en cada actualizacion; purge SOLO
+// al desmontar (antes: purge + newPlot siempre -> parpadeo y micro-cortes).
 const DEFAULT_LAYOUT = {
   margin: { l: 30, r: 4, t: 8, b: 4 },
   paper_bgcolor: 'transparent',
@@ -20,13 +19,12 @@ export default function PlotlyMini({ data, layout = {}, height = 110 }) {
   const ref = useRef(null);
   const merged = useMemo(() => ({ ...DEFAULT_LAYOUT, height, ...layout }), [layout, height]);
 
-  // dibujo: purge + newPlot SIEMPRE (elimina cualquier acumulacion previa)
+  // dibujo: diffing via Plotly.react (sin destruir el canvas)
   useEffect(() => {
     const el = ref.current;
     if (!el || !data || (Array.isArray(data) && data.length === 0)) return;
     try {
-      Plotly.purge(el);
-      Plotly.newPlot(el, data, merged, {
+      Plotly.react(el, data, merged, {
         displaylogo: false,
         displayModeBar: false,
         responsive: true,

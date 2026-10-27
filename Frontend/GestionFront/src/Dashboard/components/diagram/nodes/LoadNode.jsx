@@ -12,7 +12,8 @@ function LoadNode({ id, data, selected }) {
   const consumption = params.consumption ?? 0;
 
   const latestResult = useSelector((state) => state.optimization.latestResult);
-  const badge = getNodeBadgeInfo(latestResult?.dispatch_plan, data.id, data.deviceType);
+  const hora = useSelector((state) => state.diagram.horaMostrada ?? 12);
+  const badge = getNodeBadgeInfo(latestResult?.dispatch_plan, id, data.deviceType, hora);
   const currentDispatch = badge ? `← ${badge.label}` : null;
 
   return (

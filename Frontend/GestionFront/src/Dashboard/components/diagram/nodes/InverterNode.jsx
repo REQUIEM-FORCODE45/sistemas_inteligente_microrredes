@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useSelector } from 'react-redux';
 import { Handle, Position } from '@xyflow/react';
 import DeviceStatusBadge from '../components/DeviceStatusBadge';
 import { TypeSymbol } from '../constants/symbols';
@@ -11,7 +12,8 @@ import { useCardStatus } from '../components/cardStatus';
 function InverterNode({ id, data, selected }) {
   const params = data.params || {};
   const accent = CATEGORY_ACCENT[data.deviceType];
-  const status = useCardStatus(id, data.deviceType);
+  const hora = useSelector((state) => state.diagram.horaMostrada ?? 12);
+  const status = useCardStatus(id, data.deviceType, hora);
 
   return (
     <div

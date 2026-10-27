@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { CONTENDER_COLORS } from './forecastColors';
 
+// Cambio 19 (C1): diffing con Plotly.react; purge solo al desmontar.
 export const ForecastMaeChart = ({ detalle, height = 320 }) => {
   const ref = useRef(null);
   useEffect(() => {
@@ -20,8 +21,7 @@ export const ForecastMaeChart = ({ detalle, height = 320 }) => {
         marker: { size: 5 },
       };
     });
-    Plotly.purge(ref.current);
-    Plotly.newPlot(ref.current, traces, {
+    Plotly.react(ref.current, traces, {
       xaxis: { title: 'Horizonte (h)', automargin: true },
       yaxis: { title: 'MAE GHI', automargin: true },
       margin: { l: 60, r: 20, t: 20, b: 40 },
@@ -32,6 +32,7 @@ export const ForecastMaeChart = ({ detalle, height = 320 }) => {
       legend: { orientation: 'h', y: -0.25, x: 0.5, xanchor: 'center' },
     }, { responsive: true, displaylogo: false });
   }, [detalle, height]);
+  useEffect(() => () => { if (ref.current) Plotly.purge(ref.current); }, []);
   if (!detalle || detalle.length === 0) return <p className="text-sm text-muted-foreground">Sin datos.</p>;
   return <div ref={ref} className="w-full" />;
 };
