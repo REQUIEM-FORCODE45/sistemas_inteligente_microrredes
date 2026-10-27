@@ -5,11 +5,10 @@ const perf = require('./perfMetrics');
 
 const modelCache = new Map();
 
-
-const getColombiaDate = () => {
-    const offset = -5;
-    return new Date(new Date().getTime() + (offset * 60 * 60 * 1000));
-};
+// Cambio 19 (C6): UTC nativo. getColombiaDate() restaba 5 h manuales y Mongo
+// serializa el instante tal cual -> las lecturas quedaban 5 h en el pasado
+// (y -10 h para quien las reinterprete como UTC->Bogota). Se persiste new
+// Date() y el formato regional lo pone el frontend.
 
 const getModel = (sensorId) => {
     if (!modelCache.has(sensorId)) {
@@ -62,7 +61,7 @@ function initMQTT(io) {
             await perf.timeAsync('mongo_insert_ms', async () => {
                 await Model.collection.insertOne({
                     ...payload,
-                    createAt: getColombiaDate()
+                    createAt: new Date()
                 });
             });
 
