@@ -15,6 +15,9 @@ const getModel = (sensorId) => {
     if (!modelCache.has(sensorId)) {
         // Esquema flexible (strict: false) para admitir cualquier dato de sensor
         const schema = new mongoose.Schema({}, { strict: false, versionKey: false });
+        // Cambio 19 (C5): indice descendente en fecha para las lecturas
+        // ordenadas por createAt desc (Front.js) — evita COLLSCAN + sort en RAM.
+        schema.index({ createAt: -1 });
         // El tercer parámetro 'sensorId' es el nombre físico de la colección en Mongo
         modelCache.set(sensorId, mongoose.model(sensorId, schema, sensorId));
     }
