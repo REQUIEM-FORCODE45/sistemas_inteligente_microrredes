@@ -77,6 +77,36 @@ _MIND = {"ghi_toa": 10.0, "sin_elev": 0.1}
 _ECMWF_URL = "https://api.open-meteo.com/v1/forecast"
 
 
+# Variables del iTransformer con cota física declarada (paso 5.5).
+# Solo estas se recortan; viento/presión/temperatura se devuelven tal cual.
+_ITR_UPPER_100 = ("relative_humidity_2m", "cloud_cover")
+_ITR_NONNEG = ("shortwave_radiation", "direct_normal_irradiance",
+               "diffuse_radiation", "precipitation")
+
+
+def clip_itransformer_phys(out: dict) -> tuple[dict, dict]:
+    """Recorta la salida física del iTransformer a rango válido, con conteo.
+
+    Humedad y nubes a [0, 100]; radiación y precipitación a >= 0.
+    Devuelve (salida_recortada, {variable: n_horas_recortadas}).
+    Pura (sin E/S): testeable sin red ni modelos. Nada silencioso: lo que
+    se recorta se cuenta y el llamador lo reporta (log/artefacto).
+    """
+    clipped, counts = {}, {}
+    for var, arr in out.items():
+        a = np.asarray(arr, dtype=float)
+        before = a.copy()
+        if var in _ITR_UPPER_100:
+            a = np.clip(a, 0.0, 100.0)
+        elif var in _ITR_NONNEG:
+            a = np.clip(a, 0.0, None)
+        n = int(((a != before) & np.isfinite(before)).sum())
+        if n:
+            counts[var] = n
+        clipped[var] = a
+    return clipped, counts
+
+
 def _sol_geo(time_idx, lat_deg: float):
     """(ghi_toa, sin_elev) deterministas para un array de Timestamps."""
     d = np.array([t.dayofyear for t in time_idx])
@@ -196,8 +226,12 @@ class MOSClimateForecaster(ClimateForecaster):
                 z = self.encoder(z)
                 out = self.head(z).view(x.shape[0], x.shape[2], H, 3)
                 out = out.permute(0, 2, 1, 3)
-                return (out * std.unsqueeze(-1)
-                        + mean.unsqueeze(-1)).index_select(2, self.tgt_idx)
+                y = (out * std.unsqueeze(-1)
+                     + mean.unsqueeze(-1)).index_select(2, self.tgt_idx)
+                # Sprint-1a (A.1): monotonia P10 <= P50 <= P90.
+                # Medido: 5 cruces en 2160 comparaciones (GHI 3, difusa 2).
+                y, _ = torch.sort(y, dim=-1)
+                return y
 
         torch.set_num_threads(max(1, __import__("os").cpu_count() or 1))
         model = _ITransformer(len(features))
@@ -206,7 +240,9 @@ class MOSClimateForecaster(ClimateForecaster):
             sd = sd["state_dict"]
         model.load_state_dict(
             {k.replace("model.", ""): v for k, v in sd.items()},
-            strict=False)
+            # Sprint-1a (A.3): strict=True. El checkpoint encaja 42/42;
+            # un checkpoint roto debe fallar con ruido, no cargar a medias.
+            strict=True)
         model.eval()
 
         self._lgbm = boosters
