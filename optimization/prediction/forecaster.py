@@ -10,7 +10,7 @@ Jerarquia actual:
   - OpenMeteoClimateForecaster  : operativo (NWP, sin GPU). El de produccion.
   - PatchTSTClimateForecaster   : modelo multivariado 72h (Pasto, Narino).
 
-Seleccion via factory: FORECASTER=openmeteo|patchtst|mos (default openmeteo).
+Seleccion via factory: FORECASTER=openmeteo|patchtst|mos|itransformer (default openmeteo).
 
 """
 from __future__ import annotations
@@ -332,6 +332,15 @@ def get_climate_provider(site_cfg: dict = None,
         if site_cfg is None:
             site_cfg = load_site(DEFAULT_SITE)["site"]
         return MOSClimateForecaster(site_cfg)
+    if name == "itransformer":
+        # Sprint-1a (A.3): iTransformer solo, para medir cuánto aporta el
+        # LightGBM del MOS. Import perezoso, mismo estilo que "mos".
+        from optimization.prediction.itransformer_forecaster import (
+            ITransformerClimateForecaster,
+        )
+        if site_cfg is None:
+            site_cfg = load_site(DEFAULT_SITE)["site"]
+        return ITransformerClimateForecaster(site_cfg)
     if name not in _PROVIDERS:
         logger.warning("FORECASTER=%s desconocido; usa openmeteo", name)
         name = "openmeteo"

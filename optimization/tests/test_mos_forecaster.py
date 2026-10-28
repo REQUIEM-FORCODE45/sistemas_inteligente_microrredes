@@ -166,3 +166,66 @@ def test_mos_horizonte_mayor_72h_falla(monkeypatch):
     prov = MOSClimateForecaster(site_cfg=dict(SITE))
     with pytest.raises(RuntimeError, match="72"):
         prov.forecast(days=4.0)
+
+
+# --------------------------------------------------------------------- #
+# Provider itransformer (A.3): compone el MOS, expone solo el P50 sano.
+
+
+def _itr_hermetico(monkeypatch, anchor: pd.Timestamp):
+    """itransformer con red simulada (reutiliza el andamiaje del MOS)."""
+    from optimization.prediction.itransformer_forecaster import (
+        ITransformerClimateForecaster,
+    )
+    ctx = _ctx_sintetico(anchor)
+    prov = ITransformerClimateForecaster(site_cfg=dict(SITE))
+    monkeypatch.setattr(prov._mos, "_context_df", lambda anchor=None: ctx)
+    return prov
+
+
+def test_factory_itransformer_registrado():
+    """get_climate_provider(name='itransformer') devuelve el provider solo."""
+    from optimization.prediction.forecaster import get_climate_provider
+    from optimization.prediction.itransformer_forecaster import (
+        ITransformerClimateForecaster,
+    )
+    prov = get_climate_provider(name="itransformer")
+    assert isinstance(prov, ITransformerClimateForecaster)
+    assert prov.provider_name == "itransformer"
+    assert list(prov.variables) == list(WEATHER_VARIABLES)
+
+
+def test_itransformer_contrato_y_rango_fisico(monkeypatch, caplog):
+    """72x10 tz-aware sin NaN + recortes físicos contados (no silenciosos)."""
+    import logging
+
+    anchor = pd.Timestamp("2025-07-15 12:00", tz=TZ)
+    prov = _itr_hermetico(monkeypatch, anchor)
+    with caplog.at_level(logging.INFO):
+        fc = prov.forecast(days=3.0, anchor=anchor)
+    assert fc.provider == "itransformer"
+    assert fc.horizon_h == 72
+    assert list(fc.data.columns) == list(WEATHER_VARIABLES)
+    assert fc.data.index.tz is not None
+    assert fc.data.index[0] == anchor.floor("h")
+    assert not bool(fc.data.isna().any().any())
+    # Rango físico: humedad/nubes en [0,100], radiación/precip >= 0.
+    assert ((fc.data["relative_humidity_2m"] >= 0)
+            & (fc.data["relative_humidity_2m"] <= 100)).all()
+    assert ((fc.data["cloud_cover"] >= 0)
+            & (fc.data["cloud_cover"] <= 100)).all()
+    for col in ("shortwave_radiation", "direct_normal_irradiance",
+                "diffuse_radiation", "precipitation"):
+        assert (fc.data[col].values >= 0).all(), col
+    # El recorte se declara (log con conteo), no se esconde.
+    assert "recortes" in caplog.text
+
+
+def test_itransformer_horizonte_mayor_72h_falla():
+    """Pedir más de 72 h falla antes de cargar el checkpoint."""
+    from optimization.prediction.itransformer_forecaster import (
+        ITransformerClimateForecaster,
+    )
+    prov = ITransformerClimateForecaster(site_cfg=dict(SITE))
+    with pytest.raises(RuntimeError, match="72"):
+        prov.forecast(days=4.0)

@@ -248,10 +248,11 @@ def main() -> int:
 
 
 def _figuras(det: pd.DataFrame, outdir: str):
-    order = ["mos", "patchtst", "ecmwf_crudo", "persistence", "climatology",
-             "arima"]
+    order = ["mos", "itransformer", "patchtst", "ecmwf_crudo", "persistence",
+             "climatology", "arima"]
     conts = [c for c in order if c in set(det["contendiente"])]
-    colors = {"mos": "#2563eb", "patchtst": "#16a34a",
+    colors = {"mos": "#2563eb", "itransformer": "#0ea5e9",
+              "patchtst": "#16a34a",
               "ecmwf_crudo": "#f59e0b", "persistence": "#dc2626",
               "climatology": "#9333ea", "arima": "#64748b"}
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), sharey=False)
