@@ -105,7 +105,7 @@ async function runComparison(months = 20) {
   const env = { ...process.env };
   const m = Math.max(1, parseInt(months, 10) || 20);
   const { getPythonBin } = require('../helpers/pythonBin');
-  const cmd = `${getPythonBin()} -m optimization.prediction.compare_providers --months ${m} --horizons 1,6,12,24,48,72`;
+  const cmd = `${getPythonBin()} -m optimization.prediction.compare_providers --months ${m} --horizons 1,6,12,24,48,72 --providers mos,patchtst,itransformer`;
   const cwd = path.join(__dirname, '..', '..');
   exec(cmd, { cwd, env, timeout: 12 * 3600 * 1000, maxBuffer: 64 * 1024 * 1024 }, async (err, stdout, stderr) => {
     try {
