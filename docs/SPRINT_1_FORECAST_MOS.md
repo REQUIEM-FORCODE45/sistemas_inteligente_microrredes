@@ -220,6 +220,50 @@ irrelevante** para `pvlib`, que lo usa en el enfriamiento del módulo.
 
 ---
 
+## 4.2 Sprint 1a — estado tras el pull (2026-10-28)
+
+Llegó el **paquete A completo** (`a5a29ab` tests+sort+recorte+strict, `f7e5fc1` provider, `f60b849`
+`--providers`, `79e469d` VERIFICACION + tabla).
+
+**Verificado por mí, ejecutando:**
+
+- **9/9 tests del MOS PASS** (tuve que instalar `pytest`: no estaba en el venv).
+- **Tabla de MAE recalculada** desde su CSV: **coincide exacto** (GHI −43,7 %, nubes +70,3 %, viento +128 %).
+- **5 sha256** de `reference/resultados/`: los **5 coinciden** con el blob.
+- **La captura**: 6 series — real(ERA5), real, mos, patchtst, **itransformer**, ecmwf_crudo.
+- **El código**: `torch.sort`, `clip_itransformer_phys` (función **pura**, sin E/S, con conteo),
+  `strict=True`, y un provider que **compone** el MOS sin duplicar el checkpoint.
+
+### Los 5 hallazgos, con veredicto
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| **H1** | La captura muestra `itransformer` en gris, pero el código ya le puso `#0ea5e9` | 🔵 **anotado**: la captura es anterior al color → **re-capturar**. No puedo hacerlo aquí (sin navegador ni `node_modules`) |
+| **H2** | **Dos series "real"** en la leyenda | 🔴 **es un bug, no cosmético**: `comparativa_series.json` trae `real` **en la raíz Y dentro de `contendientes`**, así que el overlay pinta la misma serie dos veces. **Fix de 1 línea** → tarea 1a.5 |
+| **H3** | `")` al final del `VERIFICACION.md` | ✅ **arreglado** (línea 125 eliminada) |
+| **H4** | En la ventana reciente (2 meses, h=24) el **NWP crudo (47,30) gana al MOS (56,82)** en GHI | 🟠 **al final, con el MOS**: es la misma familia que el **−2,6 % vs crudo** de los 20 meses. No se tapa ni se ajusta |
+| **H5** | Paquete B bloqueado: sin parquet de entrenamiento en repo ni VM, e **ingesta parada desde el 13-oct** | ✅ **responde mis dos preguntas** — y **bloquea el paquete B** hasta que haya datos |
+
+### Los números cambiaron, y hay que saber por qué
+
+Los CSV canónicos pasaron de **4 meses** (jun–sep 2026) a **20 meses** (feb 2025 – oct 2026) con
+**step 24 h** → solo quedan filas diurnas en **h=12**, n=518 por celda. Los defaults de
+`compare_providers.py` son `--months 20 --step-h 24`: **los anteriores eran la anomalía**.
+
+**No son intercambiables**: la tabla de §4.1 (h=24, 4 meses) y la del VERIFICACION (h=12, 20 meses) no se
+pueden citar juntas sin declarar el cambio de método.
+
+### Nueva tarea 1a.5 — la leyenda duplicada
+
+`Frontend/GestionFront/src/Dashboard/components/prediction/ForecastOverlayChart.jsx:19`:
+al iterar `Object.entries(series.contendientes)` hay que **saltar la clave `real`**, porque la verdad ya
+se pinta aparte como `real (ERA5)`. Criterio de cierre: la leyenda muestra **5** entradas y ninguna
+repetida. Es UI, así que la ejecuta el agente; no la toco yo.
+
+---
+
+
+
 ## 5. Plan del Sprint 1 (6 pasos, cada uno con criterio de cierre)
 
 ### 5.0 — Reconstruir el pipeline de entrenamiento y **reproducir** los boosters actuales

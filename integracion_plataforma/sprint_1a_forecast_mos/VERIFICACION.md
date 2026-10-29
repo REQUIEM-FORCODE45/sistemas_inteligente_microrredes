@@ -122,4 +122,3 @@ optimization/tests/test_mos_forecaster.py .........  [100%]
 `reference/resultados/`: captura del panel, resumen/series/skill
 canónicos copiados con fecha, resumen del suplemento step-6h. Sha256
 completos en `reference/README.md` (mismo commit).
-")
