@@ -32,6 +32,15 @@ from optimization.weather.openmeteo import OpenMeteoClient
 
 logger = logging.getLogger("optimization.calibration.service")
 
+# P10 (cambio 19/C6): frontera UTC nativo. Los documentos con createAt
+# ANTERIOR a este instante se escribieron con getColombiaDate (-5 h
+# manuales); el consumidor resta 5 h UTC->Bogota, asi que leerlos seria
+# -10 h netas. NO se migran (decision del autor: un +5 h mal aplicado
+# sobre 35 mil registros es irreversible en la practica): se excluyen y
+# se declara. Instante = commit d90e16b (git show -s --format=%cI d90e16b
+# -> 2026-10-27T11:42:24-04:00 = 15:42:24Z). Sitio UNICO del umbral.
+_C6_UTC_CUTOFF = pd.Timestamp("2026-10-27T15:42:24Z")
+
 # Rutas ANCLADAS a la raiz del repo (no al cwd): el servicio puede correr
 # desde optimization/ (uvicorn) o desde la raiz; los artefactos SIEMPRE viven
 # en <repo>/results/... (bug encontrado: cwd=optimization/ rompia las rutas).
@@ -84,6 +93,23 @@ def read_sensor_series(sensor_id: str, value_cols: List[str],
             df.index = df.index.tz_localize("UTC").tz_convert("America/Bogota")
         else:
             df.index = df.index.tz_convert("America/Bogota")
+        # P10: corte UTC nativo (documentos pre-C6 con -5 h quedan fuera y
+        # se declaran; nunca se leen como si fueran UTC porque seria -10 h).
+        total = len(df)
+        df = df.loc[df.index >= _C6_UTC_CUTOFF]
+        fuera = total - len(df)
+        if fuera:
+            logger.warning(
+                "Sensor %s: %d/%d documentos anteriores al corte UTC %s "
+                "quedan fuera (formato pre-C6 con -5h; leerlos seria -10h "
+                "netas). Se usan %d.", sensor_id, fuera, total,
+                _C6_UTC_CUTOFF.isoformat(), len(df))
+        if df.empty:
+            logger.warning(
+                "Sensor %s sin datos posteriores al corte UTC %s "
+                "(ingesta parada desde 13-oct): la calibracion no puede "
+                "correr; reactiva la ingesta.", sensor_id,
+                _C6_UTC_CUTOFF.isoformat())
         df = df[value_cols].apply(pd.to_numeric, errors="coerce")
         df = df.loc[df.index >= (df.index.max() - pd.Timedelta(days=max_days))]
         return df.dropna(how="all")
@@ -343,7 +369,10 @@ def fit_from_sensor(site_id: str, sensor_id: str, activo_type: str,
     cfg = load_site(site_id)
     df = read_sensor_series(sensor_id, SENSOR_VALUE_COLS[activo_type])
     if df.empty:
-        raise ValueError(f"Sensor {sensor_id} sin datos; ejecuta el backfill")
+        raise ValueError(
+            f"Sensor {sensor_id} sin datos posteriores al corte UTC "
+            f"{_C6_UTC_CUTOFF.date()}; reactiva la ingesta o ejecuta el "
+            "backfill")
 
     # Cambio 09 (auditoria item 4): rmse previo ANTES de sobrescribir.
     # Causas de null (distintas, documentadas): (a) sin artefacto previo,
