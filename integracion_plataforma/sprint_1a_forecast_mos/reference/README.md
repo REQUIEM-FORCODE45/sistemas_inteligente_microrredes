@@ -7,6 +7,7 @@ vivo), 2026-10-28. Detalle en `../VERIFICACION.md`. Runs con código
 | archivo | bytes | sha256 |
 |---|---|---|
 | `resultados/s1a_panel_overlay_3contendientes.png` | 144049 | `b2ff47b1a9dab0530d58927b73ece4b76777eaf7e0d5c83d38522560dc64dfa5` |
+| `resultados/s1a_panel_overlay_3contendientes_h1.png` | 143359 | `6cdd95e97e921ee86e4563e4caae0b0b862e57d0ed68e74cb01d6c609d57d0fe` |
 | `resultados/s1a_resumen_20m_step24.csv` | 2344 | `2b15bac528d27ed22555d35e5e73c3bc21da3b92a388da45d88671368ed03fd6` |
 | `resultados/s1a_series_20m_step24.json` | 10365 | `4a8514c0323078ae50b43e939b55e49ade1976093b1859ea3e837a50e7f8f01a` |
 | `resultados/s1a_skill_20m_step24.json` | 9801 | `d745bd8a182be88106ad299b41cd33516cda6325f5cf72060857233d2ebf0386` |

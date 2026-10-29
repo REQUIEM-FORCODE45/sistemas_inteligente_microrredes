@@ -17,6 +17,9 @@ export const ForecastOverlayChart = ({ series, variable = 'shortwave_radiation',
       line: { color: '#111827', width: 2 },
     }];
     Object.entries(series.contendientes || {}).forEach(([c, vars]) => {
+      // 1a.5: "real" vive en la raiz (ya pintada como "real (ERA5)") y
+      // TAMBIEN dentro de contendientes -> sin este filtro sale dos veces.
+      if (c === 'real') return;
       if (!vars?.[variable]) return;
       traces.push({
         x: series.time,
