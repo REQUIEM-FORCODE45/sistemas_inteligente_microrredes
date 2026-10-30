@@ -268,8 +268,54 @@ repetida. Es UI, así que la ejecuta el agente; no la toco yo.
 
 ### 5.0 — Reconstruir el pipeline de entrenamiento y **reproducir** los boosters actuales
 
-**Estado: [BLOQUEADO]** — no hay parquet de entrenamiento en repo ni en la VM (declarado por el
-implementador, 2026-10-28), y la ingesta está parada desde el 13-oct. Sin pipeline no hay 5.1 ni 5.2.  
+**Estado: [EJECUTABLE] — NO esta bloqueado.** Correccion del 2026-10-28: el pipeline existe y los datos
+tambien, en la maquina del autor (el implementador solo miro dentro del repo):
+
+| Pieza | Donde | Estado |
+|---|---|---|
+| Script de entrenamiento | `scripts/mos_multivariable.py` (250 l., tambien versionado en `cambio_01/reference/`) | OK |
+| Variante | `scripts/mos_multivariable_v2.py`, `mos_stacking_ghi.py`, `stacking_ghi.py` | OK |
+| NWP de entrada | `data/ecmwf/ecmwf_AAAA_MM.parquet` — **24 meses** (2024-01 .. 2025-12) | OK |
+| Verdad (ERA5) | `experimentos_kaggle/04_itransformer/resultados_v3/era5_v3.parquet` (2,3 MB) | OK |
+| Checkpoint iTransformer | `modelos_itransformer/modelo_b.pt` | OK |
+| Descargadores | `scripts/descargar_ecmwf*.py` (si hiciera falta ampliar el periodo) | OK |
+
+El script **no entrena el iTransformer**: lo carga con `torch.load` y entrena **10 boosters**
+`LGBMRegressor(n_estimators=500, lr=0.04, num_leaves=63)` sobre 2.500 muestras (test: jul-dic 2025,
+400). Escribe en `reports/stacking/`, **no** en los checkpoints publicados.
+
+### 5.0 EJECUTADO Y VERIFICADO (2026-10-28, en la maquina del autor)
+
+Se corrio `python scripts/mos_multivariable.py` (termino en ~9 min). **Reproduce la linea base**:
+
+| variable | v1 MAE | MOS MAE | d % | dossier |
+|---|---|---|---|---|
+| shortwave_radiation | 51.17 | **29.26** | **-42.8** | **-42.8** OK |
+| direct_normal_irradiance | 95.09 | 62.05 | -34.7 | -34.7 OK |
+| diffuse_radiation | 22.04 | 17.95 | -18.5 | -18.5 OK |
+| temperature_2m | 0.89 | 0.59 | -33.9 | -33.9 OK |
+| relative_humidity_2m | 6.55 | 4.42 | -32.4 | -32.4 OK |
+| cloud_cover | 14.95 | 15.14 | **+1.2** | +1.2 OK |
+| wind_speed_100m | 0.58 | 0.53 | -9.4 | -9.4 OK |
+| wind_speed_10m | 0.39 | 0.37 | -6.0 | -6.0 OK |
+| surface_pressure | 0.78 | 0.40 | -49.1 | -49.1 OK |
+| precipitation | 0.40 | 0.44 | **+11.5** | +11.5 OK |
+
+**Los 10 MAE coinciden al centesimo con el dossier.** Y los boosters reentrenados son reproducibles:
+
+- **9 de 10 byte-identicos** (sha256 igual tras normalizar CRLF; el script escribe `
+` en Windows).
+- **1 de 10** (`surface_pressure`) mismo tamano y **876 bytes distintos en el 17o digito**
+  (`-0.022753139110026539` vs `...566`): ruido de coma flotante por hilos, no otro modelo.
+
+**Pitfall para el 5.1/5.2**: `booster_.save_model()` escribe con `
+` en Windows, y eso rompe el
+sha256 respecto al blob de git (LF). Al versionar boosters nuevos, normalizar a LF o comparar siempre
+en LF.
+
+Las variables climaticas **si** se pueden reentrenar y verificar, y la linea base es reproducible. Lo que no tiene el repo es el
+*parquet*, no el pipeline; y el parquet se regenera con `descargar_ecmwf.py` o se copia desde la
+maquina del autor. Esto convierte 5.1 y 5.2 en ejecutables, no en bloqueados.  
 
 - Script `prediction/mos/train_mos.py` (nuevo) que reproduzca `FEATURES` (las 8 de `_FEAT_NAMES`),
   `TRANSFORMS` y `stats` del `config_modelos.json`.
