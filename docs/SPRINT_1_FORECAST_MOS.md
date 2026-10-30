@@ -268,6 +268,9 @@ repetida. Es UI, así que la ejecuta el agente; no la toco yo.
 
 ### 5.0 — Reconstruir el pipeline de entrenamiento y **reproducir** los boosters actuales
 
+**Estado: [BLOQUEADO]** — no hay parquet de entrenamiento en repo ni en la VM (declarado por el
+implementador, 2026-10-28), y la ingesta está parada desde el 13-oct. Sin pipeline no hay 5.1 ni 5.2.  
+
 - Script `prediction/mos/train_mos.py` (nuevo) que reproduzca `FEATURES` (las 8 de `_FEAT_NAMES`),
   `TRANSFORMS` y `stats` del `config_modelos.json`.
 - **Criterio de cierre**: los 10 boosters reentrenados deben dar **el mismo MAE** que los actuales
@@ -275,6 +278,8 @@ repetida. Es UI, así que la ejecuta el agente; no la toco yo.
   Si no reproduce, **parar**: el pipeline no es el que generó la línea base.
 
 ### 5.1 — `cape`, `tcwv`, `elevation` → `delta_h_topo`
+  
+**Estado: [BLOQUEADO]** por 5.0: sin pipeline no se puede reentrenar ni medir.
 
 - `optimization/weather/openmeteo.py`: añadir `cape` y `total_column_integrated_water_vapor` a
   `WEATHER_VARIABLES`; exponer `elevation` de la respuesta raíz junto al DataFrame (no como columna).
@@ -286,6 +291,8 @@ repetida. Es UI, así que la ejecuta el agente; no la toco yo.
   se reporta y **no se adopta** — el `cape` no se mete "porque suena bien".
 
 ### 5.2 — `dct_high_freq_energy` (intermitencia de nubes)
+  
+**Estado: [BLOQUEADO]** por 5.0.
 
 - Feature: energía de los coeficientes de alta frecuencia de la DCT de las últimas 6 h de `kt`.
 - **Criterio de cierre**: mismo protocolo; se adopta **solo** si mejora nubes o precipitación respecto a
@@ -295,6 +302,8 @@ repetida. Es UI, así que la ejecuta el agente; no la toco yo.
 la tesis. No se inventa una métrica nueva.
 
 ### 5.3 — `FORECASTER=itransformer`: que la página pueda mostrar el iTransformer solo
+  
+**Estado: [HECHO]** (`f7e5fc1` + `f60b849`) — el panel muestra itransformer + mos + patchtst + crudo.
 
 **El problema real, localizado.** La página **ya** tiene el panel que pinta las predicciones
 (`Dashboard/components/prediction/`: `ForecastOverlayChart`, `ForecastMaeChart`, `ForecastMetricsTable`,
@@ -357,6 +366,8 @@ tiene que ser sano primero.
    debe adivinar qué cadena de pronóstico está viendo.
 
 ### 5.4 — `torch.sort` (monotonía de cuantiles)
+  
+**Estado: [HECHO]** (`a5a29ab`) — test sobre 11.520 tripletas; antes de A.1, ~27 cruces.
 
 En `mos_forecaster.py:199-200`, antes de devolver:
 
@@ -370,6 +381,9 @@ Hoy se midieron **5 cruces en 2160** comparaciones (GHI 3, difusa 2). Poco, pero
 importa. Criterio: un test que recorra 72×10×3 y exija `P10 <= P50 <= P90` **sin excepciones**.
 
 ### 5.5 — Recorte a rango físico, con conteo
+
+**Estado: [HECHO]** (`a5a29ab`) — `clip_itransformer_phys`, función pura con conteo; en vivo
+{hr:1, nubes:11, precip:21}, en backtest {nubes:40-65, precip:4-48}.
 
 Antes de devolver la salida del iTransformer: humedad y nubes a `[0, 100]`, precipitación y radiación a
 `>= 0`. **Contar cuántas veces se recorta y reportarlo** (`recortes: {hr: 55, nubes: 62, prec: 43}`).
