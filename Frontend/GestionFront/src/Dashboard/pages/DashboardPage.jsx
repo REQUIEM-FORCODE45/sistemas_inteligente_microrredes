@@ -56,7 +56,8 @@ function StatCard({ title, val, unit, trend, color, positive = true, icon }) {
 
 function WeatherCard() {
   const { t } = useTranslation();
-  const [provider, setProvider] = useState('openmeteo');
+  // SPRINT-1 (P1): el operativo arranca en MOS (el selector sigue elegible).
+  const [provider, setProvider] = useState('mos');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -174,8 +175,15 @@ function WeatherCard() {
           <div className="p-2 rounded-lg bg-sky-500/10"><CloudSun className="w-4 h-4 text-sky-500" /></div>
           <div>
             <p className="text-sm font-semibold">{t('dashboard.weather.title')}</p>
-            <p className="text-[10px] text-muted-foreground">{t('dashboard.weather.source')}: {data?.provider || provider}</p>
-            {provider === 'mos' && (
+            <p className="text-[10px] text-muted-foreground">{t('dashboard.weather.source')}:{' '}
+              {/* P2: badge sobre el proveedor EFECTIVO (el de la respuesta),
+                  no sobre lo pedido: pueden divergir si el backend no pudo
+                  servir lo solicitado. */}
+              <span className="inline-block px-1.5 py-0.5 rounded-md bg-primary/10 text-primary font-semibold">
+                {data?.provider || provider}
+              </span>
+            </p>
+            {data?.provider === 'mos' && (
               <p className="text-[10px] text-muted-foreground italic">NWP corregido con ML — ERA5 (verdad) y ECMWF (entrada) son de la misma familia; el error es optimista.</p>
             )}
           </div>
