@@ -303,12 +303,14 @@ Se corrio `python scripts/mos_multivariable.py` (termino en ~9 min). **Reproduce
 
 **Los 10 MAE coinciden al centesimo con el dossier.** Y los boosters reentrenados son reproducibles:
 
-- **9 de 10 byte-identicos** (sha256 igual tras normalizar CRLF; el script escribe `
+- **9 de 10 byte-identicos** (sha256 igual tras normalizar CRLF; el script escribe `
+
 ` en Windows).
 - **1 de 10** (`surface_pressure`) mismo tamano y **876 bytes distintos en el 17o digito**
   (`-0.022753139110026539` vs `...566`): ruido de coma flotante por hilos, no otro modelo.
 
-**Pitfall para el 5.1/5.2**: `booster_.save_model()` escribe con `
+**Pitfall para el 5.1/5.2**: `booster_.save_model()` escribe con `
+
 ` en Windows, y eso rompe el
 sha256 respecto al blob de git (LF). Al versionar boosters nuevos, normalizar a LF o comparar siempre
 en LF.
@@ -323,18 +325,40 @@ maquina del autor. Esto convierte 5.1 y 5.2 en ejecutables, no en bloqueados.
   (tolerancia a declarar; p. ej. ±2 %) medido con `compare_providers.py` sobre el mismo holdout.
   Si no reproduce, **parar**: el pipeline no es el que generó la línea base.
 
-### 5.1 — `cape`, `tcwv`, `elevation` → `delta_h_topo`
-  
-**Estado: [BLOQUEADO]** por 5.0: sin pipeline no se puede reentrenar ni medir.
+### 5.1 — `cape`, `tcwv`, `delta_h_topo`: **EJECUTADO, NO SE ADOPTA**
 
-- `optimization/weather/openmeteo.py`: añadir `cape` y `total_column_integrated_water_vapor` a
-  `WEATHER_VARIABLES`; exponer `elevation` de la respuesta raíz junto al DataFrame (no como columna).
-- `prediction/mos_forecaster.py`: `delta_h_topo` como feature **estático-condicional** (constante por
-  corrida) y `cape`/`tcwv` como features.
-- **Criterio de cierre**: `compare_providers.py --providers mos` vs el commit anterior, **mismo holdout**,
-  **MAE por variable** en `baselines_mae.csv`. Se acepta si **nubes y precipitación mejoran** (son las dos
-  que degradan: +1,2 % y +11,5 %) **sin empeorar** `ghi`/`temp` más de un margen declarado. Si no mejora,
-  se reporta y **no se adopta** — el `cape` no se mete "porque suena bien".
+**Estado: [CERRADO - NO ADOPTADO]** (2026-10-30). Tres premisas de la spec cayeron al medirlas:
+
+| pieza | lo que decía la spec | lo medido |
+|---|---|---|
+| `cape` | feature clave para nubes | **no existe en el archive sin `models`** (0 de 17.544). Con `models=ecmwf_ifs025`: **91 % válido** |
+| `tcwv` | `total_column_integrated_water_vapor` | **la API lo rechaza**: el nombre correcto es `..._vapour` (británico) |
+| `delta_h_topo` | "500–1.200 m de diferencia" | **54 m** (`elevation` de la celda = 2.546 m, sitio 2.600 m) → constante, no aporta |
+
+**Experimento (fuente correcta `ecmwf_ifs025`, mismo idx y semilla, jul-dic 2025, 10 boosters):**
+
+| variable | BASE (8 feat) | EXTRA (+cape +tcwv) | Δ |
+|---|---|---|---|
+| shortwave_radiation | 29,26 | 29,58 | **+1,1 % (peor)** |
+| direct_normal_irradiance | 62,05 | 63,71 | **+2,7 % (peor)** |
+| diffuse_radiation | 17,95 | 18,30 | **+1,9 % (peor)** |
+| cloud_cover | 15,14 | 15,40 | **+1,8 % (peor)** |
+| temperature_2m | 0,59 | 0,58 | −1,3 % |
+| relative_humidity_2m | 4,42 | 4,40 | −0,6 % |
+| wind_speed_100m | 0,53 | 0,51 | −3,0 % |
+| wind_speed_10m | 0,37 | 0,35 | −4,4 % |
+| surface_pressure | 0,40 | 0,39 | −0,6 % |
+| precipitation | 0,44 | **0,40** | **−9,6 %** |
+
+**Criterio de cierre, fijado de antemano**: mejorar nubes y precipitación SIN empeorar GHI/temp.
+**Resultado: FALLA.** Nubes empeora +1,8 % y GHI +1,1 %; solo precipitación mejora de forma clara.
+
+**El hallazgo que sí vale para la tesis.** El primer intento usó `archive` **sin** `models` (= ERA5 = la
+verdad) más `dew_point_2m`, y dio GHI **−13,5 %** y temperatura **−78,7 %**. Con la fuente correcta
+(`ecmwf_ifs025`, la misma del MOS) y sin `dew_point_2m` —que es la temperatura disfrazada— **la mejora
+desaparece**. Lo que parecía una mejora era el sesgo de la fuente, y ahora está cuantificado.
+
+**Descartado también**: `dew_point_2m` y `vpd` como features (transformación directa de `temperature_2m`).
 
 ### 5.2 — `dct_high_freq_energy` (intermitencia de nubes)
   
