@@ -122,3 +122,43 @@ optimization/tests/test_mos_forecaster.py .........  [100%]
 `reference/resultados/`: captura del panel, resumen/series/skill
 canónicos copiados con fecha, resumen del suplemento step-6h. Sha256
 completos en `reference/README.md` (mismo commit).
+
+---
+
+## PRINT-1 — forecast operativo con el MOS en la página (2026-10-30)
+
+5.1 cerrado y no adoptado (medido por el autor; sin reentreno, sin tocar
+boosters). Lo que cambia aquí es solo el circuito operativo (b):
+
+**P1 — default MOS.** `Backend/routes/Front.js`: `provider:
+req.query.provider || 'mos'` (si llega `?provider=...`, se respeta).
+`DashboardPage.jsx`: estado inicial del selector `'openmeteo'` → `'mos'`
+(era necesario: la UI siempre mandaba provider explícito y pisaba el
+default del backend). NO se tocan `forecaster.py` (default `openmeteo`),
+`data_loader.py:154` ni `deploy_pi.sh:52` (Tarea 0, decisión del autor).
+
+**P2 — badge + nota.** El header muestra badge con el proveedor
+EFECTIVO (`data?.provider`, no lo pedido) y la nota de same-family ahora
+se condiciona a lo entregado (`data?.provider === 'mos'`).
+
+**P3 — sin caídas silenciosas.** `/predict/weather` rechaza provider
+explícito desconocido con error declarado (`provider_pedido`,
+`provider_servido: null`, operativos listados). `timesfm` también
+falla explícito (decisión del autor: ya no es necesario; la fábrica con
+su fallback y el test de retiro no se tocan).
+
+Criterios (medidos en vivo, backend+FastAPI+frontend corriendo):
+1. `GET /api/front/prediction/weather` sin query → `"provider": "mos"`,
+   2 filas (horas=2). ✓
+2. Captura `reference/resultados/p1_weathercard_mos_badge.png`: badge
+   `mos` + nota "misma familia", selector en MOS, 48 h de sparklines,
+   0 pageerrors. ✓
+3. `?provider=narnia` y `?provider=timesfm` → `status:"error"` con el
+   motivo, sin datos de openmeteo. ✓ (Antes: 200 con datos del crudo.
+   El FastAPI viejo en memoria devolvía crudo; se reinició predicción.)
+4. Antes/después 24 h mismo instante (2026-10-30T11:00-05:00):
+   `reference/resultados/p1_antes_despues_24h.json` — mediana |ΔGHI|
+   diurna 77.18 W/m² (11 h), mediana |Δtemp| diurna 0.75 °C.
+   (Sin filtro diurno: 0.53 / 0.44 por las 13 h nocturnas idénticas.)
+   Dirección coherente con la comparativa: el MOS baja el pico del
+   mediodía del crudo (p.ej. 12:00: 753 → 685.7).
