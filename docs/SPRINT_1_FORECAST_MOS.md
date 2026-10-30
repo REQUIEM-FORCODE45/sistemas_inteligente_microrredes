@@ -652,5 +652,37 @@ Test jul-dic 2025, n=4.416 (verdad: media 84,6, std 24,8). `nubes_diagnostico.cs
 4. **Ningún modelo captura bien la nubosidad de Pasto.** El techo realista es corr ≈ 0,45. Eso es un
    resultado, no un defecto: es un sitio difícil y el capítulo debe decirlo así.
 
+
+### 11.4 Viento: el MOS publica 8 veces el viento real (medido 2026-10-30)
+
+Mismo test de sospecha que nubes, sobre `wind_speed_100m`. Test jul-dic 2025, n=4.416. **La verdad en
+Pasto es viento medio 1,47 m/s** (std 0,89): casi calma.
+
+| modelo | MAE | corr | std | media | skill |
+|---|---|---|---|---|---|
+| **proxy x1.3 (lo que hace el MOS)** | **10,37** | 0,43 | 6,99 | 11,83 | **−13,67** |
+| viento10 crudo (sin escalar) | 7,65 | 0,43 | 5,38 | 9,10 | −9,82 |
+| **NWP wind_speed_100m REAL** | **13,62** | 0,42 | 8,86 | 15,09 | **−18,27** |
+| media de train | 0,71 | 0,00 | 0,00 | 1,44 | 0,00 |
+| lineal sobre viento100 | 0,64 | 0,42 | 0,40 | 1,43 | 0,09 |
+| **LightGBM (7 feat)** | **0,53** | **0,64** | 0,70 | 1,49 | **0,25** |
+
+**Tres hechos:**
+
+1. **El viento real del NWP empeora las cosas** (MAE 13,62 contra 7,65 del viento10 crudo): ECMWF
+   sobreestima el viento de Pasto **10x** (15,09 contra 1,47). No es un problema de escala.
+2. **El `_PROXY_SCALE = 1.3` daña**: el factor real medido entre 100 m y 10 m es **1,61**, y aun así el
+   proxy puro da MAE 10,37. El MOS publica **11,83 m/s donde hay 1,47**.
+3. **Un LightGBM que ignore el NWP y aprenda de persistencia y hora da MAE 0,53** (20x mejor) con
+   **correlación 0,64**, la mejor de todas. Pasto tiene tan poco viento que lo correcto es **aprender a
+   no creer al NWP**.
+
+**Impacto acotado, y hay que decirlo**: el viento **no entra al despacho** (se descartó), así que esto **no
+mueve las cifras del capítulo**. Pero sí afecta a (a) lo que **la página muestra** de viento, y (b) el
+**enfriamiento del módulo en `pvlib`**, que usa `viento10`.
+
+**Acción de 5.7 para viento**: quitar `_PROXY_SCALE["wind_speed_100m"] = 1.3` y dejar que el booster use
+viento10, persistencia y hora **sin el viento100 del NWP**, que solo mete ruido.
+
 Evidencia: `reference/resultados/nubes_diagnostico.csv`, `fig_nubes_correccion.png`,
 `fig_nubes_diagnostico.png` (sha256 en `reference/README.md`).
