@@ -362,7 +362,7 @@ desaparece**. Lo que parecía una mejora era el sesgo de la fuente, y ahora est�
 
 ### 5.2 — `dct_high_freq_energy` (intermitencia de nubes)
   
-**Estado: [BLOQUEADO]** por 5.0.
+**Estado: [PENDIENTE]** — la etiqueta anterior ("bloqueado por 5.0") quedo obsoleta el 2026-10-28, cuando 5.0 se ejecuto y reprodujo la linea base. Ya se puede hacer.
 
 - Feature: energía de los coeficientes de alta frecuencia de la DCT de las últimas 6 h de `kt`.
 - **Criterio de cierre**: mismo protocolo; se adopta **solo** si mejora nubes o precipitación respecto a
@@ -462,6 +462,27 @@ Regla del proyecto: nada de correcciones silenciosas. Si el modelo produce humed
 **y se declara**, no se esconde.
 
 ---
+
+## 5.9 Estado del sprint a 2026-10-30 (lo que falta es el MOS)
+
+| paso | estado |
+|---|---|
+| **5.0** pipeline y linea base | ✅ EJECUTADO y VERIFICADO (10 boosters reproducidos) |
+| **5.1** cape/tcwv/delta_h_topo | ✅ CERRADO, NO ADOPTADO (medido, criterio falla) |
+| **5.2** DCT | 🔵 PENDIENTE (ya desbloqueado) |
+| **5.3** provider itransformer | ✅ HECHO |
+| **5.4** torch.sort | ✅ HECHO |
+| **5.5** recorte fisico | ✅ HECHO |
+| **5.6** tests del MOS | ✅ HECHO (9/9) |
+| **5.7** quitar pass-through de nubes + proxy x1.3 del viento | 🔴 **NO ESCRITO COMO PASO** — nace de la seccion 11, no estaba en el plan original |
+| **Tarea 0** FORECASTER=mos global | 🔴 PENDIENTE (decision del autor; mueve la Fase 1) |
+| **P1/P2/P3** pagina | ✅ HECHO |
+| **P10** historico -10 h | ✅ CERRADO |
+
+**Lo que queda abierto es, literalmente, el MOS**: 5.2, 5.7 y la Tarea 0. Y el **viento**, que hay que
+someter al mismo test de sospecha que las nubes (seccion 11) antes de decidir nada.
+
+Fuera del sprint: **P8** (deriva plan->realidad), que espera el lazo sobre un diagrama conectado.
 
 ## 6. Lo que NO se toca en el Sprint 1
 
