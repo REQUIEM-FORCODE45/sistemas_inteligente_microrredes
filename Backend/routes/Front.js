@@ -120,7 +120,9 @@ router.get('/prediction/weather', validateJwt, async (req, res) => {
     const r = await axios.get(`${api}/predict/weather`, {
       params: {
         hours: req.query.hours || 48,
-        provider: req.query.provider || undefined,
+        // SPRINT-1 (P1): el operativo usa el MOS aunque la UI no mande nada.
+        // Si llega ?provider=..., se respeta.
+        provider: req.query.provider || 'mos',
         site_id: process.env.OPTIMIZATION_SITE_ID || 'pasto_narino',
       },
       timeout: 180000,

@@ -195,11 +195,21 @@ def predict_weather(hours: int = Query(default=48, ge=1, le=168),
     """Pronostico de CLIMA horario (10 vars contratadas) + proveedor.
 
     Es lo que alimenta los modelos calibrados; visible en el Dashboard.
-    provider: openmeteo|patchtst|mos (None = env FORECASTER).
+    provider: openmeteo|patchtst|mos|itransformer (None = env FORECASTER).
+    SPRINT-1 (P3): un provider explicito desconocido (incluido el retirado
+    timesfm) NO cae en silencio a openmeteo: responde error declarado.
+    La fabrica (fallback + retiro de timesfm) no se toca.
     """
     import pandas as pd
     from optimization.config.loader import load_site as _ls
     from optimization.prediction.forecaster import get_climate_provider
+
+    _OPERATIVOS = ("openmeteo", "patchtst", "mos", "itransformer")
+    if provider is not None and provider.lower() not in _OPERATIVOS:
+        return {"status": "error", "provider_pedido": provider,
+                "provider_servido": None,
+                "error": f"Proveedor desconocido o retirado: {provider} "
+                         f"(operativos: {', '.join(_OPERATIVOS)})"}
 
     cfg = _ls(site_id)
     prov = get_climate_provider(cfg["site"], name=provider)
