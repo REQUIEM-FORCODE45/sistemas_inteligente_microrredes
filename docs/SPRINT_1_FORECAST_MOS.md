@@ -573,3 +573,63 @@ cargan y declaran 8 features; (c) salida dentro de rango físico; (d) recorte de
 Y el test debe **fallar** si se rompe la lista de features — el criterio de siempre: un test que no puede
 fallar no es un test.
 
+## 11. Nubes: el NWP es peor que no decir nada (medido 2026-10-30)
+
+Nace de una objeción del autor: *"es imposible que el iTransformer dé mejores resultados en nubes,
+porque esa era justo la razón por la que aplicamos el MOS"*. Tenía razón. Lo que estaba mal era la
+métrica, y el diagnóstico cambia la conclusión.
+
+### 11.1 El "ganador" no predecía nada
+
+En la serie del walk-forward (`comparativa_series.json`, n=24):
+
+| modelo | media | **std** | **corr con la verdad** | MAE |
+|---|---|---|---|---|
+| real (ERA5) | 92,25 | **17,09** | — | — |
+| **itransformer** | 99,78 | **0,42** | 0,314 | **7,81** |
+| patchtst | 100,77 | 1,92 | 0,144 | 9,16 |
+| mos / ecmwf_crudo | 64,67 | 27,78 | **0,555** | 27,58 |
+
+**Un constante de 100 % da MAE 7,75**, mejor que el iTransformer (7,81). Con desviación de **0,42 puntos**
+sobre una verdad que varía con std **17**, el iTransformer está diciendo *"100 % nublado"* todo el
+tiempo. **Gana por cómo está hecha la métrica, no porque prediga.** En Pasto, con nubosidad media 92 %,
+"siempre nublado" es un baseline brutal.
+
+Con una verdad de media alta y std moderada, el **MAE premia estructuralmente al que dice un valor alto y
+constante**. Para nubosidad hay que mirar **correlación, skill y desviación**.
+
+### 11.2 Pero el NWP tiene señal y mucho sesgo
+
+Test jul-dic 2025, n=4.416 (verdad: media 84,6, std 24,8). `nubes_diagnostico.csv`:
+
+| modelo | MAE | corr | std | media | skill |
+|---|---|---|---|---|---|
+| **NWP crudo** | **30,03** | 0,42 | 31,69 | 59,86 | **−0,47** |
+| constante 100 | 15,35 | 0,00 | 0,00 | 100,00 | 0,25 |
+| media de train | 20,42 | 0,00 | 0,00 | 81,90 | 0,00 |
+| NWP + offset (+29,0) | 17,75 | 0,41 | 22,53 | 80,01 | 0,13 |
+| NWP × escala (1,55) | 21,66 | 0,41 | 31,18 | 74,63 | −0,06 |
+| lineal (0,28x + 67,3) | 16,80 | 0,42 | 8,74 | 83,81 | 0,18 |
+| **LightGBM (9 feat)** | **15,64** | **0,45** | 16,83 | 83,57 | **0,23** |
+
+- **El NWP crudo subestima 25 puntos** (59,86 contra 84,6) y su **skill es negativo**: es peor que
+  decir la media. Hoy el MOS publica exactamente eso, porque `cloud_cover` está en `_PASS_THROUGH`.
+- **Solo quitar el sesgo** (offset de +29) baja el MAE de 30,03 a **17,75 (−41 %)** sin tocar el modelo.
+- **Un LightGBM real** (las 9 features del MOS, sin el iTransformer) llega a **15,64 (−48 %)** y es el
+  **único con correlación 0,45**.
+- **Pero el constante 100 da 15,35**, todavía 0,3 puntos mejor en MAE. La ventaja del LightGBM **no es el
+  MAE**: es que varía (std 16,8) y sigue la verdad (corr 0,45). El constante tiene corr 0.
+
+### 11.3 Qué se concluye
+
+1. **Quitar `cloud_cover` del `_PASS_THROUGH`** y entrenar el booster deja de publicar un NWP con sesgo
+   de −25 puntos. Ganancia medida: **MAE −48 %**.
+2. **La tabla de nubes debe llevar correlación y skill, no solo MAE.** Con solo MAE, el mejor modelo de
+   la tabla es una constante.
+3. **El iTransformer no sirve para nubes** (std 0,42). Queda retirada la recomendación anterior de
+   "usarlo para nubes": era un artefacto de la métrica.
+4. **Ningún modelo captura bien la nubosidad de Pasto.** El techo realista es corr ≈ 0,45. Eso es un
+   resultado, no un defecto: es un sitio difícil y el capítulo debe decirlo así.
+
+Evidencia: `reference/resultados/nubes_diagnostico.csv`, `fig_nubes_correccion.png`,
+`fig_nubes_diagnostico.png` (sha256 en `reference/README.md`).
