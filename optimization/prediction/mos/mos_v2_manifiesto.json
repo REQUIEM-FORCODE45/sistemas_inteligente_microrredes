@@ -1,0 +1,107 @@
+{
+ "script": "optimization/prediction/mos/train_mos_v2.py",
+ "data_dir": "C:\\Users\\2D\\AppData\\Local\\Temp\\s57_data",
+ "targets": [
+  "cloud_cover",
+  "wind_speed_100m"
+ ],
+ "features": {
+  "cloud_cover": [
+   "proxy_ecmwf",
+   "v1",
+   "pers_h24",
+   "ghi_toa",
+   "hora",
+   "nubes_ecmwf",
+   "temp_ecmwf",
+   "viento_ecmwf"
+  ],
+  "wind_speed_100m": [
+   "wind10_ecmwf",
+   "pers_h24",
+   "hora"
+  ]
+ },
+ "hyperparams": {
+  "n_estimators": 500,
+  "learning_rate": 0.04,
+  "num_leaves": 63,
+  "min_child_samples": 30,
+  "subsample": 0.8,
+  "colsample_bytree": 0.7,
+  "random_state": 42
+ },
+ "seeds": {
+  "train": 5,
+  "test": 0
+ },
+ "ventanas": {
+  "train": "2024 (2500)",
+  "test": "jul-dic 2025 (400)"
+ },
+ "tabla_T4": {
+  "cloud_cover": {
+   "n_test": 28800,
+   "MAE": 15.1334,
+   "corr": 0.443,
+   "std": 15.0574,
+   "media": 84.9195,
+   "skill": 0.2504,
+   "baseline_media_train": 81.9865,
+   "baseline_MAE": 20.1897,
+   "baseline_constante_100_MAE": 14.8703
+  },
+  "wind_speed_100m": {
+   "n_test": 28800,
+   "MAE": 0.6014,
+   "corr": 0.5169,
+   "std": 0.6085,
+   "media": 1.4317,
+   "skill": 0.15,
+   "baseline_media_train": 1.4424,
+   "baseline_MAE": 0.7076
+  }
+ },
+ "veredicto": {
+  "wind_speed_100m_MAE<=1.0": true,
+  "cloud_cover_reportado": true
+ },
+ "archivos": {
+  "cloud_cover_nuevo": {
+   "path": "C:\\Users\\2D\\AppData\\Local\\Temp\\s57_out\\lgbm_mos_cloud_cover_v2.txt",
+   "sha256": "d05a68dbc8c8801fa90d1b825430dd49a4deaf0ebb2cee6c4045fd49545b426e",
+   "bytes": 2740364
+  },
+  "cloud_cover_viejo": {
+   "path": "C:\\Users\\2D\\tesis-microrred\\sistemas_inteligente_microrredes\\optimization\\prediction\\mos\\models\\lgbm_mos_cloud_cover.txt",
+   "sha256": "ae5509dd8911146f223624ef87f7b2a5a33ad0fbd410d2e840ba0a8eb0e233b6",
+   "bytes": 2740141
+  },
+  "wind_speed_100m_nuevo": {
+   "path": "C:\\Users\\2D\\AppData\\Local\\Temp\\s57_out\\lgbm_mos_wind_speed_100m_v2.txt",
+   "sha256": "ed08956d9b2b5c8e19b907514d68ec2fdd41d69362f40ffc3dd57b23689b24f3",
+   "bytes": 2842654
+  },
+  "wind_speed_100m_viejo": {
+   "path": "C:\\Users\\2D\\tesis-microrred\\sistemas_inteligente_microrredes\\optimization\\prediction\\mos\\models\\lgbm_mos_wind_speed_100m.txt",
+   "sha256": "b3f62d1a12dfa8b4e82d934a50b43444620d1c7fcb21b52e2f09e3a0c68a6bcf",
+   "bytes": 2844198
+  }
+ },
+ "nota_crlf": "los .txt se normalizaron de CRLF a LF antes de versionar: el sha256 de la tabla es el del blob LF, no el del archivo de Windows",
+ "archivos_versionados": [
+  {
+   "archivo": "lgbm_mos_cloud_cover_v2.txt",
+   "bytes_lf": 2740364,
+   "sha256_lf": "d05a68dbc8c8801fa90d1b825430dd49a4deaf0ebb2cee6c4045fd49545b426e",
+   "crlf_original": false
+  },
+  {
+   "archivo": "lgbm_mos_wind_speed_100m_v2.txt",
+   "bytes_lf": 2842654,
+   "sha256_lf": "ed08956d9b2b5c8e19b907514d68ec2fdd41d69362f40ffc3dd57b23689b24f3",
+   "crlf_original": false
+  }
+ ],
+ "generado_por": "auditoria: ejecutado en la maquina del autor con los parquets reales; el implementador no los tiene, por eso el script quedo sin correr de su lado"
+}
