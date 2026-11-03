@@ -162,3 +162,42 @@ Criterios (medidos en vivo, backend+FastAPI+frontend corriendo):
    (Sin filtro diurno: 0.53 / 0.44 por las 13 h nocturnas idénticas.)
    Dirección coherente con la comparativa: el MOS baja el pico del
    mediodía del crudo (p.ej. 12:00: 753 → 685.7).
+
+---
+
+## Sprint-1 5.7 — nubes y viento del MOS (2026-11-03, runtime listo, reentreno pendiente de datos)
+
+**T1+T2 (runtime, en `mos_forecaster.py`)**: `cloud_cover` sale de
+`_PASS_THROUGH` (queda solo `precipitation`; `_PASS_SRC` intacto por
+orden); su booster se resuelve como los demás (mismas 8 features) con
+recorte a [0,100] contado en log. `wind_speed_100m` con `_v2` usa
+`[wind10_ecmwf crudo SIN x1.3, pers_h24, hora]` (3 features con nombre);
+sin `_v2` en disco rige el legado (proxy ×1.3, booster v1) — por eso
+`_PROXY_SCALE` se conserva: borrarlo antes de que exista el `_v2`
+desplazaría el X del v1 publicado (regresión silenciosa).
+Resolución por variable (`_resolve_boosters`): prefiere
+`lgbm_mos_{var}_v2.txt`, guarda por conteo contra su propia lista
+(`_V2_FEATS`), orden de columnas por `feature_name()` cuando el booster
+trae nombres semánticos (v1 `Column_N` sigue posicional).
+**15/15 tests** (7 nuevos 5.7: resolve prefiere v2, guarda contra v2
+malformado, mutante de features, rama wind v2 sin escala ×1.3 con
+booster identidad, orden por nombre con y=hora, cloud fuera de
+pass-through y en rango).
+
+**T3 (script versionado, NO ejecutado con datos reales)**:
+`optimization/prediction/mos/train_mos_v2.py` — réplica exacta del
+protocolo de la línea base (ventanas 2024/2500/seed5, test jul-dic
+2025/400/seed0, mismos hiperparámetros, mismo v1, `strict=True`),
+solo cloud (8) y wind (3 nuevas). Nombres `_v2` (nunca sobrescribe),
+LF normalizado, aserción de recarga, manifiesto sha256 de los 4,
+tabla T4 con baselines triviales y veredicto. Sin `--data-dir` válido
+falla con mensaje claro. **Bloqueo**: los parquet no están en esta VM
+(re-verificado); el script espera A (datos en `/home/david/mos_data/`)
+o B (el autor lo corre y pasa los 2 `.txt`).
+**Prueba de humo sintética** (NO es T4, se declara):
+`reference/resultados/s57_synthetic_smoke_manifiesto.json` — el script
+corre de punta a punta con datos sintéticos (cloud MAE 0.84, wind
+0.26: solo prueba plomería), y el runtime carga esos `_v2`
+sintéticos (ver v2, nombres semánticos, LF, contrato 72×10 sin NaN).
+**Viejos publicados (intactos)**: cloud
+`ae5509dd…0e233b6`, wind `b3f62d1a…a0c68a6bcf`.
