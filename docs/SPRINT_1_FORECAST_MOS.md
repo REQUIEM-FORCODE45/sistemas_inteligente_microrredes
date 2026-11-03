@@ -474,7 +474,7 @@ Regla del proyecto: nada de correcciones silenciosas. Si el modelo produce humed
 | **5.4** torch.sort | ✅ HECHO |
 | **5.5** recorte fisico | ✅ HECHO |
 | **5.6** tests del MOS | ✅ HECHO (9/9) |
-| **5.7** quitar pass-through de nubes + proxy x1.3 del viento | 🔴 **NO ESCRITO COMO PASO** — nace de la seccion 11, no estaba en el plan original |
+| **5.7** nubes fuera del pass-through + viento sin proxy x1.3 | ✅ **CERRADO** (2026-11-03): nubes MAE 30,03 → **15,13**; viento 4,86 → **0,60**. Medido con datos reales, n=28.800 |
 | **Tarea 0** FORECASTER=mos global | 🔴 PENDIENTE (decision del autor; mueve la Fase 1) |
 | **P1/P2/P3** pagina | ✅ HECHO |
 | **P10** historico -10 h | ✅ CERRADO |
@@ -683,6 +683,46 @@ mueve las cifras del capítulo**. Pero sí afecta a (a) lo que **la página mues
 
 **Acción de 5.7 para viento**: quitar `_PROXY_SCALE["wind_speed_100m"] = 1.3` y dejar que el booster use
 viento10, persistencia y hora **sin el viento100 del NWP**, que solo mete ruido.
+
+
+### 11.5 5.7 EJECUTADO y medido con datos reales (2026-11-03) — CERRADO
+
+El implementador dejó el **runtime** (`cloud_cover` fuera del `_PASS_THROUGH`,
+`wind_speed_100m` con `["wind10_ecmwf", "pers_h24", "hora"]`, `_resolve_boosters` que prefiere `_v2`
+sin sobrescribir v1) y el **script** `train_mos_v2.py`, pero **no pudo entrenar**: los parquets no están
+en el repo. Los boosters v2 los entrenó la auditoría en la máquina del autor.
+
+Protocolo: 2024 (2.500 ventanas) para entrenar, **jul-dic 2025 (n = 28.800)** para test.
+
+| variable | lo que se publicaba | **v2** | Δ |
+|---|---|---|---|
+| **nubes** (`cloud_cover`) | NWP crudo: MAE **30,03**, skill −0,47 | **MAE 15,13** · corr 0,443 · std 15,06 · media 84,92 · skill 0,250 | **−49,6 %** |
+| **viento 100 m** | proxy ×1,3: MAE **4,86** | **MAE 0,60** · corr 0,517 · std 0,61 · media 1,43 · skill 0,15 | **−87,6 %** |
+
+**Nubes**: la media predicha (84,92) coincide con la verdad (84,6); el sesgo de −25 puntos desapareció.
+**Viento**: la verdad en Pasto es 1,47 m/s y el modelo predice 1,43.
+
+**La honestidad que va en la tabla**: en nubes, el **constante "100 %" da MAE 14,87**, todavía 0,26 mejor
+que el v2. Lo que aporta el modelo **no es el MAE**, es que **varía** (std 15,06 frente a 0) y
+**correlaciona** (0,443 frente a 0). Para el MPC —que necesita saber *cuándo* baja la nube— eso es lo
+único que sirve. Reportar solo MAE haría ganar a una constante.
+
+**Criterios fijados de antemano:**
+
+| criterio | resultado |
+|---|---|
+| viento MAE ≤ 1,0 | ✅ **0,60** |
+| nubes MAE ≤ 17 | ✅ **15,13** |
+| nubes corr ≥ 0,45 | ❌ **0,443** — falla por 0,007. Se reporta, no se ajusta |
+
+**Verificado por la auditoría** (no solo leído): 15/15 tests en verde, incluidos
+`test_wind_v2_sin_escala_x13` y `test_cloud_ya_no_es_passthrough_y_mide`; boosters versionados en **LF**
+con sha256 en `mos_v2_manifiesto.json`; los **v1 intactos** (`_resolve_boosters` prefiere `_v2` si el
+archivo existe).
+
+**Efecto en producción**: al estar los `_v2` en el repo, el MOS los usa automáticamente. La página pasará
+a mostrar nubes sin el sesgo de 25 puntos y un viento realista. **Las cifras del capítulo no se mueven**:
+el viento no entra al despacho y las nubes no están en la Fase 1.
 
 Evidencia: `reference/resultados/nubes_diagnostico.csv`, `fig_nubes_correccion.png`,
 `fig_nubes_diagnostico.png` (sha256 en `reference/README.md`).
