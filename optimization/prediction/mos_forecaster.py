@@ -13,9 +13,13 @@ Advertencia metodológica: ERA5 (verdad de calibración) y ECMWF (entrada) son
 de la MISMA FAMILIA → el MAE es optimista. Reportar como "pronóstico NWP
 corregido con ML", nunca como "ML puro".
 
-Decisión de diseño (SPEC §3.5): `cloud_cover` y `precipitation` son
-PASS-THROUGH del NWP en vivo (el MOS no las mejora y precipitación no tiene
-señal física: proxy constante 0.0). No introducir una regresión silenciosa.
+Decisión de diseño (SPEC §3.5, revisada en sprint-1 §11): `precipitation`
+sigue en PASS-THROUGH (sin señal física: proxy constante 0.0).
+`cloud_cover` SALIO del pass-through (5.7/T1): el NWP crudo tiene sesgo
+de -25 puntos y skill negativo (peor que decir la media); su booster se
+entrena como los demas. `wind_speed_100m` usa booster v2 sin el viento
+del NWP (5.7/T2): ECMWF sobreestima el viento de Pasto 10x. No
+introducir una regresión silenciosa.
 
 Sin fuga de datos: `pers_h24` y `v1` solo usan información pasada
 (misma hora del día anterior del contexto; iTransformer sobre contexto
@@ -57,10 +61,21 @@ _PROXY = {
     "surface_pressure": "pres", "precipitation": "ghi",
 }
 _PROXY_SCALE = {"wind_speed_100m": 1.3, "precipitation": 0.0}
-# Variables que el MOS no mejora: pass-through del NWP (SPEC §3.5).
-_PASS_THROUGH = ("cloud_cover", "precipitation")
+# Variables que el MOS no mejora: pass-through del NWP.
+# 5.7/T1: cloud_cover SALIO de aqui (su booster se entrena como los demas).
+_PASS_THROUGH = ("precipitation",)
 _FEAT_NAMES = ["proxy_ecmwf", "v1", "pers_h24", "ghi_toa", "hora",
                "nubes_ecmwf", "temp_ecmwf", "viento_ecmwf"]
+# 5.7: features de los boosters v2 (nombres propios, entrenados con
+# DataFrame para que viajen en el .txt). Sin _v2 en disco rige _FEAT_NAMES.
+_V2_FEATS = {
+    # T1: cloud v2 = las mismas 8 que los demas.
+    "cloud_cover": ["proxy_ecmwf", "v1", "pers_h24", "ghi_toa", "hora",
+                    "nubes_ecmwf", "temp_ecmwf", "viento_ecmwf"],
+    # T2: wind v2 = viento10 crudo (SIN escala x1.3) + persistencia + hora.
+    # Sin el wind_speed_100m del NWP (sobreestima 10x, solo mete ruido).
+    "wind_speed_100m": ["wind10_ecmwf", "pers_h24", "hora"],
+}
 # ECMWF en vivo: variables pedidas -> tag de proxy/feature.
 _ECMWF_COLS = {"shortwave_radiation": "ghi", "cloud_cover": "nubes",
                "temperature_2m": "temp", "wind_speed_10m": "viento",
@@ -130,6 +145,42 @@ def _medfill(s: pd.Series, fallback: float = 0.0) -> pd.Series:
     return s.fillna(med)
 
 
+# 5.7: resuelve que booster usa cada variable. Prefiere `_v2`
+# (lgbm_mos_{var}_v2.txt) si existe; si no, el v1 publicado (intacto).
+# Pura salvo lectura de disco: testeable sin red ni modelos cargados.
+# Sin _v2 en disco el comportamiento es el publicado (v1).
+def _resolve_boosters(models_dir):
+    """{var: (path, version, expected_features)} con guarda por variable."""
+    from pathlib import Path
+    models_dir = Path(models_dir)
+    plan = {}
+    for var in _MOS_TARGETS:
+        v2 = models_dir / f"lgbm_mos_{var}_v2.txt"
+        if v2.exists():
+            if var not in _V2_FEATS:
+                raise RuntimeError(
+                    f"MOS {var}: existe _v2 pero sin lista de features "
+                    "declarada en _V2_FEATS; no se adivina el X")
+            plan[var] = (str(v2), "v2", list(_V2_FEATS[var]))
+        else:
+            plan[var] = (str(models_dir / f"lgbm_mos_{var}.txt"),
+                         "v1", list(_FEAT_NAMES))
+    return plan
+
+
+def _check_booster(var: str, path: str, ver: str,
+                   expected: list):
+    """Carga un booster con su guarda de features (puro salvo disco)."""
+    import lightgbm as lgb
+    b = lgb.Booster(model_file=path)
+    if b.num_feature() != len(expected):
+        raise RuntimeError(
+            f"MOS {var} ({ver}): esperaba {len(expected)} "
+            f"features {expected}, el booster trae "
+            f"{b.num_feature()}")
+    return b
+
+
 class MOSClimateForecaster(ClimateForecaster):
     """MOS Fase 1: LightGBM por variable + v1 del iTransformer sobre ECMWF."""
 
@@ -177,8 +228,19 @@ class MOSClimateForecaster(ClimateForecaster):
         pkg = Path(__file__).resolve().parent / "mos"
         models_dir = pkg / "models"
         itr_dir = pkg / "itransformer"
-        missing = [f"lgbm_mos_{v}.txt" for v in _MOS_TARGETS
-                   if not (models_dir / f"lgbm_mos_{v}.txt").exists()]
+        import json as _json
+        boosters, booster_ver, booster_feats = {}, {}, {}
+        missing = []
+        for var in _MOS_TARGETS:
+            # 5.7: _v2 preferido si existe; v1 publicado intacto si no.
+            path, ver, expected = _resolve_boosters(models_dir)[var]
+            if ver == "v1" and not Path(path).exists():
+                missing.append(f"lgbm_mos_{var}.txt")
+                continue
+            b = _check_booster(var, path, ver, expected)
+            boosters[var] = b
+            booster_ver[var] = ver
+            booster_feats[var] = expected
         if missing or not (itr_dir / "modelo_b.pt").exists() \
                 or not (itr_dir / "config_modelos.json").exists():
             raise RuntimeError(
@@ -186,16 +248,6 @@ class MOSClimateForecaster(ClimateForecaster):
                 f"{pkg} (faltan {missing}). Portar el paquete "
                 "integracion_plataforma/cambio_01_mos_forecaster/ "
                 "a optimization/prediction/mos/.")
-        import json as _json
-        boosters = {}
-        for var in _MOS_TARGETS:
-            b = lgb.Booster(
-                model_file=str(models_dir / f"lgbm_mos_{var}.txt"))
-            if b.num_feature() != len(_FEAT_NAMES):
-                raise RuntimeError(
-                    f"MOS {var}: esperaba {len(_FEAT_NAMES)} features, "
-                    f"el booster trae {b.num_feature()}")
-            boosters[var] = b
 
         cfg = _json.loads((itr_dir / "config_modelos.json").read_text(
             encoding="utf-8"))
@@ -246,9 +298,32 @@ class MOSClimateForecaster(ClimateForecaster):
         model.eval()
 
         self._lgbm = boosters
+        self._booster_ver = booster_ver  # 5.7: {"var": "v1"|"v2"}
+        self._booster_feats = booster_feats  # 5.7: features esperadas/var
         self._imodel = model
         self._cfg = {"features": features, "stats": stats,
                      "clim": cfg["clim"], "L": L, "H": H}
+
+    # ------------------------------------------------------------------ #
+    def _predict_var(self, var: str, cols: dict) -> np.ndarray:
+        """Predice con el booster de `var`; `cols` = {nombre: array(h)}.
+
+        5.7: ordena por feature_name() cuando el booster trae nombres
+        semánticos (entrenado con DataFrame, caso _v2); si trae Column_N
+        (v1 publicado, entrenado con ndarray) ordena por la lista esperada.
+        """
+        b = self._lgbm[var]
+        names = list(b.feature_name() or [])
+        if names and all(not n.startswith("Column_") for n in names):
+            missing = [n for n in names if n not in cols]
+            if missing:
+                raise RuntimeError(
+                    f"MOS {var}: el booster pide {missing}, no calculado")
+            X = np.stack([cols[n] for n in names], axis=1)
+        else:
+            X = np.stack([cols[n]
+                          for n in self._booster_feats[var]], axis=1)
+        return b.predict(np.nan_to_num(X, nan=0.0)).astype(float)
 
     # ------------------------------------------------------------------ #
     def _context_df(self, anchor: pd.Timestamp | None = None) -> pd.DataFrame:
@@ -510,30 +585,57 @@ class MOSClimateForecaster(ClimateForecaster):
                 central[var] = np.nan_to_num(
                     proxy_src[_PASS_SRC[var]].values[:horizon]).astype(float)
                 continue
-            tag = _PROXY[var]
-            proxy = np.nan_to_num(proxy_src[tag].values[:horizon]).astype(
-                float)
-            if var in _PROXY_SCALE:
-                proxy = proxy * _PROXY_SCALE[var]
             v1_full = np.asarray(v1[var][:horizon], dtype=float)
             pers = np.full(horizon, np.nan)
             for ii, hr in enumerate(fut_idx[:horizon].hour.values):
                 cand = np.where(ctx_hour == hr)[0]
                 pers[ii] = ctx[var].values[cand[-1]] if len(cand) else np.nan
             pers = np.nan_to_num(pers, nan=0.0)
-            X = np.nan_to_num(np.stack([
-                proxy, v1_full, pers, fut_toa,
-                fut_idx[:horizon].hour.values.astype(float),
-                np.nan_to_num(proxy_src["nubes"].values[:horizon]),
-                np.nan_to_num(proxy_src["temp"].values[:horizon]),
-                np.nan_to_num(proxy_src["viento"].values[:horizon]),
-            ], axis=1), nan=0.0)
-            central[var] = self._lgbm[var].predict(X).astype(float)
+            # 5.7/T2: con booster v2 el viento100 NO usa el viento del NWP
+            # (sobreestima 10x): viento10 crudo sin escala + pers + hora.
+            # Sin _v2 en disco rige el legado (proxy x1.3, booster v1).
+            if var == "wind_speed_100m" \
+                    and self._booster_ver.get(var) == "v2":
+                cols = {
+                    "wind10_ecmwf": np.nan_to_num(
+                        proxy_src["viento"].values[:horizon]).astype(float),
+                    "pers_h24": pers,
+                    "hora": fut_idx[:horizon].hour.values.astype(float),
+                }
+                central[var] = self._predict_var(var, cols)
+                continue
+            tag = _PROXY[var]
+            proxy = np.nan_to_num(proxy_src[tag].values[:horizon]).astype(
+                float)
+            if var in _PROXY_SCALE:
+                proxy = proxy * _PROXY_SCALE[var]
+            cols = {
+                "proxy_ecmwf": proxy,
+                "v1": v1_full,
+                "pers_h24": pers,
+                "ghi_toa": fut_toa,
+                "hora": fut_idx[:horizon].hour.values.astype(float),
+                "nubes_ecmwf": np.nan_to_num(
+                    proxy_src["nubes"].values[:horizon]),
+                "temp_ecmwf": np.nan_to_num(
+                    proxy_src["temp"].values[:horizon]),
+                "viento_ecmwf": np.nan_to_num(
+                    proxy_src["viento"].values[:horizon]),
+            }
+            central[var] = self._predict_var(var, cols)
         out = pd.DataFrame(central, index=fut_idx[:horizon])[self.variables]
         for col in ("shortwave_radiation", "direct_normal_irradiance",
                     "diffuse_radiation", "wind_speed_100m", "wind_speed_10m",
                     "precipitation"):
             out[col] = np.clip(out[col].values, 0, None)
+        # 5.7/T1: cloud_cover ya no es pass-through: el booster puede salir
+        # de rango; se recorta a [0,100] y se declara (nada silencioso).
+        _cloud_clip = np.clip(out["cloud_cover"].values, 0.0, 100.0)
+        _n_clip = int((_cloud_clip != out["cloud_cover"].values).sum())
+        if _n_clip:
+            logger.info("MOS cloud_cover recortado a [0,100] en %d/%dh",
+                        _n_clip, len(out))
+        out["cloud_cover"] = _cloud_clip
         out = out.astype("float64")
         if bool(out.isna().any().any()):
             raise RuntimeError("MOS: NaN en la salida (fallo de features)")

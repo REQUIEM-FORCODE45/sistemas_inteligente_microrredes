@@ -17,6 +17,9 @@ from optimization.prediction.mos_forecaster import (
     MOSClimateForecaster,
     _FEAT_NAMES,
     _MOS_TARGETS,
+    _V2_FEATS,
+    _check_booster,
+    _resolve_boosters,
     clip_itransformer_phys,
 )
 from optimization.prediction.forecaster import WEATHER_VARIABLES
@@ -229,3 +232,116 @@ def test_itransformer_horizonte_mayor_72h_falla():
     prov = ITransformerClimateForecaster(site_cfg=dict(SITE))
     with pytest.raises(RuntimeError, match="72"):
         prov.forecast(days=4.0)
+
+
+# --------------------------------------------------------------------- #
+# Sprint-1 5.7: nubes fuera del pass-through + viento v2 sin NWP.
+
+
+def _tiny_booster(path, columns, rule):
+    """Booster LightGBM mínimo con nombres de features (rápido, real)."""
+    import lightgbm as lgb
+    import pandas as pd
+
+    rng = np.random.default_rng(3)
+    n = 200
+    df = pd.DataFrame({c: rng.uniform(0, 10, n) for c in columns})
+    if "hora" in df:
+        df["hora"] = rng.integers(0, 24, n).astype(float)
+    y = rule(df)
+    d = lgb.Dataset(df, label=y.values)
+    b = lgb.train({"objective": "regression", "num_leaves": 7,
+                   "verbose": -1}, d, num_boost_round=10)
+    b.save_model(str(path))
+    return str(path)
+
+
+def test_resolve_sin_v2_todo_v1():
+    """Sin _v2 en disco: las 10 resuelven a v1 con las 8 de _FEAT_NAMES."""
+    from pathlib import Path
+    models_dir = (Path(mos_mod.__file__).resolve().parent / "mos" / "models")
+    plan = _resolve_boosters(models_dir)
+    assert set(plan) == set(_MOS_TARGETS)
+    for var, (path, ver, feats) in plan.items():
+        assert ver == "v1", var
+        assert feats == list(_FEAT_NAMES), var
+
+
+def test_resolve_prefiere_v2_y_guarda_lista(tmp_path):
+    """Con _v2 presente rige su lista; _v2 sin lista declarada falla."""
+    import shutil
+    cloud = _tiny_booster(tmp_path / "c.txt", list(_V2_FEATS["cloud_cover"]),
+                           lambda df: df["v1"])
+    shutil.copy(cloud, tmp_path / "lgbm_mos_cloud_cover_v2.txt")
+    plan = _resolve_boosters(tmp_path)
+    assert plan["cloud_cover"][1] == "v2"
+    assert plan["cloud_cover"][2] == list(_V2_FEATS["cloud_cover"])
+    assert plan["wind_speed_100m"][1] == "v1"  # sin _v2: legado
+    (tmp_path / "lgbm_mos_shortwave_radiation_v2.txt").write_text("x")
+    with pytest.raises(RuntimeError, match="_V2_FEATS"):
+        _resolve_boosters(tmp_path)
+
+
+def test_check_booster_falla_con_otro_n(tmp_path):
+    """Mutante 5.7: un _v2 con 5 features no pasa la guarda de 8."""
+    p = _tiny_booster(tmp_path / "m.txt",
+                       ["a", "b", "c", "d", "e"], lambda df: df["a"])
+    with pytest.raises(RuntimeError, match="esperaba 8 features"):
+        _check_booster("cloud_cover", p, "v2", list(_FEAT_NAMES))
+
+
+def _mos_con_wind_v2(monkeypatch, anchor, rule, proxy_viento=6.0):
+    """Hermético con booster wind v2 sintético (3 features con nombre)."""
+    from pathlib import Path
+    prov = _mos_hermetico(monkeypatch, anchor)
+    prov._load_lazy()
+    tmp = Path("/tmp/s57_wind2")
+    tmp.mkdir(exist_ok=True)
+    mp = _tiny_booster(tmp / "w2.txt", list(_V2_FEATS["wind_speed_100m"]),
+                        rule)
+    import lightgbm as lgb
+    prov._lgbm["wind_speed_100m"] = lgb.Booster(model_file=mp)
+    prov._booster_ver["wind_speed_100m"] = "v2"
+    prov._booster_feats["wind_speed_100m"] = list(
+        _V2_FEATS["wind_speed_100m"])
+    prov._proxy_df = lambda start, hours, live: _proxy_sintetico(
+        start, hours).assign(viento=proxy_viento)
+    return prov
+
+
+def test_wind_v2_sin_escala_x13(monkeypatch):
+    """El v2 NO aplica el x1.3: con viento10=6 el booster identidad da ~6."""
+    anchor = pd.Timestamp("2025-07-15 12:00", tz=TZ)
+    prov = _mos_con_wind_v2(monkeypatch, anchor,
+                             lambda df: df["wind10_ecmwf"], proxy_viento=6.0)
+    fc = prov.forecast(days=3.0, anchor=anchor)
+    w = fc.data["wind_speed_100m"].values
+    assert np.isfinite(w).all()
+    # Identidad sobre 6.0: con x1.3 daria ~7.8 (fuera de la banda).
+    assert ((w > 5.0) & (w < 7.0)).all(), w.mean()
+
+
+def test_wind_v2_orden_por_nombre(monkeypatch):
+    """El v2 ordena por feature_name(): y=hora sigue la hora futura."""
+    anchor = pd.Timestamp("2025-07-15 12:00", tz=TZ)
+    prov = _mos_con_wind_v2(monkeypatch, anchor,
+                             lambda df: df["hora"], proxy_viento=2.0)
+    fc = prov.forecast(days=3.0, anchor=anchor)
+    w = fc.data["wind_speed_100m"].values
+    hrs = fc.data.index.hour.values.astype(float)
+    corr = np.corrcoef(w, hrs)[0, 1]
+    assert corr > 0.9, corr  # la columna hora cae en su sitio
+
+
+def test_cloud_ya_no_es_passthrough_y_mide(monkeypatch):
+    """cloud_cover sale del booster (no del NWP) y queda en [0,100]."""
+    from optimization.prediction import mos_forecaster as m
+    assert "cloud_cover" not in m._PASS_THROUGH
+    anchor = pd.Timestamp("2025-07-15 12:00", tz=TZ)
+    prov = _mos_hermetico(monkeypatch, anchor)
+    prov._load_lazy()
+    assert prov._booster_ver["cloud_cover"] == "v1"  # sin _v2: legado
+    fc = prov.forecast(days=3.0, anchor=anchor)
+    c = fc.data["cloud_cover"].values
+    assert np.isfinite(c).all()
+    assert ((c >= 0) & (c <= 100)).all()
