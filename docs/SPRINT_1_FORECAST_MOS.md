@@ -694,10 +694,15 @@ en el repo. Los boosters v2 los entrenó la auditoría en la máquina del autor.
 
 Protocolo: 2024 (2.500 ventanas) para entrenar, **jul-dic 2025 (n = 28.800)** para test.
 
-| variable | lo que se publicaba | **v2** | Δ |
+| variable | lo que se publicaba | **v2 (reentrenado en 5.8)** | Δ |
 |---|---|---|---|
-| **nubes** (`cloud_cover`) | NWP crudo: MAE **30,03**, skill −0,47 | **MAE 15,13** · corr 0,443 · std 15,06 · media 84,92 · skill 0,250 | **−49,6 %** |
-| **viento 100 m** | proxy ×1,3: MAE **4,86** | **MAE 0,60** · corr 0,517 · std 0,61 · media 1,43 · skill 0,15 | **−87,6 %** |
+| **nubes** (`cloud_cover`) | NWP crudo: MAE **30,03**, skill −0,47 | **MAE 15,15** · corr 0,439 · std 15,27 · media 85,10 · skill 0,250 | **−49,6 %** |
+| **viento 100 m** | proxy ×1,3: MAE **4,86** | **MAE 0,62** · corr 0,475 · std 0,56 · media 1,43 · skill 0,13 | **−87,3 %** |
+
+> **Cifras regeneradas tras el 5.8** (`9b1b87c`): unidades en m/s y `pers_h24` causal
+> (`_pers_idx = i + L − 24 + (hh % 24)`, con `assert p_idx < i + L`). La fuga inflaba poco —nubes
+> 15,13 → **15,15** y viento 0,60 → **0,62**—, pero **ahora los números son honestos**: antes el
+> booster veía el futuro para hh ≥ 25 y en producción no lo tendrá.
 
 **Nubes**: la media predicha (84,92) coincide con la verdad (84,6); el sesgo de −25 puntos desapareció.
 **Viento**: la verdad en Pasto es 1,47 m/s y el modelo predice 1,43.
@@ -711,9 +716,15 @@ que el v2. Lo que aporta el modelo **no es el MAE**, es que **varía** (std 15,0
 
 | criterio | resultado |
 |---|---|
-| viento MAE ≤ 1,0 | ✅ **0,60** |
-| nubes MAE ≤ 17 | ✅ **15,13** |
-| nubes corr ≥ 0,45 | ❌ **0,443** — falla por 0,007. Se reporta, no se ajusta |
+| viento MAE ≤ 1,0 | ✅ **0,62** |
+| nubes MAE ≤ 17 | ✅ **15,15** |
+| nubes corr ≥ 0,45 | ❌ **0,439** — falla por 0,011. Se reporta, no se ajusta |
+
+
+**Nota de entorno (pandas 3).** `test_train_mos_v2_pers_h24_causal_sin_fuga_futura` **falla aquí**
+(17/18) y pasa en pandas 2 (18/18): usa `mut[var].iloc[...] = 99999`, una asignación encadenada que con
+Copy-on-Write (pandas ≥ 3, siempre activo) **no escribe** en el DataFrame. El código del 5.8 es correcto;
+el test necesita `mut.loc[mut.index[...], var] = 99999`. Declarado, no silenciado.
 
 **Verificado por la auditoría** (no solo leído): 15/15 tests en verde, incluidos
 `test_wind_v2_sin_escala_x13` y `test_cloud_ya_no_es_passthrough_y_mide`; boosters versionados en **LF**
