@@ -726,3 +726,15 @@ el viento no entra al despacho y las nubes no están en la Fase 1.
 
 Evidencia: `reference/resultados/nubes_diagnostico.csv`, `fig_nubes_correccion.png`,
 `fig_nubes_diagnostico.png` (sha256 en `reference/README.md`).
+
+
+### 11.6 5.8 — Unidades `km/h` → `m/s`, descontaminación de `v1` y causalidad de `pers_h24` (BLOQUEANTE antes de Tarea 0)
+
+> Especificación completa para implementación: `docs/SPRINT_1_PASO_5_8_UNIDADES_Y_CAUSALIDAD.md`.
+
+Tras cerrar 5.7 en offline (`3ed25fd`), la auditoría cruzada confirmó y midió **tres defectos** que separan el entrenamiento offline de la inferencia real:
+
+1. **`openmeteo.py` no pide `"wind_speed_unit": "ms"`**: devuelve **km/h** (ratio medido **3,586**) aunque el comentario diga `[m/s]`. En producción `pers_h24` de viento entra $\times 3,6$ mayor que en el entrenamiento (`era5_v3.parquet` está en m/s).
+2. **`pers_h24` en entrenamiento (`train_mos_v2.py:226`) usa el futuro para $hh \ge 24$**: `t_idx - 24` ($\text{rel} = L + hh - 24$; en $hh=71$ es $+47\text{ h}$ después del `anchor`). En inferencia (`mos_forecaster.py:590-592`) sí es causal. Los MAE offline de 5.7 quedan marcados como **optimistas** hasta reentrenar con `p_idx = i + L - 24 + (hh % 24)`.
+3. **`wind_power_proxy = wsp³` en `mos_forecaster.py:498-501` entra $\times 46,7$ y contamina el `v1` de las 10 variables**: el iTransformer se entrenó con viento en **m/s** (media 1,52, proxy 8,28) y en producción recibe **km/h**. Por *self-attention* entre canales, el `v1` de las 10 variables queda fuera de distribución.
+4. **Trampa en `_proxy_df` (`mos_forecaster.py:437-445`)**: como `data/ecmwf/` (entrenamiento de los 8 boosters `v1` congelados y de los 2 `_v2`) y `_ecmwf_frame` (en vivo) tienen `wind_speed_10m` del NWP en **km/h**, al poner `wind_speed_unit="ms"` por defecto en `OpenMeteoClient` hay que pasar explícitamente `wind_speed_unit="kmh"` en `_proxy_df` para no desalinear el backtest respecto a vivo y respecto a los boosters publicados.
