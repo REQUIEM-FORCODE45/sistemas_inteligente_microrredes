@@ -39,7 +39,15 @@ from optimization.prediction.mos_forecaster import _V2_FEATS  # noqa: E402
 
 SITE = {"lat": 1.2136, "lon": -77.2811, "tz": "America/Bogota"}
 L, H, Q = 512, 72, [0.1, 0.5, 0.9]
-TARGETS_V2 = ["cloud_cover", "wind_speed_100m"]
+# M2: los 4 (cloud+wind = control de no-regresion con el mismo feed 5.8;
+# dni+dhi = nuevos con el segundo arbol). Solo dni/dhi se GUARDAN.
+TARGETS_V2 = ["cloud_cover", "wind_speed_100m",
+              "direct_normal_irradiance", "diffuse_radiation"]
+# tag ecw2 -> var (el unico feed que cambia de arbol es el proxy de dni/dhi)
+_V2_SRC = {"direct_normal_irradiance": "dni", "diffuse_radiation": "dhi"}
+# baseline constante trivial por variable (None = sin sentido fisico)
+_CONST_BASELINE = {"cloud_cover": 100.0, "direct_normal_irradiance": 0.0,
+                   "diffuse_radiation": 0.0, "wind_speed_100m": None}
 TRANSFORMS = {
     "shortwave_radiation": {"type": "divide", "denom": "ghi_toa"}
     , "direct_normal_irradiance": {"type": "divide", "denom": "sin_elev"}
@@ -96,8 +104,13 @@ def _pers_idx(i, hh):
     return p_idx
 
 
-def _row_for(var, i, hh, era, ecw, v1_all):
-    """Una fila (X-dict, y) para `var` en la ventana i, hora hh."""
+def _row_for(var, i, hh, era, ecw, v1_all, ecw2=None):
+    """Una fila (X-dict, y) para `var` en la ventana i, hora hh.
+
+    ecw2: frame con el segundo arbol (dni/dhi reales). Solo lo usan
+    direct_normal_irradiance/diffuse_radiation; sin ecw2 fallan con
+    mensaje claro (no se inventa proxy).
+    """
     i = int(i)
     t_idx = i + L + hh
     v1 = v1_all[var][hh]
@@ -105,6 +118,17 @@ def _row_for(var, i, hh, era, ecw, v1_all):
     if var == "wind_speed_100m":
         # 5.7/T2: viento10 crudo SIN escala + pers + hora.
         X = {"wind10_ecmwf": float(ecw["viento"].values[t_idx]),
+             "pers_h24": pers,
+             "hora": float(era.index[t_idx].hour)}
+    elif var in ("direct_normal_irradiance", "diffuse_radiation"):
+        # M1.2: crudo real del NWP (ecw2) + pers_h24 + hora.
+        if ecw2 is None:
+            raise RuntimeError(
+                f"{var}: sin segundo arbol de datos (dni/dhi reales); "
+                "indica --data-dir-v2 (no se usa el falso proxy ghi)")
+        tag = {"direct_normal_irradiance": "dni",
+               "diffuse_radiation": "dhi"}[var]
+        X = {f"{tag}_ecmwf": float(ecw2[tag].values[t_idx]),
              "pers_h24": pers,
              "hora": float(era.index[t_idx].hour)}
     else:
@@ -121,9 +145,14 @@ def _row_for(var, i, hh, era, ecw, v1_all):
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Reentrena cloud+wind v2 (5.7).")
+    ap = argparse.ArgumentParser(
+        description="Reentrena cloud+wind (control) + dni+dhi v2 (M2).")
     ap.add_argument("--data-dir", required=True,
                     help="dir con era5_v3.parquet + ecmwf/ecmwf_YYYY_MM.parquet")
+    ap.add_argument("--data-dir-v2", default=None,
+                    help="dir con ecmwf_v2/ecmwf_YYYY_MM.parquet (dni/dhi "
+                    "reales). Default: <data-dir>/ecmwf_v2. Los dos arboles "
+                    "se UNEN por indice horario; sin solape no se inventa.")
     ap.add_argument("--outdir", default=None,
                     help="default: optimization/prediction/mos/models/")
     args = ap.parse_args()
@@ -135,7 +164,8 @@ def main() -> int:
             "estan en el repo; indica --data-dir con era5_v3.parquet + "
             "ecmwf/ecmwf_YYYY_MM.parquet (no se inventan datos).")
     ecmwf_dir = data / "ecmwf"
-
+    ecmwf2_dir = Path(args.data_dir_v2) if args.data_dir_v2 \
+        else data / "ecmwf_v2"
     era = pd.read_parquet(era_p)
     era.index = pd.to_datetime(era.index)
     if "time" in era.columns:
@@ -233,6 +263,42 @@ def main() -> int:
     ecmwf_cols = {"shortwave_radiation": "ghi", "cloud_cover": "nubes",
                   "temperature_2m": "temp", "wind_speed_10m": "viento",
                   "relative_humidity_2m": "rh", "surface_pressure": "pres"}
+    # M1.3: segundo arbol SOLO para dni/dhi (union por indice, sin rellenar).
+    # M1.3: segundo arbol SOLO para dni/dhi (union por indice, sin rellenar).
+    ecw2, huecos_v2 = {}, {}
+    for col_era5, tag in (("direct_normal_irradiance", "dni"),
+                          ("diffuse_radiation", "dhi")):
+        parts = []
+        for y in (2024, 2025):
+            for mm in range(1, 13):
+                fp = ecmwf2_dir / f"ecmwf_{y}_{mm:02d}.parquet"
+                if not fp.exists():
+                    huecos_v2[f"{y}-{mm:02d}"] = huecos_v2.get(
+                        f"{y}-{mm:02d}", []) + [f"{tag}:sin_archivo"]
+                    continue
+                sub = pd.read_parquet(fp)
+                col = col_era5 if col_era5 in sub.columns else None
+                if col is None:
+                    huecos_v2[f"{y}-{mm:02d}"] = huecos_v2.get(
+                        f"{y}-{mm:02d}", []) + [f"{tag}:sin_columna"]
+                    continue
+                validos = int(sub[col].notna().sum())
+                if validos == 0:
+                    huecos_v2[f"{y}-{mm:02d}"] = huecos_v2.get(
+                        f"{y}-{mm:02d}", []) + [f"{tag}:vacio(0 validos)"]
+                parts.append(sub[[col]].rename(columns={col: tag}))
+        if not parts:
+            raise SystemExit(
+                f"Sin datos dni/dhi: {ecmwf2_dir}/ecmwf_YYYY_MM.parquet "
+                "vacio o ausente (no se inventan; indica --data-dir-v2).")
+        df2 = pd.concat(parts)
+        df2 = df2[~df2.index.duplicated()].sort_index()
+        ecw2[tag] = df2[tag].reindex(era.index)
+    ecw2 = pd.DataFrame(ecw2)
+    if huecos_v2:
+        print(f"huecos ecmwf_v2 (declarados, sin rellenar): {huecos_v2}")
+
+
     ecw = {}
     for col_era5, tag in ecmwf_cols.items():
         parts, ok = [], True
@@ -275,12 +341,21 @@ def main() -> int:
     t4 = {}
     for var in TARGETS_V2:
         feat = list(_V2_FEATS[var])
+        n_excl = {"tr": 0, "te": 0}
         for split, idxs in (("tr", idx_tr), ("te", idx_te)):
             Xs, ys = [], []
+            skip_tag = _V2_SRC.get(var)  # solo dni/dhi leen el 2o arbol
             for i in idxs:
                 v1_all = v1_phys(int(i))
                 for hh in range(H):
-                    Xd, y = _row_for(var, i, hh, era, ecw, v1_all)
+                    t = int(i) + L + hh
+                    # M1.3: sin dato en el 2o arbol la fila se EXCLUYE
+                    # (NaN declarado, nunca 0 inventado).
+                    if skip_tag is not None and pd.isna(
+                            ecw2[skip_tag].values[t]):
+                        n_excl[split] += 1
+                        continue
+                    Xd, y = _row_for(var, i, hh, era, ecw, v1_all, ecw2)
                     Xs.append([Xd[c] for c in feat])
                     ys.append(y)
             if split == "tr":
@@ -300,14 +375,25 @@ def main() -> int:
         base = float(np.mean(ytr))  # media de train (skill 0.0 por def.)
         mae_base = float(np.mean(np.abs(base - yte)))
         skill = round(1 - mae / mae_base, 4) if mae_base else None
-        t4[var] = {"n_test": int(len(yte)), "MAE": round(mae, 4),
+        t4[var] = {"n_test": int(len(yte)),
+                   "n_excluidos_nan": dict(n_excl),
+                   "MAE": round(mae, 4),
                    "corr": round(corr, 4), "std": round(std_p, 4),
                    "media": round(mean_p, 4), "skill": skill,
                    "baseline_media_train": round(base, 4),
-                   "baseline_MAE": round(mae_base, 4)}
-        if var == "cloud_cover":
-            const = float(np.mean(np.abs(100.0 - yte)))
-            t4[var]["baseline_constante_100_MAE"] = round(const, 4)
+                   "baseline_media_MAE": round(mae_base, 4)}
+        cb = _CONST_BASELINE[var]
+        if cb is not None:
+            t4[var]["baseline_constante_valor"] = cb
+            t4[var]["baseline_constante_MAE"] = round(
+                float(np.mean(np.abs(cb - yte))), 4)
+        # M2.3: SOLO dni/dhi se guardan como _v2 nuevos. cloud/wind se
+        # entrenan como control de no-regresion (mismo feed 5.8) sin
+        # sobrescribir los _v2 publicados.
+        if var not in ("direct_normal_irradiance", "diffuse_radiation"):
+            print(f"{var:<18} MAE {mae:.4f} corr {corr:.3f} "
+                  f"(control, no se guarda)")
+            continue
         dest = outdir / f"lgbm_mos_{var}_v2.txt"
         reg.booster_.save_model(str(dest))
         raw = dest.read_bytes().replace(b"\r\n", b"\n")  # CRLF->LF
@@ -322,7 +408,10 @@ def main() -> int:
               f"(base {mae_base:.4f}) -> {dest.name}")
     verdict = {
         "wind_speed_100m_MAE<=1.0": t4["wind_speed_100m"]["MAE"] <= 1.0,
-        "cloud_cover_reportado": True,
+        "nubes_sin_empeorar_vs_15.15": t4["cloud_cover"]["MAE"] <= 15.15,
+        "dni_dhi_reportados": True,
+        # La aceptacion (dossier -29.9%/-11.5%) la decide el autor con
+        # esta tabla; el script no auto-adopta nada.
     }
     manifest = {
         "script": "optimization/prediction/mos/train_mos_v2.py",
@@ -333,7 +422,13 @@ def main() -> int:
         "tabla_T4": t4, "veredicto": verdict, "archivos": {},
     }
     models_repo = (REPO / "optimization" / "prediction" / "mos" / "models")
-    for v in TARGETS_V2:
+    for v in ("cloud_cover", "wind_speed_100m"):
+        p = models_repo / f"lgbm_mos_{v}_v2.txt"
+        if p.exists():
+            h = hashlib.sha256(p.read_bytes()).hexdigest()
+            manifest["archivos"][f"{v}_control_existente"] = {
+                "path": str(p), "sha256": h, "bytes": p.stat().st_size}
+    for v in ("direct_normal_irradiance", "diffuse_radiation"):
         for tag, p in (("nuevo", outdir / f"lgbm_mos_{v}_v2.txt"),
                        ("viejo", models_repo / f"lgbm_mos_{v}.txt")):
             h = hashlib.sha256(p.read_bytes()).hexdigest()
