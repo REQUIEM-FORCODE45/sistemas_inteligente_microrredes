@@ -85,6 +85,41 @@ def _engineer(era: pd.DataFrame) -> pd.DataFrame:
     return era
 
 
+def _pers_idx(i, hh):
+    """Indice causal de pers_h24 (5.8/T3): ultimo dia del contexto
+    [i+L-24, i+L-1] con la misma hora que t_idx=i+L+hh. Dia 1 coincide
+    con t_idx-24; dias 2-3 usan la ultima observacion antes del anchor.
+    Prohibido leer >= i + L (seria futuro)."""
+    p_idx = int(i) + L - 24 + (int(hh) % 24)
+    assert p_idx < int(i) + L, \
+        f"Fuga temporal en pers_h24: {p_idx} >= {int(i) + L}"
+    return p_idx
+
+
+def _row_for(var, i, hh, era, ecw, v1_all):
+    """Una fila (X-dict, y) para `var` en la ventana i, hora hh."""
+    i = int(i)
+    t_idx = i + L + hh
+    v1 = v1_all[var][hh]
+    pers = float(era[var].values[_pers_idx(i, hh)])
+    if var == "wind_speed_100m":
+        # 5.7/T2: viento10 crudo SIN escala + pers + hora.
+        X = {"wind10_ecmwf": float(ecw["viento"].values[t_idx]),
+             "pers_h24": pers,
+             "hora": float(era.index[t_idx].hour)}
+    else:
+        # 5.7/T1: cloud como los demas (8 features).
+        X = {"proxy_ecmwf": float(ecw["nubes"].values[t_idx]),
+             "v1": float(v1),
+             "pers_h24": pers,
+             "ghi_toa": float(era["ghi_toa"].values[t_idx]),
+             "hora": float(era.index[t_idx].hour),
+             "nubes_ecmwf": float(ecw["nubes"].values[t_idx]),
+             "temp_ecmwf": float(ecw["temp"].values[t_idx]),
+             "viento_ecmwf": float(ecw["viento"].values[t_idx])}
+    return X, float(era[var].values[t_idx])
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Reentrena cloud+wind v2 (5.7).")
     ap.add_argument("--data-dir", required=True,
@@ -218,29 +253,6 @@ def main() -> int:
         ecw[tag] = s
     ecw = pd.DataFrame(ecw)
 
-    def row_for(var, i, hh):
-        """Una fila (X-dict, y) para `var` en la ventana i, hora hh."""
-        i = int(i)
-        t_idx = i + L + hh
-        v1 = v1_all[var][hh]
-        pers = float(era[var].values[t_idx - 24])
-        if var == "wind_speed_100m":
-            # 5.7/T2: viento10 crudo SIN escala + pers + hora.
-            X = {"wind10_ecmwf": float(ecw["viento"].values[t_idx]),
-                 "pers_h24": pers,
-                 "hora": float(era.index[t_idx].hour)}
-        else:
-            # 5.7/T1: cloud como los demas (8 features).
-            X = {"proxy_ecmwf": float(ecw["nubes"].values[t_idx]),
-                 "v1": float(v1),
-                 "pers_h24": pers,
-                 "ghi_toa": float(era["ghi_toa"].values[t_idx]),
-                 "hora": float(era.index[t_idx].hour),
-                 "nubes_ecmwf": float(ecw["nubes"].values[t_idx]),
-                 "temp_ecmwf": float(ecw["temp"].values[t_idx]),
-                 "viento_ecmwf": float(ecw["viento"].values[t_idx])}
-        return X, float(era[var].values[t_idx])
-
     def idxs_full(m0, m1, year):
         a = pd.Timestamp(f"{year}-{m0:02d}-01")
         b = (pd.Timestamp(f"{year}-{m1:02d}-01")
@@ -268,7 +280,7 @@ def main() -> int:
             for i in idxs:
                 v1_all = v1_phys(int(i))
                 for hh in range(H):
-                    Xd, y = row_for(var, i, hh)
+                    Xd, y = _row_for(var, i, hh, era, ecw, v1_all)
                     Xs.append([Xd[c] for c in feat])
                     ys.append(y)
             if split == "tr":
