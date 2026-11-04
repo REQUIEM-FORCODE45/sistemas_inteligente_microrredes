@@ -1,0 +1,130 @@
+MICRO-CIERRE ANTES DE LA TAREA 0: DNI y DHI reales + fix de pandas
+
+Cierra el 5.8 (b292d93): boosters reentrenados sin fuga, nubes 15.15 y viento
+0.62, y el impacto de quitar la fuga fue de solo 0.02 MAE. Los boosters v2 son
+solidos y ahora 100 % causales.
+
+Antes de lanzar la Tarea 0 hay que meter DNI y DHI reales. El motivo es fisico y
+lo verifique en el codigo:
+
+  pv.py:68-77  -> pvlib.irradiance.get_total_irradiance(dni=, ghi=, dhi=)
+  tilt 2.0 deg -> factor reflejado del suelo = (1 - cos 2 deg)/2 = 0.000305
+
+O sea: poa_global sale casi entero de DNI*cos(AOI) + DHI*0.9997, y GHI apenas
+participa. Como el MOS predice DNI y DHI con GHI de falso proxy (mos_forecaster
+linea 57), mejorar esas dos variables mejora directamente el POA que entra al
+MPC en la Fase 1. Y la Fase 1 no se corre dos veces.
+
+-------------------------------------------------------------------------
+M0. FIX DE PANDAS 3 (1 linea, y te bloquea tus propios tests)
+-------------------------------------------------------------------------
+optimization/tests/test_mos_forecaster.py, en
+test_train_mos_v2_pers_h24_causal_sin_fuga_futura:
+
+  HOY:  mut[var].iloc[i + L : i + L + 72] = 99999.0
+  ASI:   mut.loc[mut.index[i + L : i + L + 72], var] = 99999.0
+
+Por que: con pandas >= 3 Copy-on-Write esta siempre activo y la asignacion
+encadenada NO escribe (ChainedAssignmentError). El test corrompe el futuro para
+comprobar que pers_h24 no lo lee, pero la corrupcion no ocurre y el assert falla.
+Medido: pandas 3.0.5 da 17/18; en pandas 2 da 18/18. El codigo de 5.8 esta bien.
+Ademas conviene fijar pandas en requirements o saltar el test si no hay CoW,
+porque hoy el mismo test da resultados distintos segun la maquina.
+
+-------------------------------------------------------------------------
+M1. DNI Y DHI REALES
+-------------------------------------------------------------------------
+M1.1 Sacarlos del falso proxy. En mos_forecaster.py, _PROXY (linea 56):
+
+  _PROXY = {
+      "shortwave_radiation": "ghi",
+      "direct_normal_irradiance": "ghi",   <-- quitar
+      "diffuse_radiation": "ghi",          <-- quitar
+      ...
+  }
+
+M1.2 Declararlos. En el mismo archivo:
+  - _ECMWF_COLS (linea 80): anadir sus columnas del NWP crudo
+        "direct_normal_irradiance": "dni",
+        "diffuse_radiation": "dhi",
+  - _V2_FEATS (linea 71): declarar su X, igual que ya se hizo con nubes y
+    viento. Minimo: el crudo del NWP + pers_h24 + hora. No inventes features:
+    si no hay una con fundamento fisico, deja las tres y se mide.
+
+M1.3 El script necesita DOS directorios. train_mos_v2.py solo lee
+--data-dir/ecmwf/ecmwf_YYYY_MM.parquet, y ahi NO estan DNI ni DHI. Los datos
+reales estan en otro arbol, con muy poco solapamiento:
+
+  data/ecmwf/      (el que ya usa el script): shortwave_radiation,
+                   temperature_2m, cloud_cover, wind_speed_10m,
+                   relative_humidity_2m, surface_pressure, origen
+  data/ecmwf_v2/    direct_normal_irradiance, diffuse_radiation, precipitation,
+                   wind_speed_100m, wind_speed_10m, origen
+
+O sea: ecmwf_v2 NO tiene GHI ni temperatura, y ecmwf NO tiene DNI ni DHI. Hay
+que UNIR los dos por indice horario, no apuntar --data-dir a uno solo. Anade un
+--data-dir-v2 (o equivalente) y une con merge/join, declarando cuantos huecos
+quedan y de que meses. No rellenes con 0.
+
+-------------------------------------------------------------------------
+M2. REENTRENAR Y MEDIR
+-------------------------------------------------------------------------
+Entrenar cloud_cover, wind_speed_100m, direct_normal_irradiance y
+diffuse_radiation con _pers_idx causal (el de 5.8) y el mismo split
+(2024 train, jul-dic 2025 test).
+
+M2.1 Tabla obligatoria por variable. Ya la hiciste una vez, repitela:
+    MAE | corr | std | media | skill | baseline_media_MAE | baseline_constante_MAE
+Y contando cuantos valores entran (n_test), porque sin n no se puede comparar.
+En nubes el constante 100 % daba 14.87 frente a 15.15 del modelo: tabula el
+baseline o el MAE solo engana.
+
+M2.2 Criterios de aceptacion:
+  - DNI: MAE mejor o igual que el falso proxy actual. El dossier de referencia
+    reporta -29.9 % (77.57 -> 54.38 W/m2). Si no lo alcanzas, se reporta el
+    numero real y NO se adopta.
+  - DHI: MAE mejor o igual. Dossier: -11.5 % (19.44 -> 17.20 W/m2).
+  - Nubes y viento: no deben empeorar respecto a 15.15 y 0.62. Si empeoran al
+    cambiar la data de entrada, para y reporta: no ajustes nada para que pase.
+  - Y una prueba de coherencia fisica: DNI y DHI no negativos, DHI <= GHI,
+    y banda P10 <= P50 <= P90 si aplica.
+
+M2.3 Artefactos. Nombres nuevos, sin sobrescribir nada:
+  lgbm_mos_direct_normal_irradiance_v2.txt
+  lgbm_mos_diffuse_radiation_v2.txt
+  + manifiesto con sha256 de cada uno, en LF (save_model escribe CRLF en Windows
+    y el sha del blob de git es el del LF).
+
+-------------------------------------------------------------------------
+M3. NO HAGAS
+-------------------------------------------------------------------------
+  - No sobrescribas los 8 boosters v1 congelados ni los _v2 que ya existen.
+  - No toques los parquets de data/reports: son datos del autor.
+  - No uses git add -A.
+  - No inventes 0 donde falta dato: null declarado y warning.
+  - No ajustes cifras para cumplir un criterio. Si falla, se reporta.
+
+-------------------------------------------------------------------------
+DATOS QUE NECESITAS SABER (medidos, no supuestos)
+-------------------------------------------------------------------------
+  - data/ecmwf_v2/ tiene 24 archivos, PERO:
+        2024_01 y 2024_02 estan VACIOS (0 valores validos en todas las columnas)
+        los otros 22 van de 645 a 744 validos
+        total DNI validos en todo el arbol: 16.005
+    O sea: el train empieza en 2024-03, no en 2024-01. Declaralo. Si quieres el
+    ano completo hay que redescargar esos dos meses, y eso lo decide el autor.
+  - La columna 'origen' de ecmwf_v2 dice ECMWF_IFS025_ms: ese viento YA viene en
+    m/s, consistente con el fix de 5.8. No lo vuelvas a convertir.
+  - Referencia de unidades para no repetir el error de la vez pasada: comprueba
+    con una llamada real y un ratio, no con el comentario del codigo. Asi se
+    descubrio el x3.6.
+
+-------------------------------------------------------------------------
+DESPUES
+-------------------------------------------------------------------------
+Con DNI y DHI causales y medidos, la Tarea 0 se corre UNA sola vez: unificar
+forecaster.py (default openmeteo), deploy_pi.sh (patchtst) y
+data_loader.py:154 (patchtst hardcodeado), y re-correr la Fase 1 con mos.
+
+Si algo de lo anterior no cuadra con lo que ves en el repo, dilo antes de
+implementar. Prefiero una pregunta a un artefacto que haya que rehacer.

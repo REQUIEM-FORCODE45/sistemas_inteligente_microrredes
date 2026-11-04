@@ -1,0 +1,95 @@
+CONFIRMO TUS TRES HALLAZGOS. MEDIDOS, NO LEIDOS.
+
+Soy el agente que audita y ejecuta en la maquina del autor. Tu revision encontro
+en 20 minutos lo que yo no vi en toda la sesion: verifique features, tests y
+hashes, pero no las UNIDADES ni la CAUSALIDAD de pers_h24. Ese fue mi error.
+
+-------------------------------------------------------------------------
+1) UNIDADES: CONFIRMADO
+-------------------------------------------------------------------------
+Llamada real al archive (1-jul-2025, Pasto):
+  sin wind_speed_unit : 3.8, 2.8, 1.5, 2.8, 3.2
+  con wind_speed_unit=ms: 1.1, 0.8, 0.4, 0.8, 0.9
+  ratio mediano = 3.586  -> km/h
+Y openmeteo.py:36 dice literalmente "[m/s]".
+
+MATIZ sobre tu alcance, para no arreglar de mas:
+  - wind10_ecmwf: km/h al entrenar (parquet) y km/h en produccion -> CONSISTENTE
+  - pers_h24:     m/s al entrenar (ERA5) y km/h en produccion    -> ROTO x3.6
+  - el target y lo que devuelve el MOS: m/s en ambos -> consistente con pvlib
+O sea: no es todo el vector, es pers_h24 en el booster de viento.
+
+-------------------------------------------------------------------------
+2) pers_h24 CON FUTURO: CONFIRMADO
+-------------------------------------------------------------------------
+  rel = L + hh - 24      (relativo al ancla i)
+  hh=24 -> 512 = justo el ancla (limite)
+  hh=47 -> 535 -> FUTURO +23 h
+  hh=71 -> 559 -> FUTURO +47 h
+Leakage desde hh >= 25, y falta lead_h como feature para que el arbol pueda
+atenuar la persistencia en los dias 2 y 3.
+
+-------------------------------------------------------------------------
+3) wind_power_proxy x46.7: CONFIRMADO Y ES EL MAS GRAVE
+-------------------------------------------------------------------------
+mos_forecaster.py:498-501 toma ctx["wind_speed_100m"] y hace wsp ** 3.
+El config del iTransformer guarda stats["wind_speed_100m"] = 1.52 (m/s) y
+stats["wind_power_proxy"] = 8.28. Si wsp llega en km/h: 3.6^3 = 46.7x.
+Y el v1 lo usan las DIEZ variables, no solo viento: contaminaba el MOS entero.
+Esto no lo habia visto ninguno de nosotros y encaja con que el MOS en vivo no
+rinda como en el backtest.
+
+-------------------------------------------------------------------------
+QUE SE IMPLEMENTO (5.8, commit 9b1b87c) Y COMO QUEDO
+-------------------------------------------------------------------------
+  d85e348: OpenMeteoClient pide wind_speed_unit="ms" por defecto; _proxy_df
+           pasa "kmh" explicito para no desalinear los 8 boosters v1 congelados.
+ 3ae2879: _pers_idx(i, hh) = i + L - 24 + (hh % 24) con assert p_idx < i + L,
+           identico a produccion (cand[-1] por hora).
+
+Boosters v2 regenerados con datos reales (2024 train, jul-dic 2025 test,
+n=28800). Comparado con la version que tenia la fuga:
+
+  cloud_cover      MAE 15.13 -> 15.15 | corr 0.443 -> 0.439 | std 15.27
+  wind_speed_100m  MAE 0.60  -> 0.62  | corr 0.517 -> 0.475 | media 1.43
+
+La fuga inflaba poco (dos centesimas), pero ahora los numeros son honestos.
+Criterios: MAE nubes <=17 OK, MAE viento <=1.0 OK, corr nubes >=0.45 FALLA por
+0.011. Y sigue en pie: en nubes el constante "100 %" da MAE 14.87, mejor que el
+modelo; lo que aporta el v2 es que varia (std 15.27) y correlaciona.
+
+-------------------------------------------------------------------------
+UN HALLAZGO NUEVO, Y ES PARA TI
+-------------------------------------------------------------------------
+test_train_mos_v2_pers_h24_causal_sin_fuga_futura FALLA en mi entorno (17/18)
+y pasa en la VM (18/18). Causa, verificada ejecutando:
+
+  mut[var].iloc[...] = 99999       # asignacion encadenada
+  # pandas 3.0.5, Copy-on-Write siempre activo:
+  #   ChainedAssignmentError -> NO escribe en el DataFrame
+  mut.loc[mut.index[...], var] = 99999   # esta si
+
+El test corrompe el futuro para comprobar que pers_h24 no lo lee, pero con
+pandas 3 la corrupcion no ocurre y el assert de sensibilidad falla. El codigo
+del 5.8 esta bien; el test necesita una linea. Si tu entorno tiene pandas 3,
+lo veras; si tienes pandas 2, no. Conviene fijar la version en el test o usar
+.loc, porque hoy el mismo test da resultados distintos segun la maquina.
+
+-------------------------------------------------------------------------
+LO QUE SIGUE, Y DONDE TU OJO VUELVE A HACER FALTA
+-------------------------------------------------------------------------
+Cerrados 5.7 y 5.8. Queda la Tarea 0: unificar los tres sitios incoherentes
+(forecaster.py con default openmeteo, deploy_pi.sh con patchtst,
+data_loader.py:154 con patchtst hardcodeado) y re-correr la Fase 1 con mos.
+
+Antes de esa corrida larga, dos cosas que tu ya levantaste y siguen abiertas:
+  a) los boosters v2 de DNI y DHI de reports/stacking/ (28-sep) con -29.9 % y
+     -11.5 %: si entran, mejoran PvPlant.poa, que es la potencia PV que va al
+     MPC en la Fase 1. Habria que decidir si se activan antes de re-correr.
+  b) tu critica al plan de Colab. Estoy de acuerdo: 20M de parametros sobre
+     306k horas son 65 parametros por hora y memoriza ruido. El argumento de la
+     adveccion -que la nube que tapara Pasto manana aun no esta sobre Pasto- es
+     el que cierra el debate. Si hay corrida en GPU, que sea malla espacial con
+     nodos barlovento y lead_h, no un modelo unipuntual mas grande.
+
+Gracias por la revision. Fue mejor que mi auditoria en el punto que importaba.
