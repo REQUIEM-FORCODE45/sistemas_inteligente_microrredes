@@ -685,6 +685,38 @@ mueve las cifras del capítulo**. Pero sí afecta a (a) lo que **la página mues
 viento10, persistencia y hora **sin el viento100 del NWP**, que solo mete ruido.
 
 
+### 11.6 Micro-cierre: DNI y DHI reales (2026-11-04)
+
+`PvPlant.poa` (`pv.py:68-77`) usa `pvlib.irradiance.get_total_irradiance` con
+`surface_tilt_deg = 2.0`, asi que el termino reflejado del suelo que multiplica GHI vale
+`(1 - cos 2°)/2 = 0.000305`. En la practica `poa_global` sale de
+`DNI·cos(AOI) + DHI·0.9997` y **GHI apenas participa**. Por eso DNI y DHI no son un
+detalle: son la potencia PV que entra al MPC.
+
+Antes se predecian con GHI de falso proxy (`_PROXY`, runtime v1 legado). Ahora hay rama v2
+con los valores reales de `ecmwf_ifs025` (`_V2_FEATS` con `dni_ecmwf` / `dhi_ecmwf`),
+entrenados con `_pers_idx` causal y los dos arboles de parquet unidos por indice
+(`--data-dir-v2`).
+
+| variable | publicar GHI (antes) | **MOS v2** | mejora | diurno (antes -> mejora) |
+|---|---|---|---|---|
+| **DNI** | MAE **86,89** | **MAE 60,18** · corr 0,913 · std 246,94 · media 193,89 · skill 0,733 | **−30,7 %** | 174,04 → **−65,4 %** |
+| **DHI** | MAE **130,50** | **MAE 19,39** · corr 0,940 · std 104,09 · media 83,16 · skill 0,794 | **−85,1 %** | 261,96 → **−92,6 %** |
+
+Test jul-dic 2025, n = 4.416 (2.199 diurnas), alineado a `era5_v3` (52.608 h, 2020-2025).
+Baseline de train: DNI 225,56 y DHI 93,90.
+
+**Criterio del micro-cierre** — "mejor o igual que el falso proxy actual" — **CUMPLE** en las dos.
+El dossier (54,38 y 17,20) **no es comparable**: se midio con otro split y con `pers_h24`
+no causal. Se reporta y no se usa como criterio.
+
+**Controles** (no se guardan): `cloud_cover` 15,149 y `wind_speed_100m` 0,618, identicos a
+5.8, o sea que el cambio de datos de entrada no degrado lo ya cerrado.
+
+**Datos declarados**: `ecmwf_v2/ecmwf_2024_01` y `_02` estan **vacios** (0 validos), asi que
+el train de DNI/DHI arranca en **2024-03**. Los huecos se declaran por mes y no se rellenan.
+
+
 ### 11.5 5.7 EJECUTADO y medido con datos reales (2026-11-03) — CERRADO
 
 El implementador dejó el **runtime** (`cloud_cover` fuera del `_PASS_THROUGH`,

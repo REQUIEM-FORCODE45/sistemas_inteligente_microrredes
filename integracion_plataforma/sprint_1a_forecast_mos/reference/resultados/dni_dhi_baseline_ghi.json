@@ -1,0 +1,22 @@
+{
+ "DNI": {
+  "mae_publicar_ghi": 86.8908,
+  "mae_publicar_ghi_diurno": 174.0415,
+  "mae_mos_v2": 60.1788,
+  "mejora_pct": 30.74,
+  "mejora_pct_diurno": 65.42,
+  "dossier": 54.38,
+  "n_test": 4416,
+  "n_diurno": 2199
+ },
+ "DHI": {
+  "mae_publicar_ghi": 130.4986,
+  "mae_publicar_ghi_diurno": 261.9636,
+  "mae_mos_v2": 19.3853,
+  "mejora_pct": 85.15,
+  "mejora_pct_diurno": 92.6,
+  "dossier": 17.2,
+  "n_test": 4416,
+  "n_diurno": 2199
+ }
+}
