@@ -201,3 +201,39 @@ corre de punta a punta con datos sintéticos (cloud MAE 0.84, wind
 sintéticos (ver v2, nombres semánticos, LF, contrato 72×10 sin NaN).
 **Viejos publicados (intactos)**: cloud
 `ae5509dd…0e233b6`, wind `b3f62d1a…a0c68a6bcf`.
+
+---
+
+## Sprint-1 5.8 — unidades m/s, descontaminación v1 y pers_h24 causal (2026-11-04)
+
+Especificación: `docs/SPRINT_1_PASO_5_8_UNIDADES_Y_CAUSALIDAD.md` + §11.6.
+Bloqueante antes de Tarea 0. Implementado en esta VM; reentreno real en la
+máquina del autor (parquet ausentes aquí, igual que en 5.7).
+
+**T1** (`weather/openmeteo.py`): campo `wind_speed_unit: str = "ms"` +
+parámetro en `_base_params()` (afecta a `fetch_archive` y `fetch_forecast`:
+contexto MOS/PatchTST/openmeteo, verdad ERA5 y `ecmwf_crudo` pasan a m/s).
+
+**T2** (`mos_forecaster.py` `_proxy_df`): `wind_speed_unit="kmh"` explícito
+con comentario (paridad con `data/ecmwf/` y `_ecmwf_frame`, sin tocar los
+10 boosters publicados). **No-regresión medida en vivo**: un día de archive
+con kmh-explícito es **byte-idéntico** al default anterior (24/24 filas;
+media 15.58 km/h, coherente con el diagnóstico). `_ecmwf_frame` intacto.
+
+**T3** (`train_mos_v2.py`): `pers_h24` causal
+(`p_idx = i+L-24+(hh%24)` + `assert p_idx < i+L`, idéntico a producción).
+`row_for` y el índice extraídos a `_row_for` / `_pers_idx` (testeables).
+
+**T4** (3 tests nuevos, 18/18 en verde): default `ms` / `kmh` explícito;
+contexto `ms` (vivo y anchor) + proxy `kmh` (captura de kwargs, sin red);
+**mutante anti-fuga verificado**: con `t_idx-24` el test FALLA, con el fix
+PASA (futuro a 99999.0, pers_h24 bit-idéntico en 72 h).
+
+**T5** (humo sintético, NO es T4): `s57_synthetic_smoke_manifiesto.json`
+actualizado con el script causal (cloud 0.85, wind 0.25: solo plomería).
+Los `_v2` reales publicados siguen entrenados con pers no-causal:
+**la auditoría debe regenerarlos** (mismo comando que `480d7d5`).
+
+**Criterio abierto declarado**: con T1/T2 el contexto/`v1` en producción
+pasan a m/s (descontaminación pedida), pero los `_v2` reales se entrenaron
+con mezcla de unidades/pers no-causal; el reentreno real cierra el bucle.

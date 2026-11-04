@@ -42,22 +42,22 @@
   "tabla_T4": {
     "cloud_cover": {
       "n_test": 28800,
-      "MAE": 0.8384,
+      "MAE": 0.8468,
       "corr": 0.9979,
-      "std": 16.324,
-      "media": 59.7017,
-      "skill": 0.9398,
+      "std": 16.3259,
+      "media": 59.701,
+      "skill": 0.9391,
       "baseline_media_train": 60.0288,
       "baseline_MAE": 13.9157,
       "baseline_constante_100_MAE": 40.3079
     },
     "wind_speed_100m": {
       "n_test": 28800,
-      "MAE": 0.2572,
-      "corr": 0.7338,
-      "std": 0.367,
-      "media": 1.3955,
-      "skill": 0.3392,
+      "MAE": 0.2475,
+      "corr": 0.7539,
+      "std": 0.3599,
+      "media": 1.3946,
+      "skill": 0.364,
       "baseline_media_train": 1.3988,
       "baseline_MAE": 0.3892
     }
@@ -69,8 +69,8 @@
   "archivos": {
     "cloud_cover_nuevo": {
       "path": "/tmp/s57_out/lgbm_mos_cloud_cover_v2.txt",
-      "sha256": "acdebd9a045754a0e19950434de4d6cb874de234926f7ee480d98646b78a118d",
-      "bytes": 2844778
+      "sha256": "c1bd8aa77cdd144b8190fb6e9e7d3576f6b17ad5bb783ae53b47a1df673bdd26",
+      "bytes": 2843301
     },
     "cloud_cover_viejo": {
       "path": "/home/david/sistema_inteligente_microrredes/optimization/prediction/mos/models/lgbm_mos_cloud_cover.txt",
@@ -79,8 +79,8 @@
     },
     "wind_speed_100m_nuevo": {
       "path": "/tmp/s57_out/lgbm_mos_wind_speed_100m_v2.txt",
-      "sha256": "4d00b1c92a1af932d39a6397c68ca5ccb5f145f18570df6b9499222cb8c4a65e",
-      "bytes": 2889961
+      "sha256": "fbf41d3ab75acab76654eb47c41fdcd611d9a69ec49e06e8ce2dfb5565abfde6",
+      "bytes": 2908930
     },
     "wind_speed_100m_viejo": {
       "path": "/home/david/sistema_inteligente_microrredes/optimization/prediction/mos/models/lgbm_mos_wind_speed_100m.txt",
