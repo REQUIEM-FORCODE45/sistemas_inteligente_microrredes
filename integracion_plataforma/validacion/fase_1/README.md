@@ -30,3 +30,16 @@ Ver `MANIFEST.md` (archivo | bytes | sha256 completo) de esta carpeta.
 Nota: los hourly completos (`results/pasto_narino/experiments/expA2_hourly_<tag>_*.csv`,
 24 filas por celda) quedan en `results/` sin versionar (locales); lo versionado
 son los daily + `resultado.json` por carpeta.
+
+## Modelo de forecast de esta corrida (declarado a posteriori)
+
+Esta Fase 1 corrio **integramente con PatchTST**: `experiment_a.py:290` lo dice
+("Cadena de prediccion: PatchTST (72 h, P10/P50/P90) + ajuste de datos") y
+`backtest.py:5` tambien. Contexto = Open-Meteo `past_days` hasta cada hora de decision.
+
+**Carencia detectada**: ningun `resultado.json` de esta carpeta declara con que modelo se
+genero. Se declara aqui porque una cifra sin su cadena de prediccion no es reproducible.
+
+**Estos artefactos NO se sobrescriben.** La corrida con `mos` va en una carpeta aparte
+(`fase_1_mos/`) con su propio manifiesto. Las cifras se comparan **por par y declarando el
+cambio de modelo**; no se mezclan ni se reemplazan.
