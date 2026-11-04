@@ -1,7 +1,7 @@
 | archivo | bytes | sha256 |
 |---|---|---|
-| `AUDITORIA_FASE_1.md` | 5939 | `8c2e7ab534ddca8e77a89c7026a17e629082ffd0a965f3242ce7c3e501191962` |
-| `README.md` | 3467 | `0b5fd6610fff2308ef9c937ba847aea13d641a64eba5fad5dbff101ab17f407c` |
+| `AUDITORIA_FASE_1.md` | 7150 | `57dc572906f894b8787430a6eced96f678b6dd59d6c04a63d22a57581d1e724f` |
+| `README.md` | 4231 | `a172899e25048c961cb2fa5f460aa4d2579819b29be32d1cc0406ee599ae829f` |
 | `sonda_threads.json` | 541 | `41b67144857f41b85d674701d37f8ee901df031be44f207eff3f1371c227b3b7` |
 | `v1_bandc/expA2_daily_v1_c_dmpc.csv` | 849 | `9e8165c8180b2331348268e885405b8ba180ecde6c4aa0d03fbd9539ffeae11a` |
 | `v1_bandc/expA2_daily_v1_c_smpc.csv` | 847 | `ec79ffae03f60d0a38f70bc49cdc7703f099b46e0d4666d4479be03bfa6fe8d7` |
