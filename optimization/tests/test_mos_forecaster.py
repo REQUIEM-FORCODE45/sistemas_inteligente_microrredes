@@ -431,10 +431,82 @@ def test_train_mos_v2_pers_h24_causal_sin_fuga_futura():
         before = [_row_for(var, i, hh, era, ecw, v1_all)[0]["pers_h24"]
                   for hh in range(72)]
         mut = era.copy()
-        mut[var].iloc[i + L:i + L + 72] = 99999.0
+        # pandas>=3 (CoW siempre activo): la asignacion encadenada .iloc[]
+        # NO escribe (ChainedAssignmentError silencioso); se usa .loc con
+        # el indice para que la corrupcion del futuro ocurra de verdad.
+        mut.loc[mut.index[i + L:i + L + 72], var] = 99999.0
         after = [_row_for(var, i, hh, mut, ecw, v1_all)[0]["pers_h24"]
                  for hh in range(72)]
         assert before == after  # ni un bit del futuro
         assert all(v != 99999.0 for v in before)
         # Sensibilidad del test: con t_idx-24 el futuro SI entraria.
         assert float(mut[var].values[i + L + 71 - 24]) == 99999.0
+
+
+# --------------------------------------------------------------------- #
+# Micro-cierre DNI/DHI reales (M1): sin falso proxy con _v2.
+
+
+def test_v2_feats_dni_dhi_declaradas():
+    """DNI/DHI v2 = crudo real + pers + hora (minimo con fundamento)."""
+    from optimization.prediction.mos_forecaster import _V2_FEATS
+    assert _V2_FEATS["direct_normal_irradiance"] == [
+        "dni_ecmwf", "pers_h24", "hora"]
+    assert _V2_FEATS["diffuse_radiation"] == [
+        "dhi_ecmwf", "pers_h24", "hora"]
+
+
+def test_resolve_dni_dhi_sin_v2_legado():
+    """Sin _v2 de DNI/DHI: resuelven a v1 (falso proxy ghi, como se entreno)."""
+    from pathlib import Path
+    plan = _resolve_boosters(
+        Path(mos_mod.__file__).resolve().parent / "mos" / "models")
+    for var in ("direct_normal_irradiance", "diffuse_radiation"):
+        assert plan[var][1] == "v1", var
+        assert plan[var][2] == list(_FEAT_NAMES), var
+
+
+def _mos_con_dni_dhi_v2(monkeypatch, anchor, rule, proxy_val=400.0):
+    """Hermetico con boosters DNI/DHI v2 sinteticos (3 features con nombre)."""
+    from pathlib import Path
+    prov = _mos_hermetico(monkeypatch, anchor)
+    prov._load_lazy()
+    tmp = Path("/tmp/s57_dd2")
+    tmp.mkdir(exist_ok=True)
+    import lightgbm as lgb
+    from optimization.prediction.mos_forecaster import _V2_FEATS as F
+    for var in ("direct_normal_irradiance", "diffuse_radiation"):
+        r = rule if var == "direct_normal_irradiance" else (
+            lambda df: df["dhi_ecmwf"])
+        mp = _tiny_booster(tmp / f"{var}.txt", list(F[var]), r)
+        prov._lgbm[var] = lgb.Booster(model_file=mp)
+        prov._booster_ver[var] = "v2"
+        prov._booster_feats[var] = list(F[var])
+    base = _proxy_sintetico(anchor.floor("h"), 72)
+    base = base.assign(dni=proxy_val, dhi=proxy_val * 0.3)
+    prov._proxy_df = lambda start, hours, live: base.iloc[:hours]
+    return prov
+
+
+def test_dni_dhi_v2_usan_crudo_real(monkeypatch):
+    """El v2 predice sobre dni/dhi reales, no sobre el falso proxy ghi."""
+    anchor = pd.Timestamp("2025-07-15 12:00", tz=TZ)
+    prov = _mos_con_dni_dhi_v2(
+        monkeypatch, anchor,
+        lambda df: df["dni_ecmwf"], proxy_val=6.0)
+    fc = prov.forecast(days=3.0, anchor=anchor)
+    dni = fc.data["direct_normal_irradiance"].values
+    assert np.isfinite(dni).all()
+    # Identidad sobre dni=6.0 constante: con falso proxy (ghi diurno
+    # 0..800) la salida variaria con el dia en vez de ser constante ~6.
+    assert abs(dni.mean() - 6.0) < 1.0, dni.mean()
+    assert dni.std() < 0.5, dni.std()
+
+
+def test_dni_dhi_en_rango_fisico(monkeypatch):
+    """DNI/DHI no negativos (clip del MOS) en la ruta v1 legado."""
+    anchor = pd.Timestamp("2025-07-15 12:00", tz=TZ)
+    prov = _mos_hermetico(monkeypatch, anchor)
+    fc = prov.forecast(days=3.0, anchor=anchor)
+    assert (fc.data["direct_normal_irradiance"].values >= 0).all()
+    assert (fc.data["diffuse_radiation"].values >= 0).all()

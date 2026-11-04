@@ -54,8 +54,12 @@ _TRANSFORMS = {
     "precipitation": {"type": "none"},
 }
 _PROXY = {
-    "shortwave_radiation": "ghi", "direct_normal_irradiance": "ghi",
-    "diffuse_radiation": "ghi", "temperature_2m": "temp",
+    "shortwave_radiation": "ghi",
+    # M1.1: el falso proxy "ghi" para DNI/DHI SOLO rige el runtime v1
+    # legado (asi se entrenaron esos boosters). Con _v2 la rama v2 usa
+    # los tags reales dni/dhi de _ECMWF_COLS (ver rama v2 abajo).
+    "direct_normal_irradiance": "ghi", "diffuse_radiation": "ghi",
+    "temperature_2m": "temp",
     "relative_humidity_2m": "rh", "cloud_cover": "nubes",
     "wind_speed_100m": "viento", "wind_speed_10m": "viento",
     "surface_pressure": "pres", "precipitation": "ghi",
@@ -75,12 +79,22 @@ _V2_FEATS = {
     # T2: wind v2 = viento10 crudo (SIN escala x1.3) + persistencia + hora.
     # Sin el wind_speed_100m del NWP (sobreestima 10x, solo mete ruido).
     "wind_speed_100m": ["wind10_ecmwf", "pers_h24", "hora"],
+    # M1.2: DNI/DHI v2 = crudo real del NWP + pers_h24 + hora.
+    # Minimo con fundamento fisico (el crudo ya es la variable);
+    # sin features inventadas. Sin _v2 rige el legado (falso proxy).
+    "direct_normal_irradiance": ["dni_ecmwf", "pers_h24", "hora"],
+    "diffuse_radiation": ["dhi_ecmwf", "pers_h24", "hora"],
 }
 # ECMWF en vivo: variables pedidas -> tag de proxy/feature.
 _ECMWF_COLS = {"shortwave_radiation": "ghi", "cloud_cover": "nubes",
                "temperature_2m": "temp", "wind_speed_10m": "viento",
                "relative_humidity_2m": "rh", "surface_pressure": "pres",
-               "precipitation": "precip"}
+               "precipitation": "precip",
+               # M1.2: DNI/DHI reales del NWP (verificado en vivo: existen
+               # en archive y forecast de ecmwf_ifs025). Sin esto el MOS
+               # predeciria DNI/DHI con GHI de falso proxy.
+               "direct_normal_irradiance": "dni",
+               "diffuse_radiation": "dhi"}
 # Origen del pass-through (NO _PROXY: precipitation->ghi copiaría GHI crudo).
 _PASS_SRC = {"cloud_cover": "nubes", "precipitation": "precip"}
 _MOS_TARGETS = ["shortwave_radiation", "direct_normal_irradiance",
@@ -604,6 +618,21 @@ class MOSClimateForecaster(ClimateForecaster):
                 cols = {
                     "wind10_ecmwf": np.nan_to_num(
                         proxy_src["viento"].values[:horizon]).astype(float),
+                    "pers_h24": pers,
+                    "hora": fut_idx[:horizon].hour.values.astype(float),
+                }
+                central[var] = self._predict_var(var, cols)
+                continue
+            # M1.2: con booster v2 DNI/DHI usan su crudo real del NWP
+            # (tags dni/dhi) + pers + hora. Sin _v2 rige el legado v1
+            # (falso proxy ghi, tal como se entreno).
+            if var in ("direct_normal_irradiance", "diffuse_radiation") \
+                    and self._booster_ver.get(var) == "v2":
+                tag = {"direct_normal_irradiance": "dni",
+                       "diffuse_radiation": "dhi"}[var]
+                cols = {
+                    f"{tag}_ecmwf": np.nan_to_num(
+                        proxy_src[tag].values[:horizon]).astype(float),
                     "pers_h24": pers,
                     "hora": fut_idx[:horizon].hour.values.astype(float),
                 }
