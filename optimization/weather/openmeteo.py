@@ -58,6 +58,12 @@ class OpenMeteoClient:
     # Modelo NWP (solo archive/forecast que lo soporten, p.ej. ecmwf_ifs025
     # en archive para el contendiente crudo del PASO 2). None = default API.
     models: Optional[str] = None
+    # 5.8/T1: unidad de viento pedida a la API. Default "ms" (antes la API
+    # devolvia km/h aunque el comentario dijera [m/s]: ratio medido 3.586).
+    # Excepcion declarada: el proxy NWP de backtest del MOS (mos_forecaster
+    # _proxy_df) pasa "kmh" explicito para no desalinear los boosters
+    # entrenados sobre data/ecmwf/ (descargado sin unidad -> km/h).
+    wind_speed_unit: str = "ms"
 
     # ------------------------------------------------------------------ #
     def _get_with_retry(self, url: str, params: dict, timeout: int = 60) -> dict:
@@ -86,6 +92,7 @@ class OpenMeteoClient:
             "longitude": self.longitude,
             "hourly": ",".join(self.variables),
             "timezone": self.timezone,
+            "wind_speed_unit": self.wind_speed_unit,
         }
         if self.models:
             params["models"] = self.models

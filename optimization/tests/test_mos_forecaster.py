@@ -75,13 +75,16 @@ def _mos_hermetico(monkeypatch, anchor: pd.Timestamp) -> MOSClimateForecaster:
 
 
 # --------------------------------------------------------------------- #
-def test_mos_boosters_cargan_y_declaran_8_features():
-    """Los 10 boosters cargan y declaran las 8 features de _FEAT_NAMES."""
+def test_mos_boosters_cargan_y_declaran_sus_features():
+    """Cada booster declara su lista (8, salvo wind v2 real con 3)."""
     prov = MOSClimateForecaster(site_cfg=dict(SITE))
     prov._load_lazy()
     assert set(prov._lgbm) == set(_MOS_TARGETS) and len(prov._lgbm) == 10
     for var, booster in prov._lgbm.items():
-        assert booster.num_feature() == len(_FEAT_NAMES) == 8, var
+        ver = prov._booster_ver[var]
+        esperado = (list(_V2_FEATS[var]) if ver == "v2"
+                    else list(_FEAT_NAMES))
+        assert booster.num_feature() == len(esperado), (var, ver)
     assert prov._imodel is not None  # checkpoint 42/42 (strict=True)
 
 
@@ -256,15 +259,19 @@ def _tiny_booster(path, columns, rule):
     return str(path)
 
 
-def test_resolve_sin_v2_todo_v1():
-    """Sin _v2 en disco: las 10 resuelven a v1 con las 8 de _FEAT_NAMES."""
+def test_resolve_prefiere_v2_donde_existe():
+    """Con los _v2 reales: cloud+wind van a v2, el resto a v1."""
     from pathlib import Path
     models_dir = (Path(mos_mod.__file__).resolve().parent / "mos" / "models")
     plan = _resolve_boosters(models_dir)
     assert set(plan) == set(_MOS_TARGETS)
     for var, (path, ver, feats) in plan.items():
-        assert ver == "v1", var
-        assert feats == list(_FEAT_NAMES), var
+        if var in ("cloud_cover", "wind_speed_100m"):
+            assert ver == "v2", var
+            assert feats == list(_V2_FEATS[var]), var
+        else:
+            assert ver == "v1", var
+            assert feats == list(_FEAT_NAMES), var
 
 
 def test_resolve_prefiere_v2_y_guarda_lista(tmp_path):
@@ -340,8 +347,94 @@ def test_cloud_ya_no_es_passthrough_y_mide(monkeypatch):
     anchor = pd.Timestamp("2025-07-15 12:00", tz=TZ)
     prov = _mos_hermetico(monkeypatch, anchor)
     prov._load_lazy()
-    assert prov._booster_ver["cloud_cover"] == "v1"  # sin _v2: legado
+    assert prov._booster_ver["cloud_cover"] == "v2"  # _v2 real en repo
     fc = prov.forecast(days=3.0, anchor=anchor)
     c = fc.data["cloud_cover"].values
     assert np.isfinite(c).all()
     assert ((c >= 0) & (c <= 100)).all()
+
+
+# --------------------------------------------------------------------- #
+# Sprint-1 5.8: unidades m/s, proxy en km/h, pers_h24 causal.
+
+
+def test_openmeteo_client_wind_speed_unit_ms_por_defecto():
+    """OpenMeteoClient pide m/s por defecto; kmh solo si se pide."""
+    from optimization.weather.openmeteo import OpenMeteoClient
+    assert OpenMeteoClient()._base_params()["wind_speed_unit"] == "ms"
+    assert OpenMeteoClient(
+        wind_speed_unit="kmh")._base_params()["wind_speed_unit"] == "kmh"
+
+
+def test_mos_context_usa_ms_y_proxy_mantiene_kmh(monkeypatch):
+    """_context_df usa ms (vivo y anchor); _proxy_df backtest mantiene kmh."""
+    import optimization.prediction.mos_forecaster as m
+
+    calls = []
+    tz = "America/Bogota"
+
+    class FakeClient:
+        def __init__(self, **kw):
+            calls.append(kw)
+            self._kw = kw
+            self.timezone = kw.get("timezone", tz)
+
+        def _df(self, idx):
+            return pd.DataFrame(1.0, index=idx,
+                                columns=self._kw["variables"])
+
+        def fetch_forecast(self, **kw):
+            now = pd.Timestamp.now(tz=self.timezone).floor("h")
+            return self._df(pd.date_range(now - pd.Timedelta(hours=600),
+                                          periods=600, freq="h",
+                                          tz=self.timezone))
+
+        def fetch_archive(self, start, end):
+            return self._df(pd.date_range(
+                pd.Timestamp(start, tz=self.timezone),
+                pd.Timestamp(end, tz=self.timezone) + pd.Timedelta(hours=23),
+                freq="h", tz=self.timezone))
+
+    monkeypatch.setattr(m, "OpenMeteoClient", FakeClient)
+    prov = MOSClimateForecaster(site_cfg=dict(SITE))
+    calls.clear()
+    prov._context_df(None)
+    assert calls and calls[-1].get("wind_speed_unit", "ms") == "ms"
+    calls.clear()
+    anchor = pd.Timestamp("2025-07-15 12:00", tz=tz)
+    prov._context_df(anchor)
+    assert calls and calls[-1].get("wind_speed_unit", "ms") == "ms"
+    calls.clear()
+    # backtest: end < cut -> solo rama archive, sin _ecmwf_frame (sin red).
+    prov._proxy_df(anchor, 2, live=False)
+    assert calls and calls[-1].get("wind_speed_unit") == "kmh"
+
+
+def test_train_mos_v2_pers_h24_causal_sin_fuga_futura():
+    """Mutante anti-fuga: corromper el futuro no cambia pers_h24 (72h).
+
+    Con la formula vieja (t_idx-24) hh>=24 leeria el futuro (>= i+L);
+    con p_idx = i+L-24+(hh%24) las 72 horas son bit-identicas.
+    """
+    from optimization.prediction.mos.train_mos_v2 import _row_for, L
+    n = L + 200
+    idx = pd.date_range("2024-01-01", periods=n, freq="h")  # naive = era5
+    era = pd.DataFrame(index=idx)
+    era["ghi_toa"] = 300.0
+    for c in ("cloud_cover", "wind_speed_100m"):
+        era[c] = np.arange(n, dtype=float)
+    ecw = pd.DataFrame({"viento": 2.0, "nubes": 50.0, "temp": 15.0},
+                       index=idx)
+    v1_all = {"cloud_cover": np.zeros(72), "wind_speed_100m": np.zeros(72)}
+    i = 100
+    for var in ("cloud_cover", "wind_speed_100m"):
+        before = [_row_for(var, i, hh, era, ecw, v1_all)[0]["pers_h24"]
+                  for hh in range(72)]
+        mut = era.copy()
+        mut[var].iloc[i + L:i + L + 72] = 99999.0
+        after = [_row_for(var, i, hh, mut, ecw, v1_all)[0]["pers_h24"]
+                 for hh in range(72)]
+        assert before == after  # ni un bit del futuro
+        assert all(v != 99999.0 for v in before)
+        # Sensibilidad del test: con t_idx-24 el futuro SI entraria.
+        assert float(mut[var].values[i + L + 71 - 24]) == 99999.0

@@ -441,7 +441,12 @@ class MOSClimateForecaster(ClimateForecaster):
                 # Misma fuente que el entrenamiento (ECMWF IFS, no ERA5):
                 # si no, el proxy ES la verdad y el MOS corrige una entrada
                 # perfecta (VERIFICACION_PASO2.md Problema 2).
-                models="ecmwf_ifs025")
+                models="ecmwf_ifs025",
+                # 5.8/T2: km/h explicito. data/ecmwf/ se descargo sin
+                # wind_speed_unit (-> km/h), igual que _ecmwf_frame en vivo;
+                # con el default "ms" el backtest desalinearia los 8
+                # boosters v1 congelados (y los 2 _v2).
+                wind_speed_unit="kmh")
             arch = client.fetch_archive(
                 now_hour.strftime("%Y-%m-%d"), hi.strftime("%Y-%m-%d"))
             if arch.empty:
