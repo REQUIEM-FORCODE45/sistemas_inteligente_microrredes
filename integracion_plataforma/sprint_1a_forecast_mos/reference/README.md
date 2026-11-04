@@ -14,7 +14,7 @@ vivo), 2026-10-28. Detalle en `../VERIFICACION.md`. Runs con código
 | `resultados/s1a_resumen_2m_step6_h24ghi.csv` | 2794 | `b2a7dcfc35dd55986ea092f55f5d2e8dae1ad0c4eed44ba177918c908c922142` |
 | `resultados/p1_weathercard_mos_badge.png` | 114256 | `8596488ccc91d8c260a45c305e02a753651edabb5c666182afac0b1d9831aab8` |
 | `resultados/p1_antes_despues_24h.json` | 4721 | `63c26a06da0990077a65dfdc7d2fe80665aabfdb410d2a13d8af82a85242c2b7` |
-| `resultados/s57_synthetic_smoke_manifiesto.json` | 2340 | `adf83050dd6b6a747a7b8ed1a951fc0479f7bff8ec09c60ebab76182307b3f94` |
+| `resultados/s57_synthetic_smoke_manifiesto.json` | 4224 | `34f593c79054de410d3f3417b3bb593d83efc7e76c909e67ec7ed64133b4ecc3` |
 > Los sha256 son **completos (64 hex)**, recalculados en el mismo commit que
 > toca este README. Verificación canónica: `git show HEAD:<path> | sha256sum`.
 > Los canónicos vivos están en `results/pasto_narino/forecast/`; aquí van

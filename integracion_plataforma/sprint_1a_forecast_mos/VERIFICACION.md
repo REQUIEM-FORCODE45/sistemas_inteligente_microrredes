@@ -237,3 +237,30 @@ Los `_v2` reales publicados siguen entrenados con pers no-causal:
 **Criterio abierto declarado**: con T1/T2 el contexto/`v1` en producción
 pasan a m/s (descontaminación pedida), pero los `_v2` reales se entrenaron
 con mezcla de unidades/pers no-causal; el reentreno real cierra el bucle.
+
+---
+
+## Micro-cierre DNI/DHI reales + fix pandas 3 (2026-11-04, runtime listo, reentreno real pendiente)
+
+**M0**: mutante `.iloc[]` → `.loc[mut.index[…], var]` (CoW/pandas 3 portable;
+pandas 2.2.2 aquí, mismo resultado que en pandas 3).
+
+**M1 (runtime)**: `_ECMWF_COLS` += dni/dhi (verificado en vivo: existen en
+archive y forecast de ecmwf_ifs025); `_V2_FEATS` DNI/DHI = [crudo, pers,
+hora]; rama v2 usa tags reales; legado v1 intacto (falso proxy ghi).
+26→31 tests en verde (resolve, ramas v2 con boosters sintéticos,
+rango físico, prefieren-v2).
+
+**M1.3+M2 (script)**: `--data-dir-v2` con unión outer por índice horario;
+huecos declarados por mes (2024-01/02 vacíos en el caso real); NaN se
+excluye con conteo (n_excluidos_nan en T4), nunca 0 inventado; 4 targets
+(cloud+wind = control sin guardar, dni+dhi = nuevos `_v2`); T4 con
+n_test + baselines media/constante; manifiesto con 2 nuevos + 2 viejos
++ 2 controles existentes; LF normalizado; veredicto registrado sin
+auto-adoptar.
+
+**Humo sintético** (NO es T4): manifiesto actualizado
+(`s57_synthetic_smoke_manifiesto.json`, sha `34f593c7…`): exclusión
+10.584 filas train (meses vacíos) funciona; cloud/wind control sin
+cambios; DNI/DHI v2 con nombres semánticos cargan en el runtime.
+**Reentreno real**: en la máquina del autor (parquet ausentes aquí).
