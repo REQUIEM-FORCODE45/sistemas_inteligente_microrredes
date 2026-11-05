@@ -57,9 +57,11 @@ def _proxy_sintetico(now_hour: pd.Timestamp, hours: int) -> pd.DataFrame:
     idx = pd.date_range(now_hour, periods=hours, freq="h", tz=TZ)
     hour = idx.hour.values
     ghi = np.maximum(0, np.sin((hour - 6) / 12 * np.pi)) * 800
+    # M1: dni/dhi como en produccion (_ECMWF_COLS reales).
     return pd.DataFrame({
         "ghi": ghi, "nubes": 50.0, "temp": 15.0, "viento": 2.0,
         "rh": 70.0, "pres": 758.0, "precip": 0.0,
+        "dni": np.maximum(0, ghi * 0.7), "dhi": np.maximum(0, ghi * 0.3),
     }, index=idx)
 
 
@@ -260,13 +262,13 @@ def _tiny_booster(path, columns, rule):
 
 
 def test_resolve_prefiere_v2_donde_existe():
-    """Con los _v2 reales: cloud+wind van a v2, el resto a v1."""
+    """Con los 4 _v2 reales: van a v2 con su lista; el resto a v1."""
     from pathlib import Path
     models_dir = (Path(mos_mod.__file__).resolve().parent / "mos" / "models")
     plan = _resolve_boosters(models_dir)
     assert set(plan) == set(_MOS_TARGETS)
     for var, (path, ver, feats) in plan.items():
-        if var in ("cloud_cover", "wind_speed_100m"):
+        if var in _V2_FEATS:
             assert ver == "v2", var
             assert feats == list(_V2_FEATS[var]), var
         else:
@@ -456,14 +458,14 @@ def test_v2_feats_dni_dhi_declaradas():
         "dhi_ecmwf", "pers_h24", "hora"]
 
 
-def test_resolve_dni_dhi_sin_v2_legado():
-    """Sin _v2 de DNI/DHI: resuelven a v1 (falso proxy ghi, como se entreno)."""
+def test_resolve_dni_dhi_con_v2_real():
+    """Con los _v2 reales: DNI/DHI van a v2 con sus 3 features."""
     from pathlib import Path
     plan = _resolve_boosters(
         Path(mos_mod.__file__).resolve().parent / "mos" / "models")
     for var in ("direct_normal_irradiance", "diffuse_radiation"):
-        assert plan[var][1] == "v1", var
-        assert plan[var][2] == list(_FEAT_NAMES), var
+        assert plan[var][1] == "v2", var
+        assert plan[var][2] == list(_V2_FEATS[var]), var
 
 
 def _mos_con_dni_dhi_v2(monkeypatch, anchor, rule, proxy_val=400.0):

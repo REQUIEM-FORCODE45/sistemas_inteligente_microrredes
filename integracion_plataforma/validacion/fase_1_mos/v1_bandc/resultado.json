@@ -1,0 +1,79 @@
+{
+ "pregunta": "Con la banda corregida (C = conformal_disjunto), el S-MPC se separa del D-MPC? Ventana de estres 2026-08-03/04/05 isla, SOC ini 0.65 cada celda (comparable entre estrategias, NO contra el periodo de 14 d).",
+ "provider": "mos",
+ "modelo": "iTransformer + LightGBM MOS (v2 causales)",
+ "boosters": {
+  "cloud_cover": "v2",
+  "wind_speed_100m": "v2",
+  "direct_normal_irradiance": "v2",
+  "diffuse_radiation": "v2"
+ },
+ "unidades_viento": "ms",
+ "por_dia": {
+  "smpc": [
+   {
+    "fecha": "2026-08-03",
+    "costo": 899634.0,
+    "ens": 6.559,
+    "diesel_L": 308.2
+   },
+   {
+    "fecha": "2026-08-04",
+    "costo": 863473.0,
+    "ens": 0.909,
+    "diesel_L": 305.3
+   },
+   {
+    "fecha": "2026-08-05",
+    "costo": 966643.0,
+    "ens": 4.066,
+    "diesel_L": 336.7
+   }
+  ],
+  "dmpc": [
+   {
+    "fecha": "2026-08-03",
+    "costo": 902859.8,
+    "ens": 9.468,
+    "diesel_L": 303.7
+   },
+   {
+    "fecha": "2026-08-04",
+    "costo": 869567.4,
+    "ens": 1.323,
+    "diesel_L": 306.5
+   },
+   {
+    "fecha": "2026-08-05",
+    "costo": 962556.7,
+    "ens": 4.066,
+    "diesel_L": 335.0
+   }
+  ]
+ },
+ "total_3d": {
+  "smpc": {
+   "costo_norm": 2731216.4,
+   "ens": 11.534,
+   "diesel_L": 950.3
+  },
+  "dmpc": {
+   "costo_norm": 2735431.3,
+   "ens": 14.857,
+   "diesel_L": 945.2
+  },
+  "delta_s_menos_d": {
+   "costo_total_pct": -0.19,
+   "costo_norm": -4214.9,
+   "costo_norm_pct": -0.15,
+   "metrica_citada": "costo_norm (-0.15 %); costo_total da -0.19 %",
+   "ens": -3.323,
+   "ens_pct": -22.4
+  }
+ },
+ "lectura": "Con mos, el S-MPC reduce el ENS frente al D-MPC en 3.32 kWh (22 %); en costo la separacion es marginal (-0.19 % total; -0.15 % norm). El dia 08-04 casi no discrimina (0.91 vs 1.32). Frente a PatchTST (ENS -5.13, -26.3 %; costo -0.68 %): el signo se mantiene en ambas metricas, la magnitud del ENS se atenua. NO se afirma nada sobre 14 dias ni p-valor.",
+ "archivos": [
+  "expA2_daily_v1_c_smpc.csv",
+  "expA2_daily_v1_c_dmpc.csv"
+ ]
+}

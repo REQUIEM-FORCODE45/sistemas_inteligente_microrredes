@@ -1,0 +1,56 @@
+{
+ "pregunta": "Cuanto vale el estocastico con red? 1 dia 2026-08-03, banda C, grid10 + grid30, smpc vs dmpc.",
+ "provider": "mos",
+ "modelo": "iTransformer + LightGBM MOS (v2 causales)",
+ "boosters": {
+  "cloud_cover": "v2",
+  "wind_speed_100m": "v2",
+  "direct_normal_irradiance": "v2",
+  "diffuse_radiation": "v2"
+ },
+ "unidades_viento": "ms",
+ "tabla_norm": {
+  "grid10": {
+   "smpc": 696460.5,
+   "dmpc": 721243.8,
+   "delta_pct_costo_norm": -3.44,
+   "delta_pct_costo_total": -3.47
+  },
+  "grid30": {
+   "smpc": 277795.1,
+   "dmpc": 288137.2,
+   "delta_pct_costo_norm": -3.59,
+   "delta_pct_costo_total": -3.13
+  }
+ },
+ "metrica_citada": "costo_norm (grid10 -3.44 %, grid30 -3.59 %); en costo_total: grid10 -3.47 %, grid30 -3.13 %",
+ "tabla_ens": {
+  "grid10": {
+   "smpc": 1.633,
+   "dmpc": 9.469,
+   "delta": -7.836
+  },
+  "grid30": {
+   "smpc": 3.209,
+   "dmpc": 9.468,
+   "delta": -6.26
+  }
+ },
+ "tabla_diesel_L": {
+  "grid10": {
+   "smpc": 238.1,
+   "dmpc": 231.9
+  },
+  "grid30": {
+   "smpc": 68.2,
+   "dmpc": 59.5
+  }
+ },
+ "lectura": "Con mos, el S-MPC gana en costo en los dos casos de red (grid10 -3.44 % norm, grid30 -3.59 % norm) y deja menos ENS (-7.84 y -6.26 kWh). Frente a PatchTST (grid30 +1.62 % norm a favor de D-MPC): el SIGNO SE INVIERTE en grid30 — con mos el estocastico paga menos y deja menos ENS. Se reporta invertido, no se ajusta.",
+ "archivos": [
+  "expA2_daily_v2_c_grid10_smpc.csv",
+  "expA2_daily_v2_c_grid10_dmpc.csv",
+  "expA2_daily_v2_c_grid30_smpc.csv",
+  "expA2_daily_v2_c_grid30_dmpc.csv"
+ ]
+}
