@@ -183,5 +183,51 @@ P2–P6 con el PR correspondiente **y su fila en el índice**. P7 con **una sola
 ahora posible) + corregir la frase contradictoria de su VERIFICACION. P8 con el lazo corriendo sobre un
 diagrama conectado. Los cuatro docs de correcciones (`PLAN_/VERIFICACION_/CIERRE_/CORRECCIONES_*`) **no
 son un pendiente técnico**: su contenido ya está verificado en `AUDITORIA_FORMULAS_Y_CALIBRACION.md` y
-`AUDITORIA_06_08_09_10.md`; solo falta decidir si se versionan o se quita la cita de `AGENTS.md`.
+`AUDITORIA_06_08_09_10.md`. ✅ **Resuelto 2026-11-04** (`fcce11e`): los cuatro se **versionaron**
+(63.696 B; existían solo en el stash y `AGENTS.md` los citaba sin estar en git).
 Ninguno de ellos cambia resultados publicados: P2/P3 son de UI-servicio, P1 es de rendimiento. (docs(sensores): P6 registro S1 + seccion 9 de pendientes)
+
+## 10. ESTADO DEL MOTOR PREDICTIVO Y DE LA TAREA 0 (2026-11-04)
+
+### Cerrado en el sprint 1
+
+| paso | resultado medido | artefacto |
+|---|---|---|
+| **5.0** pipeline de entrenamiento | reproduce los 10 MAE del dossier al centésimo; 9/10 boosters byte-idénticos | `7a5ff9c` |
+| **5.1** `cape`/`tcwv`/`delta_h` | **no adoptado**: con la fuente correcta GHI +1,1 % peor; `delta_h_topo` = 54 m, no 500-1200 | `7733b5c` |
+| **5.7** nubes y viento | nubes MAE 30,03 → **15,15** (−49,6 %); viento 4,86 → **0,62** (−87,3 %) | `480d7d5`, `b292d93` |
+| **5.8** unidades y causalidad | `wind_speed_unit="ms"` por defecto; `pers_h24` causal (`_pers_idx`). Coste de quitar la fuga: **0,02 MAE** | `9b1b87c`, `b292d93` |
+| **micro-cierre** DNI/DHI reales | DNI 86,89 → **60,18** (−30,7 %); DHI 130,50 → **19,39** (−85,1 %); diurno −65,4 % / −92,6 % | `264cb5a` |
+
+**Por qué DNI y DHI importan**: `PvPlant.poa` usa `get_total_irradiance` con `surface_tilt_deg = 2.0`,
+así que el término reflejado del suelo vale `(1-cos2°)/2 = 0.000305`: `poa_global` sale de
+`DNI·cos(AOI) + DHI·0.9997` y **GHI apenas participa**. Antes se predecían con GHI de falso proxy.
+
+**Boosters v2 en producción** (todos causales, versionados en LF con sha256): `cloud_cover`,
+`wind_speed_100m`, `direct_normal_irradiance`, `diffuse_radiation`. Los `v1` siguen intactos y
+`_resolve_boosters` prefiere `_v2` solo si el archivo existe.
+
+### Cerrado fuera del sprint
+
+- **No-regresión del cambio 18**: **EJECUTADA 2026-10-26** (no pendiente). Artefactos en
+  `cambio_18_simulacion_mpc_fisica/reference/resultados/`: `c6_noregresion_fase1_run2.txt`
+  (HiGHS **Optimal, gap 0 %**), `expA2_daily_c6_noregresion_test.csv`. Resultado: **ENS idéntico**,
+  costo **+0,023 %** por el fin del truncado de 60 s.
+- **4 docs de correcciones**: versionados (`fcce11e`).
+- **MANIFEST de `fase_1`**: tenía 2 sha obsoletos (`AUDITORIA_FASE_1.md` desde `5c2dfeb`;
+  `README.md` por la declaración del provider). Reparado, **31/31 OK** (`66bd783`).
+- **Provider de la Fase 1 declarado**: corrió **íntegramente con PatchTST**
+  (`experiment_a.py:290`, `backtest.py:5`). Ningún `resultado.json` lo decía; ahora sí en su README.
+
+### Abierto
+
+- **P8** — deriva plan→realidad: exige el lazo sobre un diagrama conectado. Sin cambios.
+- **Tarea 0** — re-correr la Fase 1 con `mos`, preservando `fase_1/` intacta. Spec en
+  **`docs/TAREA_0_MOS.md`**. Requiere pyomo + solver (VM Linux); este clon es solo revisión.
+  Queda por decidir el **presupuesto**: V1+V2 (lo que sostiene el capítulo) o también V3/V7/V5.
+
+### Criterio que sigue vigente
+
+Ninguna cifra se ajusta para que un criterio pase. Donde falla, se reporta: la correlación de nubes
+queda en **0,439** contra el umbral 0,45, y **el constante "100 %" da MAE 14,87 mejor que el modelo
+(15,15)** — lo que aporta el v2 es varianza (std 15,27) y correlación, no el MAE.
