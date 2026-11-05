@@ -378,6 +378,15 @@ los `None`. Corregido con `pd.to_numeric(errors="coerce")` en el probe y en `tra
 identicos al digito y DNI/DHI son byte-identicos (`fbc5ded8…`, `a6b27aa1…`), o sea que
 "funciono por suerte" era cierto pero esa suerte era estable. No hubo que reentrenar.
 
+Micro-auditoria dtype extendida (2026-11-05, repo completo): los dos sitios vivos
+ya estaban coaccionados y testeados (`probe_intermittencia_nubes._load_ecmwf_proxy`,
+`train_mos_v2` loops `ecw`/`ecw2`); `_to_dataframe` del cliente en vivo coacciona
+por columna (HO#2). Referencias congeladas declaradas sin tocar:
+`cambio_01/.../mos_multivariable.py` (mismo patron), `prediccion_en_vivo.py`
+(lecturas single-file, sin concat), scripts de `cambio_05` (single-file o concat
+de JSON con dropna). `results/**/*.parquet` sin lectores en el repo. Veredicto:
+limpio, sin codigo nuevo (tabla completa en el VERIFICACION del sprint).
+
 - Feature: energía de los coeficientes de alta frecuencia de la DCT de las últimas 6 h de `kt`.
 - **Criterio de cierre**: mismo protocolo; se adopta **solo** si mejora nubes o precipitación respecto a
   A.1 (con A.1 ya dentro, para aislar el efecto).

@@ -297,3 +297,21 @@ ecmwf/: limpio.
 
 **Tests 26/26** (2 nuevos: mes object→float con hueco declarado y
 `_row_for` con proxy coaccionado a NaN declarado, no 0).
+
+---
+
+## Micro-auditoria dtype extendida (2026-11-05): veredicto limpio
+
+Inventario completo de `read_parquet` del repo (8 archivos):
+
+| sitio | cubo | patron concat? | bomba? | accion |
+|---|---|---|---|---|
+| `mos/probe_intermittencia_nubes.py` `_load_ecmwf_proxy` | (a) vivo | si (mensual) | era | coaccion + test (4252f86) |
+| `mos/train_mos_v2.py` loops `ecw`/`ecw2` | (a) vivo | si (mensual) | era | coaccion (e512f6d) |
+| `weather/openmeteo.py` `_to_dataframe` | (a) vivo | no (respuesta unica) | no | ya coaccionaba por columna (HO#2) |
+| `cambio_01/.../mos_multivariable.py` | (b) congelado | si | latente | **declarado, no tocado** |
+| `cambio_01/.../prediccion_en_vivo.py` | (b) congelado | no (single-file) | no | revisado-limpio |
+| `cambio_05/.../descargar|explorar|fig|verificar` | (b) congelado | no (single-file; un concat de JSON con dropna) | no | revisado-limpio |
+| `results/**/*.parquet` | (c) salida | - | no | sin lectores en el repo (el panel lee el .json) |
+
+Sin codigo nuevo en este paso: los dos sitios vivos ya estaban cubiertos.
