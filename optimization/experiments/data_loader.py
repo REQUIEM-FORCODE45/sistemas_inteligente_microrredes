@@ -151,7 +151,9 @@ class ClosedLoopForecastProvider:
         self.band_mode = band_mode
         if forecaster is None:
             from optimization.prediction.forecaster import get_climate_provider
-            forecaster = get_climate_provider(self.site, name="patchtst")
+            # Tarea 0: sin nombre inventado; rige el default de la factory
+            # (mos). El nombre efectivo queda en fc.provider por celda-run.
+            forecaster = get_climate_provider(self.site, name=None)
         self.forecaster = forecaster
         self._cache: dict = {}
 

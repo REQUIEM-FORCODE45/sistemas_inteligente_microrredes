@@ -323,8 +323,8 @@ _PROVIDERS = {
 
 def get_climate_provider(site_cfg: dict = None,
                          name: str | None = None) -> ClimateForecaster:
-    """Factory: nombre o env FORECASTER (default openmeteo)."""
-    name = (name or os.environ.get("FORECASTER") or "openmeteo").lower()
+    """Factory: nombre o env FORECASTER (default mos, Tarea 0)."""
+    name = (name or os.environ.get("FORECASTER") or "mos").lower()
     if name == "mos":
         from optimization.prediction.mos_forecaster import (
             MOSClimateForecaster,  # import perezoso: evita ciclo con forecaster
