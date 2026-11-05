@@ -1,0 +1,81 @@
+ESTADO: TAREA 0 CERRADA Y VERIFICADA. LO UNICO QUE QUEDA: 5.2.
+
+Verificacion hecha en la maquina del autor por medicion, no por lectura de
+tu reporte:
+
+  fase_1/ intacta          31/31 sha256 contra su MANIFEST
+  fase_1_mos/              9/9 sha256, 10 archivos
+  deltas recalculados      desde los CSV crudos, coinciden al decimal
+  tests                    22/22
+  T0.1                     deploy_pi.sh=mos, data_loader con name=None,
+                           factory default mos (verificado en el codigo)
+  T0.4                     V3/V5/V7 declarados con motivo en el README
+
+Tu nota de "se reporta invertido, no se ajusta" en grid30 es exactamente lo
+que habia que hacer. Bien ahi.
+
+-------------------------------------------------------------------------
+LO QUE ENCONTRO LA TAREA 0 (esto es lo que va al capitulo)
+-------------------------------------------------------------------------
+  V1  dENS  -5.130 kWh (-26.3 %) con patchtst -> -3.323 kWh (-22.0 %) con mos
+      el signo se mantiene; la magnitud se atenua
+
+  V2  metrico costo_norm:
+      grid10  -1.81 % -> -3.44 %
+      grid30  +1.62 % -> -3.59 %   (signo invertido A FAVOR del S-MPC)
+      ENS     -5.325/-4.796 -> -7.836/-6.260 kWh
+
+  Y EL HALLAZGO, que no estaba en ninguna spec:
+      el MOS baja el ENS en LOS DOS brazos
+        S-MPC  14.384 -> 11.534  (-19.8 %)
+        D-MPC  19.514 -> 14.857  (-23.9 %)
+      Mejor pronostico = menos energia sin suministrar en todo el sistema, no
+      solo mas separacion entre controladores. Eso sostiene una afirmacion mas
+      fuerte que la comparacion S vs D.
+
+-------------------------------------------------------------------------
+UN CAMBIO MIO, PARA QUE NO LO PISES
+-------------------------------------------------------------------------
+forecaster.py: el docstring decia "default openmeteo" cuando get_climate_provider
+resuelve mos. Lo corregi (f10882c). El codigo ya estaba bien; el comentario
+mentia, y ese tipo de comentario hace que alguien "arregle" el default hacia
+atras dentro de tres meses. Si tocas ese archivo, parte de ahi.
+
+-------------------------------------------------------------------------
+LO QUE QUEDA
+-------------------------------------------------------------------------
+Del sprint 1: SOLO 5.2 (dct_high_freq_energy, intermitencia de nubes). Ya esta
+desbloqueado desde que 5.0 se ejecuto; la etiqueta de "bloqueado" quedo obsoleta.
+
+Fuera del sprint:
+  P8   deriva plan->realidad. Necesita el lazo sobre un diagrama conectado.
+       No es codigo: es tener un diagrama cargado.
+  V4   diferido por decision del autor.
+  Fase 2/3 de validacion (V5 lazo, Exp D).
+
+-------------------------------------------------------------------------
+QUE NECESITO QUE ME DIGAS
+-------------------------------------------------------------------------
+Dos opciones y las dos me valen:
+
+  (a) Haces 5.2: spec aparte, feature nueva, y NO tocas nada dentro de
+      integracion_plataforma/validacion/. Se mide como cualquier otra feature:
+      MAE, corr, std, media, skill y baseline, con n declarado. Si no mejora,
+      se reporta que no mejora y no se adopta (como 5.1).
+
+  (b) Paramos el codigo aqui. El sprint queda con 5.0, 5.1, 5.3-5.8 y la
+      Tarea 0 cerrados, que ya es publicable. El siguiente esfuerzo iria al
+      texto del capitulo, no a mas features.
+
+Dime cual y sigo. Si eliges (a), antes de empezar mira si la intermitencia de
+nubes tiene alguna senal real en los datos: si la serie de nubosidad no tiene
+varianza de alta frecuencia util, la feature no va a aportar y conviene saberlo
+antes de entrenar.
+
+-------------------------------------------------------------------------
+REGLAS QUE SIGUEN
+-------------------------------------------------------------------------
+  - fase_1/ y fase_1_mos/ no se tocan: son evidencia, con sha256.
+  - No uses git add -A.
+  - Si un criterio falla, se reporta; no se ajusta.
+  - Nada de reportar feasible como optimal.
