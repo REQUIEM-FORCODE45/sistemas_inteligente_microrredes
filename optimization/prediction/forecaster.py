@@ -10,7 +10,9 @@ Jerarquia actual:
   - OpenMeteoClimateForecaster  : operativo (NWP, sin GPU). El de produccion.
   - PatchTSTClimateForecaster   : modelo multivariado 72h (Pasto, Narino).
 
-Seleccion via factory: FORECASTER=openmeteo|patchtst|mos|itransformer (default openmeteo).
+Seleccion via factory: FORECASTER=openmeteo|patchtst|mos|itransformer
+(default mos desde Tarea 0; ver get_climate_provider, que resuelve
+name o env FORECASTER o "mos").
 
 """
 from __future__ import annotations

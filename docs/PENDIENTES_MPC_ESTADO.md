@@ -222,9 +222,52 @@ así que el término reflejado del suelo vale `(1-cos2°)/2 = 0.000305`: `poa_gl
 ### Abierto
 
 - **P8** — deriva plan→realidad: exige el lazo sobre un diagrama conectado. Sin cambios.
-- **Tarea 0** — re-correr la Fase 1 con `mos`, preservando `fase_1/` intacta. Spec en
-  **`docs/TAREA_0_MOS.md`**. Requiere pyomo + solver (VM Linux); este clon es solo revisión.
-  Queda por decidir el **presupuesto**: V1+V2 (lo que sostiene el capítulo) o también V3/V7/V5.
+- **Tarea 0** — ✅ **CERRADA** (`e58fad0` + `fcdf202`). Provider unificado en `mos`
+  (`deploy_pi.sh:52`, `data_loader.py` con `name=None`, factory default `mos`) y Fase 1
+  re-corrida **solo V1+V2** en `fase_1_mos/` (carpeta nueva, append-only). V3/V5/V7 **no
+  re-corridos y declarados con motivo** en su README.
+
+#### V1 — banda C, ventana de estrés (08-03/04/05, isla)
+
+| | PatchTST | **MOS** |
+|---|---|---|
+| Δ ENS (S−D) | −5,130 kWh (**−26,3 %**) | **−3,323 kWh (−22,0 %)** |
+| Δ `costo_total` | −0,68 % (`costo_norm` −0,62 %) | **−0,19 %** (`costo_norm` −0,15 %) |
+| ENS S-MPC | 14,384 | **11,534** |
+| ENS D-MPC | 19,514 | **14,857** |
+
+**El signo se mantiene, la magnitud del ENS se atenúa** (−26,3 % → −22,0 %). La afirmación
+del capítulo aguanta con el modelo que la plataforma sirve de verdad.
+
+#### V2 — red (grid10 + grid30, banda C), métrica `costo_norm`
+
+| | PatchTST | **MOS** |
+|---|---|---|
+| grid10 | −1,81 % | **−3,44 %** |
+| **grid30** | **+1,62 %** (a favor del D-MPC) | **−3,59 %** |
+| ENS grid10 / grid30 | −5,325 / −4,796 kWh | **−7,836 / −6,260 kWh** |
+
+**En grid30 el signo se invierte a favor del S-MPC.** Se reporta invertido, no se ajusta.
+
+#### Hallazgo nuevo: el MOS baja el ENS en LOS DOS brazos
+
+| brazo | PatchTST | MOS | Δ |
+|---|---|---|---|
+| S-MPC | 14,384 | 11,534 | **−19,8 %** |
+| D-MPC | 19,514 | 14,857 | **−23,9 %** |
+
+No es solo que el estocástico siga separándose del determinista: **el sistema entero deja menos
+energía sin suministrar porque el pronóstico es mejor**. Es un argumento más fuerte que la mera
+separación S vs D y sale gratis de esta corrida.
+
+#### Verificado por la auditoría (no solo leído)
+
+- **`fase_1/` intacta**: **31/31 sha256** contra su `MANIFEST.md`, antes y después.
+- `fase_1_mos/`: **9/9 sha256**, 10 archivos.
+- **Deltas recalculados desde los CSV crudos**, no desde el JSON: coinciden al decimal.
+- Tests: **22/22**.
+- Corregido el docstring de `forecaster.py` que decía "default openmeteo" cuando el código
+  resuelve `mos`.
 
 ### Criterio que sigue vigente
 
