@@ -1,0 +1,120 @@
+TAREA 0 CON MOS - ALCANCE FIJADO: V1 + V2
+
+Decision del autor (2026-11-04): la Fase 1 se republica con mos, pero los
+resultados de patchtst se guardan. Spec completa en docs/TAREA_0_MOS.md.
+
+Estado de partida: 5.7, 5.8 y el micro-cierre DNI/DHI cerrados. Los cuatro
+boosters v2 estan en el repo, son causales y ya estan activos:
+
+  cloud_cover                 MAE 15.15  (antes NWP crudo 30.03)
+  wind_speed_100m             MAE 0.62   (antes proxy x1.3 4.86)
+  direct_normal_irradiance    MAE 60.18  (antes GHI de proxy 86.89)
+  diffuse_radiation           MAE 19.39  (antes GHI de proxy 130.50)
+
+O sea: la pagina YA sirve el MOS corregido, pero el capitulo se apoya en la
+Fase 1 corrida con PatchTST. Eso es lo que cierra esta tarea.
+
+-------------------------------------------------------------------------
+T0.1 UNIFICAR EL PROVIDER
+-------------------------------------------------------------------------
+Tres sitios dicen cosas distintas hoy:
+
+  optimization/prediction/forecaster.py         default "openmeteo"
+  deploy_pi.sh:52                               FORECASTER=patchtst
+  optimization/experiments/data_loader.py:154   name="patchtst" HARDCODEADO
+
+Cambiar los tres a mos. En data_loader.py no inventes el nombre: que lo reciba
+o que lea el provider efectivo.
+
+Criterio: pedir el forecast por los tres caminos y que devuelvan el MISMO
+provider efectivo. Se verifica leyendo fc.provider (main.py:226 ya lo devuelve),
+no suponiendo.
+
+-------------------------------------------------------------------------
+T0.2 RE-CORRER SOLO V1 Y V2
+-------------------------------------------------------------------------
+V1 (banda C, ventana de estres 08-03/04/05 isla, 2 estrategias)
+V2 (red: grid10 + grid30, banda C, 2 estrategias)
+
+Mismo diseno, mismo periodo, mismo decode, mismos baselines. Se cambia UNA
+cosa: el proveedor del forecast.
+
+Numeros de la corrida con PatchTST que hay que tener a la vista para comparar
+(el delta se declara, no se "mejora"):
+
+  V1:  ENS 14.384 -> 19.514 kWh = -5.130 kWh (-26.3 %)   costo -0.68 %
+  V2:  grid10 -1.82 % total / -5.326 kWh
+       grid30 +1.62 % norm, +2.38 % total / -4.796 kWh
+
+Esto NO es una competicion de modelos. Es: que cambia en las cifras cuando se
+usa el modelo que la plataforma realmente sirve. Si el delta es grande, se
+reporta grande; si el signo se invierte, se reporta invertido.
+
+-------------------------------------------------------------------------
+T0.3 PRESERVAR PATCHTST
+-------------------------------------------------------------------------
+No renombrar, no borrar, no sobrescribir integracion_plataforma/validacion/fase_1/.
+Sus 31 sha256 estan verificados contra su MANIFEST.md (acaba de repararse en
+66bd783). Comprobacion obligatoria antes y despues:
+
+  cd integracion_plataforma/validacion/fase_1
+  sha256sum -c <(grep '^| `' MANIFEST.md | awk -F'|' '{gsub(/[` ]/,"",$2); gsub(/[` ]/,"",$4); print $4"  "$2}')
+
+Si algun sha cambio, PARA y reporta. La corrida nueva va en una carpeta NUEVA:
+
+  integracion_plataforma/validacion/fase_1_mos/
+    README.md      tabla pregunta|corrida|respuesta(numeros)|artefacto
+    MANIFEST.md    archivo|bytes|sha256
+    v1_bandc/...
+    v2_red/...
+
+-------------------------------------------------------------------------
+T0.4 LO QUE NO SE CORRE, Y SE DECLARA
+-------------------------------------------------------------------------
+  V3 (fuente PV)   no se corre: colapsa a la misma planta calibrada, no mide forecast
+  V5 (lazo vivo)   no se corre: mide estabilidad del bucle, no el modelo de clima
+  V7 (inversor)    no se corre: su conclusion es "<= ~1 %, no atribuible" y el
+                   MOS no la cambia
+
+En el README de fase_1_mos/ tiene que haber una seccion "No corrido con mos"
+que liste los tres con este motivo. Un hueco declarado no es un hueco.
+
+-------------------------------------------------------------------------
+T0.5 CAMPOS NUEVOS EN resultado.json
+-------------------------------------------------------------------------
+Cada resultado.json de fase_1_mos/ lleva, ademas de lo que ya tenia:
+
+  "provider": "mos",
+  "modelo": "iTransformer + LightGBM MOS (v2 causales)",
+  "boosters": {"cloud_cover": "v2", "wind_speed_100m": "v2",
+               "direct_normal_irradiance": "v2", "diffuse_radiation": "v2"},
+  "unidades_viento": "ms"
+
+Eso es lo que faltaba en la Fase 1: la cifra sin su cadena de prediccion no se
+puede reproducir.
+
+-------------------------------------------------------------------------
+PRESUPUESTO
+-------------------------------------------------------------------------
+HiGHS ronda 60-110 s por solve. V1 son unas 144 celdas-hora-equivalente
+(3 dias x 24 h x 2 estrategias) -> 2.5 a 4 h. V2 anade 4 celdas -> 6 a 8 h en
+total. Si el tiempo se estira, el orden ya esta fijado: V1 primero entera,
+despues V2. No se entrega V2 a medias para "llegar".
+
+-------------------------------------------------------------------------
+NO HAGAS
+-------------------------------------------------------------------------
+  - No sobrescribas fase_1/ ni ninguno de sus CSV.
+  - No mezcles cifras mos y patchtst en la misma tabla sin declarar el cambio.
+  - No reportes feasible como optimal (C6 del cambio 18 sigue vigente).
+  - No ajustes numeros para que un criterio pase. Si el delta sale raro, se
+    reporta raro: puede ser el hallazgo del dia.
+  - No uses git add -A.
+
+-------------------------------------------------------------------------
+SI ALGO NO CUADRA
+-------------------------------------------------------------------------
+Si al unificar el provider ves que el MOS tarda mucho mas que PatchTST por
+llamada, o que el backtest no acepta el provider sin tocar mas codigo, PARA y
+dilo antes de lanzar las horas de solver. Prefiero una pregunta a una noche de
+computo gastada en la ventana equivocada.
