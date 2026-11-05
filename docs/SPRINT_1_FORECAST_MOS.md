@@ -362,7 +362,21 @@ desaparece**. Lo que parecía una mejora era el sesgo de la fuente, y ahora est�
 
 ### 5.2 — `dct_high_freq_energy` (intermitencia de nubes)
   
-**Estado: [PENDIENTE]** — la etiqueta anterior ("bloqueado por 5.0") quedo obsoleta el 2026-10-28, cuando 5.0 se ejecuto y reprodujo la linea base. Ya se puede hacer.
+**Estado: [CERRADO - NO ADOPTADA]** (2026-11-04). Probe ejecutado con los parquets reales:
+`corr(|DCT_alta_frecuencia(nubes)|, |residuo del booster cloud v2|) = **0.0152**` con **n = 400**
+ventanas (jul-dic 2025), contra un umbral fijado de antemano en **0.20**. Esta **13 veces por
+debajo**: la intermitencia de nubes **no explica lo que el booster no captura**. La feature no se
+implementa y el sprint queda cerrado.
+
+**No es un hueco, es un resultado publicable**: "la energia de alta frecuencia de la nubosidad no
+explica el residuo del MOS (r = 0.015, n = 400)" vale mas que no haberlo probado.
+
+Defecto encontrado al correrlo: `data/ecmwf/ecmwf_2024_01.parquet` trae `cloud_cover` como
+`object` con **744 nulos (todos)**; `pd.concat` contagia el dtype y `np.isfinite` revienta sobre
+los `None`. Corregido con `pd.to_numeric(errors="coerce")` en el probe y en `train_mos_v2`
+(loops `ecw` y `ecw2`). **Verificado que el fix NO cambia los boosters**: los cuatro MAE son
+identicos al digito y DNI/DHI son byte-identicos (`fbc5ded8…`, `a6b27aa1…`), o sea que
+"funciono por suerte" era cierto pero esa suerte era estable. No hubo que reentrenar.
 
 - Feature: energía de los coeficientes de alta frecuencia de la DCT de las últimas 6 h de `kt`.
 - **Criterio de cierre**: mismo protocolo; se adopta **solo** si mejora nubes o precipitación respecto a

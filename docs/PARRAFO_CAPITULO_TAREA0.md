@@ -46,3 +46,20 @@ PatchTST (+1,62 %)**.
   +2,38 % en `costo_total` en la corrida de PatchTST; en MOS −3,59 % norm y −3,13 % total).
 - **La frase del signo invertido en grid30 conviene dejarla**: es honesta y además favorable;
   quitarla daría a entender que siempre ganó.
+
+---
+
+## Frase adicional: la feature descartada (5.2)
+
+Si el capítulo documenta el proceso de selección de features, esta frase cierra el intento sin
+dejar hueco:
+
+> **English.** A high-frequency DCT energy term derived from cloud-cover intermittency was
+> evaluated as an additional regressor and rejected: its correlation with the residual of the MOS
+> cloud booster is **r = 0.015 (n = 400)**, well below the 0.20 threshold fixed before the
+> experiment.
+
+> **Español.** Se evaluó un término de energía DCT de alta frecuencia derivado de la intermitencia
+> de la nubosidad como regresor adicional, y se descartó: su correlación con el residuo del booster
+> de nubosidad del MOS es **r = 0,015 (n = 400)**, muy por debajo del umbral de 0,20 fijado antes
+> del experimento.

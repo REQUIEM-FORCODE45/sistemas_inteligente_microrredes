@@ -249,6 +249,22 @@ del capítulo aguanta con el modelo que la plataforma sirve de verdad.
 
 **En grid30 el signo se invierte a favor del S-MPC.** Se reporta invertido, no se ajusta.
 
+#### 5.2 (DCT intermitencia de nubes) — NO ADOPTADA
+
+`corr(|DCT_alta_frecuencia(nubes)|, |residuo del booster cloud v2|) = **0,0152**` con n = 400
+ventanas (jul-dic 2025), contra un umbral de **0,20** fijado antes de correr. Está **13 veces por
+debajo**. La intermitencia de nubes no explica el residuo: la feature no se implementa.
+
+Se hizo un **probe** en vez de un reentreno: costó dos minutos y ahorró el trabajo completo. El
+resultado es publicable como hipótesis evaluada y descartada.
+
+Defecto de datos encontrado al correrlo: `ecmwf_2024_01.parquet` tiene `cloud_cover` como `object`
+con 744 nulos (todos); `pd.concat` contagia el dtype y `np.isfinite` revienta. Corregido con
+`pd.to_numeric(errors="coerce")` en el probe y en `train_mos_v2` (`ecw` y `ecw2`). **Verificado que
+el fix no cambia los boosters**: los 4 MAE idénticos al dígito y DNI/DHI byte-idénticos a los
+versionados. `cambio_01/reference/mos_multivariable.py` tiene el mismo patrón y **no se toca**:
+referencia histórica congelada.
+
 #### Hallazgo nuevo: el MOS baja el ENS en LOS DOS brazos
 
 | brazo | PatchTST | MOS | Δ |
