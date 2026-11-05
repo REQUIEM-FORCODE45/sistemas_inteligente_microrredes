@@ -1,0 +1,73 @@
+CERRADO. NO HAY NADA PENDIENTE DE PUSH. LO QUE QUEDA NO ES CODIGO.
+
+Verificado de tus tres commits (4252f86, e512f6d, 834efa9):
+
+  probe reproduce el veredicto    corr_abs 0.0152, n=400, rama (b) - IDENTICO
+                                  a la corrida que hice fuera del repo
+  fix del dtype                   probe:86 y train_mos_v2:285/294/327
+  tests                           26/26
+  auditoria de otros sitios       correcta, incluido NO tocar
+                                  cambio_01/reference/mos_multivariable.py
+
+Bien visto lo de la referencia congelada: arreglar una bomba latente dentro de
+un cambio ya auditado es peor que dejarla, siempre que quede declarada.
+
+-------------------------------------------------------------------------
+CERRE LA PREGUNTA QUE DEJASTE ABIERTA
+-------------------------------------------------------------------------
+Dijiste que en train_mos_v2 el median() sobre object daba NaN, el fillna era
+no-op y "funciono por suerte". Eso dejaba una duda que importa: si el fix
+cambia el entrenamiento, el booster versionado ya no vale y hay que reentrenar.
+
+Lo medi. Reentrene con el fix aplicado y compare:
+
+  cloud_cover       15.1494  ->  15.1494
+  wind_speed_100m    0.6182  ->   0.6182
+  direct_normal      60.1788 ->  60.1788
+  diffuse_radiation  19.3853 ->  19.3853
+
+Y los boosters, byte-identicos:
+
+  DNI  fbc5ded8c296979f == fbc5ded8c296979f
+  DHI  a6b27aa170ec8e74 == a6b27aa170ec8e74
+
+Ambos coinciden con el manifiesto versionado.
+
+Conclusion: la suerte era real pero ESTABLE. Los NaN de enero de 2024 nunca
+llegaron a las ventanas de entrenamiento. El fix mejora la robustez, no las
+cifras, y NO hay que reentrenar ni tocar los _v2.
+
+-------------------------------------------------------------------------
+UN DETALLE MIO: CERRE 5.2 EN EL DOCUMENTO MAESTRO (7586ac1)
+-------------------------------------------------------------------------
+Tu 834efa9 cerro 5.2 en el VERIFICACION, pero docs/SPRINT_1_FORECAST_MOS.md
+seguia diciendo [PENDIENTE], y ese es el estado oficial del sprint. Lo pase a
+[CERRADO - NO ADOPTADA] con el 0.0152, y anadi la frase EN/ES al parrafo del
+capitulo para documentar la feature descartada sin dejar hueco en el texto.
+
+Si vuelves a tocar ese doc, parte de 7586ac1 para no duplicar.
+
+Y ojo para la proxima: cuando cierres un paso, el estado va en el doc del
+sprint ADEMAS del VERIFICACION. El VERIFICACION cuenta como fue; el sprint dice
+donde estamos. Hoy se quedaron desincronizados y eso hace que alguien (yo) lea
+"pendiente" cuando ya estaba hecho.
+
+-------------------------------------------------------------------------
+QUE PROCEDE
+-------------------------------------------------------------------------
+Codigo: nada. El sprint 1 esta cerrado entero y reproducible. No hay push
+pendiente: tu rama local y origin/main coinciden, y el working tree esta limpio.
+
+Lo unico tecnico abierto es P8 (deriva plan->realidad), y no es codigo: necesita
+el lazo corriendo sobre un diagrama conectado, no sobre DEFAULT_TOPOLOGY. Cuando
+el autor tenga un diagrama cargado, ahi si hay trabajo de verdad.
+
+Lo que queda de valor es el texto del capitulo: las cifras de la Tarea 0 ya estan
+en docs/PARRAFO_CAPITULO_TAREA0.md (EN y ES), con la frase de la feature
+descartada y la lista de que NO afirmar (nada de 14 dias, nada de p-valor, nada
+de atribuir al inversor lo que es ruido de re-optimizacion).
+
+Si te sobra tiempo y quieres algo util: la revision de dtype que hiciste se puede
+extender a los demas consumidores de parquet del repo, no solo ecmwf/. Es barato
+y evita la proxima bomba silenciosa. No es urgente, pero es el tipo de cosa que
+solo se descubre cuando ya rompio algo.
