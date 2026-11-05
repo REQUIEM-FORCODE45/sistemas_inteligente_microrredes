@@ -512,3 +512,29 @@ def test_dni_dhi_en_rango_fisico(monkeypatch):
     fc = prov.forecast(days=3.0, anchor=anchor)
     assert (fc.data["direct_normal_irradiance"].values >= 0).all()
     assert (fc.data["diffuse_radiation"].values >= 0).all()
+
+
+# --------------------------------------------------------------------- #
+# Probe 5.2: helpers puros (sin red, sin parquet).
+
+
+def test_dct_hf_energy_constante_cero_y_ruido_positiva():
+    """Constante -> HF ~0; ruido -> HF > 0 (la DCT separa bandas)."""
+    from optimization.prediction.mos.probe_intermittencia_nubes import (
+        dct_hf_energy,
+    )
+    assert dct_hf_energy(np.full(6, 80.0)) < 1e-6
+    rng = np.random.default_rng(0)
+    assert dct_hf_energy(rng.normal(50, 20, 6)) > 0.0
+
+
+def test_correlacion_senal_perfecta_nula_y_constante():
+    """corr(|f|,|r|): 1.0 ligada, ~0 independiente, 0.0 si constante."""
+    from optimization.prediction.mos.probe_intermittencia_nubes import (
+        correlacion_senal, UMBRAL_SENAL,
+    )
+    x = np.arange(100, dtype=float)
+    assert correlacion_senal(x, x) == pytest.approx(1.0)
+    assert correlacion_senal(x, x[::-1]) == pytest.approx(-1.0)
+    assert correlacion_senal(np.full(50, 3.0), x[:50]) == 0.0
+    assert UMBRAL_SENAL == 0.20  # fijado antes de correr, no negociable
