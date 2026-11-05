@@ -538,3 +538,56 @@ def test_correlacion_senal_perfecta_nula_y_constante():
     assert correlacion_senal(x, x[::-1]) == pytest.approx(-1.0)
     assert correlacion_senal(np.full(50, 3.0), x[:50]) == 0.0
     assert UMBRAL_SENAL == 0.20  # fijado antes de correr, no negociable
+
+
+# --------------------------------------------------------------------- #
+# 5.2-fix: meses object 100 % nulos no contagian el dtype (2024-01 real).
+
+
+def _ecmwf_mes(tmp_path, y, m, col, vals, dtype=None):
+    idx = pd.date_range(f"{y}-{m:02d}-01", periods=len(vals), freq="h")
+    df = pd.DataFrame({col: pd.Series(list(vals), index=idx,
+                                      dtype=dtype)})
+    d = tmp_path / "ecmwf"
+    d.mkdir(exist_ok=True)
+    df.to_parquet(d / f"ecmwf_{y}_{m:02d}.parquet")
+    return idx
+
+
+def test_load_ecmwf_proxy_con_meses_object(tmp_path):
+    """2024-01 real: cloud_cover object 100 % nulo -> float con NaN,
+    sin TypeError en isfinite y sin contagiar los meses sanos."""
+    from optimization.prediction.mos.probe_intermittencia_nubes import (
+        _load_ecmwf_proxy,
+    )
+    n = 31 * 24
+    _ecmwf_mes(tmp_path, 2024, 1, "cloud_cover", [None] * n, dtype=object)
+    _ecmwf_mes(tmp_path, 2024, 2, "cloud_cover",
+               [50.0] * n, dtype="float64")
+    idx = pd.date_range("2024-01-01", periods=2 * n, freq="h")
+    era = pd.DataFrame(index=idx)
+    out = _load_ecmwf_proxy(tmp_path, era, {"cloud_cover": "nubes"})
+    assert str(out["nubes"].dtype) == "float64"
+    assert out["nubes"].iloc[:n].isna().all()  # enero: hueco declarado
+    assert (out["nubes"].iloc[n:] == 50.0).all()  # febrero: intacto
+    assert bool(np.isfinite(out["nubes"].values[n:]).all())
+
+
+def test_row_for_acepta_proxy_object_coaccionado(tmp_path, monkeypatch):
+    """El _row_for de train no revienta si el proxy viene de un mes object:
+    la coaccion es previa (en la carga), el X llega float."""
+    import pandas as pd  # noqa: F811 (ya importado arriba, claridad local)
+    from optimization.prediction.mos.train_mos_v2 import _row_for
+    n = 800  # i + L + 71 < n para i=100
+    idx = pd.date_range("2024-01-01", periods=n, freq="h")
+    era = pd.DataFrame(index=idx)
+    era["cloud_cover"] = 60.0
+    era["ghi_toa"] = 300.0
+    ecw = pd.DataFrame({
+        "nubes": pd.to_numeric(
+            pd.Series([None] * n, dtype=object), errors="coerce"),
+        "temp": 15.0, "viento": 2.0}, index=idx)
+    v1_all = {"cloud_cover": np.zeros(72)}
+    Xd, y = _row_for("cloud_cover", 100, 0, era, ecw, v1_all)
+    assert isinstance(Xd["proxy_ecmwf"], float)
+    assert np.isnan(Xd["proxy_ecmwf"])  # NaN declarado, no 0 inventado

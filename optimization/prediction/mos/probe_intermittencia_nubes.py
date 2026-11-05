@@ -65,6 +65,29 @@ def correlacion_senal(feat: np.ndarray, residuo: np.ndarray) -> float:
     return float(np.corrcoef(f[ok], r[ok])[0, 1])
 
 
+def _load_ecmwf_proxy(data: Path, era: pd.DataFrame,
+                      ecmwf_cols: dict) -> pd.DataFrame:
+    """Proxy NWP reindexado a `era` (mismo arbol que entreno el v2 cloud).
+
+    Coacciona a float: un mes vacio (object 100 % nulo, como 2024-01)
+    contagia el dtype del concat y revienta np.isfinite; los huecos
+    quedan NaN y los excluye el llamador (declarado, no rellenado).
+    """
+    ecw = {}
+    for col_era5, tag in ecmwf_cols.items():
+        parts = []
+        for y in (2024, 2025):
+            for mm in range(1, 13):
+                p = Path(data) / "ecmwf" / f"ecmwf_{y}_{mm:02d}.parquet"
+                if p.exists():
+                    parts.append(pd.read_parquet(p)[[col_era5]])
+        df = pd.concat(parts)
+        df = df[~df.index.duplicated()].sort_index()
+        ecw[tag] = pd.to_numeric(df[col_era5], errors="coerce").reindex(
+            era.index)
+    return pd.DataFrame(ecw)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Probe 5.2 intermitencia.")
     ap.add_argument("--data-dir", required=True)
@@ -91,18 +114,7 @@ def main() -> int:
                   "temperature_2m": "temp", "wind_speed_10m": "viento",
                   "relative_humidity_2m": "rh",
                   "surface_pressure": "pres"}
-    ecw = {}
-    for col_era5, tag in ecmwf_cols.items():
-        parts = []
-        for y in (2024, 2025):
-            for mm in range(1, 13):
-                p = data / "ecmwf" / f"ecmwf_{y}_{mm:02d}.parquet"
-                if p.exists():
-                    parts.append(pd.read_parquet(p)[[col_era5]])
-        df = pd.concat(parts)
-        df = df[~df.index.duplicated()].sort_index()
-        ecw[tag] = df[col_era5].reindex(era.index)
-    ecw = pd.DataFrame(ecw)
+    ecw = _load_ecmwf_proxy(data, era, ecmwf_cols)
 
     a = pd.Timestamp("2025-07-01")
     b = pd.Timestamp("2025-12-31") + pd.Timedelta(hours=23)
