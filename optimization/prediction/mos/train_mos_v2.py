@@ -282,11 +282,17 @@ def main() -> int:
                     huecos_v2[f"{y}-{mm:02d}"] = huecos_v2.get(
                         f"{y}-{mm:02d}", []) + [f"{tag}:sin_columna"]
                     continue
-                validos = int(sub[col].notna().sum())
+                validos = int(pd.to_numeric(
+                    sub[col], errors="coerce").notna().sum())
                 if validos == 0:
                     huecos_v2[f"{y}-{mm:02d}"] = huecos_v2.get(
                         f"{y}-{mm:02d}", []) + [f"{tag}:vacio(0 validos)"]
-                parts.append(sub[[col]].rename(columns={col: tag}))
+                # 5.2-fix: coaccion a float ANTES del concat (un mes object
+                # 100 % nulo contagia el dtype; median/exclusion cuentan
+                # sobre NaN, no sobre None).
+                parts.append(pd.DataFrame(
+                    {tag: pd.to_numeric(sub[col], errors="coerce")},
+                    index=sub.index))
         if not parts:
             raise SystemExit(
                 f"Sin datos dni/dhi: {ecmwf2_dir}/ecmwf_YYYY_MM.parquet "
@@ -315,7 +321,11 @@ def main() -> int:
             raise SystemExit(f"Sin datos: falta {ecmwf_dir}/ecmwf_YYYY_MM.parquet")
         df = pd.concat(parts)
         df = df[~df.index.duplicated()].sort_index()
-        s = df[col_era5].reindex(era.index).fillna(df[col_era5].median())
+        # 5.2-fix: coaccion a float (un mes object 100 % nulo contagia el
+        # dtype y median() sobre object devuelve NaN: el fillna seria no-op
+        # y el X llegaria object al booster).
+        s = pd.to_numeric(df[col_era5], errors="coerce").reindex(era.index)
+        s = s.fillna(s.median())
         ecw[tag] = s
     ecw = pd.DataFrame(ecw)
 
