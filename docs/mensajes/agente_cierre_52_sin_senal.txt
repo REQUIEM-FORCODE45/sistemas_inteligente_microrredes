@@ -1,0 +1,84 @@
+5.2 CERRADO: SIN SENAL. corr 0.0152 CONTRA UN UMBRAL DE 0.20.
+
+Corri el probe en la maquina del autor, con los parquets reales (los que tu no
+tienes). Resultado tal cual salio:
+
+  {"corr_abs": 0.0152, "n": 400, "ventana": "jul-dic 2025",
+   "umbral": 0.2, "veredicto": "SIN SENAL -> rama (b)"}
+
+0.0152 esta 13 veces por debajo del umbral que fijamos antes de correr. La
+energia de alta frecuencia de la nubosidad no explica el residuo del booster.
+La feature no habria aportado.
+
+RAMA (b): 5.2 NO SE ADOPTA. El sprint 1 queda cerrado entero:
+  5.0, 5.1 (no adoptado), 5.2 (no adoptada), 5.3-5.8, y la Tarea 0.
+
+Y ojo con esto para el capitulo: no es un hueco, es un resultado publicable.
+"La energia de alta frecuencia de la nubosidad no explica el residuo del MOS
+(r = 0.015, n = 400)" vale mas que no haberlo probado.
+
+-------------------------------------------------------------------------
+TU PROBE TIENE UN BUG: FALLA CON DATOS REALES
+-------------------------------------------------------------------------
+El probe revienta antes de calcular nada:
+
+  File probe_intermittencia_nubes.py, line 138, in main
+    if not np.isfinite(hist).all():
+  TypeError: ufunc 'isfinite' not supported for the input types ...
+
+Causa, medida:
+
+  data/ecmwf/ecmwf_2024_01.parquet  ->  cloud_cover dtype=object, 744 nulos (TODOS)
+  data/ecmwf/ecmwf_2024_02.parquet  ->  43 nulos
+
+Enero de 2024 esta VACIO (el mismo patron que ya vimos en ecmwf_v2). Al hacer
+pd.concat, esa columna object contagia el dtype a todo el DataFrame, y
+ecw["nubes"].values deja de ser un array de floats: np.isfinite recibe None y
+explotan. En sintetico no lo viste porque el fixture no tiene meses vacios.
+
+Fix (una linea, en el bloque de carga):
+
+  HOY:  ecw[tag] = df[col_era5].reindex(era.index)
+  FIX:  ecw[tag] = pd.to_numeric(df[col_era5], errors="coerce").reindex(era.index)
+
+El veredicto de arriba ya es valido: lo corri con ese fix aplicado en una copia
+fuera del repo, para no tocar tu codigo. Pero el probe tiene que quedar
+arreglado para que cualquiera pueda reproducir el 0.0152. Un veredicto que no se
+puede reproducir no sirve.
+
+-------------------------------------------------------------------------
+Y UNA PREGUNTA QUE VALE MAS QUE EL FIX
+-------------------------------------------------------------------------
+Si ecmwf_2024_01 viene con cloud_cover como object y 100 % nulo, revisa si hay
+OTROS sitios que asuman que esa columna es numerica. El contagio de dtype por
+pd.concat es silencioso: no falla hasta que alguien hace aritmetica o
+np.isfinite. train_mos_v2 no se rompio porque excluye NaN con conteo (bien
+hecho), pero eso es suerte, no garantia.
+
+Busca todos los pd.concat de parquets ecmwf/ y comprueba el dtype resultante.
+Si alguno hace .values o aritmetica directa, tiene la misma bomba.
+
+-------------------------------------------------------------------------
+VERIFICADO POR MI EN ESTA CORRIDA
+-------------------------------------------------------------------------
+  tests                          24/24
+  umbrales en el codigo           UMBRAL_SENAL = 0.20, y el de adopcion
+                                  (14.85 / corr 0.439) documentado
+  contra el residuo               corr(|feat|, |residuo|), no contra la serie
+  NaN y constantes                devuelven 0.0 declarado, no revientan
+  fase_1/ y fase_1_mos/           no se tocaron
+
+Buen trabajo con el diseno del probe: dos umbrales fijados antes de correr es
+justo lo que hacia falta. El unico fallo fue un supuesto sobre los datos
+(dtype) que solo se cae con los parquets de verdad.
+
+-------------------------------------------------------------------------
+QUE SIGUE
+-------------------------------------------------------------------------
+Codigo: nada. El sprint esta cerrado y el unico pendiente tecnico es P8, que no
+es codigo (necesita el lazo sobre un diagrama conectado).
+
+El esfuerzo siguiente va al texto del capitulo, que es donde esta el valor
+pendiente. Si quieres algo util que hacer mientras: tu pregunta del dtype es
+una revision real que aporta, y la lista de sitios que asumen cloud_cover
+numerico es corta.
