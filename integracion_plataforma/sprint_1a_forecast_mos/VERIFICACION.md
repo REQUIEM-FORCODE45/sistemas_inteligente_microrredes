@@ -264,3 +264,36 @@ auto-adoptar.
 10.584 filas train (meses vacíos) funciona; cloud/wind control sin
 cambios; DNI/DHI v2 con nombres semánticos cargan en el runtime.
 **Reentreno real**: en la máquina del autor (parquet ausentes aquí).
+
+---
+
+## 5.2 cerrado + fix de reproducibilidad del probe (2026-11-05)
+
+**Veredicto real** (máquina del autor, parquets reales, n=400):
+`corr_abs = 0.0152 < 0.20` → **SIN SEÑAL, rama (b)**. 5.2 no se adopta;
+sprint 1 cerrado. La energía HF de la nubosidad no explica el residuo
+del MOS — resultado publicable, no hueco.
+
+**Bug del probe con datos reales**: `ecmwf_2024_01` trae `cloud_cover`
+como object 100 % nulo; el `pd.concat` contagia el dtype y
+`np.isfinite` revienta. Fix de 1 línea (como pidió el autor):
+`pd.to_numeric(df[col], errors="coerce")` en la carga; los huecos quedan
+NaN y los excluye la verificación existente. El veredicto 0.0152 se
+obtuvo con el fix aplicado fuera del repo; aquí queda versionado para
+que cualquiera reproduzca el número.
+
+**Auditoría de dtype (pregunta del autor)**: sitios que concatenan
+parquet ecmwf/ y hacen `.values`/aritmética —
+1. `probe_intermittencia_nubes.py` (era la bomba, ahora con coacción +
+   loader extraído a `_load_ecmwf_proxy` testeable);
+2. `train_mos_v2.py` loop `ecw` (6 vars: coacción añadida; antes
+   `median()` sobre object = NaN y fillna no-op → X object al booster;
+   funcionó por suerte, no por garantía) y loop `ecw2` (coacción
+   añadida; la exclusión NaN contada ya lo cubría);
+3. `cambio_01/reference/mos_multivariable.py` (mismo patrón, **NO se
+   toca**: referencia histórica congelada).
+Runtime (`compare_providers.py`, `mos_forecaster.py`) no lee parquet
+ecmwf/: limpio.
+
+**Tests 26/26** (2 nuevos: mes object→float con hueco declarado y
+`_row_for` con proxy coaccionado a NaN declarado, no 0).
