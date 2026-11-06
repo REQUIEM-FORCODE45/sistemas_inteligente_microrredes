@@ -23,7 +23,7 @@ respectively, which **reverses the sign observed at grid30 under PatchTST (+1.62
 ## Español (versión ES)
 
 La validación en lazo cerrado se repitió con la cadena de pronóstico de producción. Con el
-pronosticador MOS, el MPC estocástico reduce la energía no suministrada en **3,32 kWh (22,0 %)**
+pronosticador MOS, el MPC estocástico reduce la energía no suministrada en **3,32 kWh (22,4 %)**
 frente al MPC determinista en la ventana de estrés de tres días (**11,53 vs 14,86 kWh**),
 mientras que la diferencia de costo se estrecha a **0,19 %**. Más relevante que la separación
 entre controladores es el efecto de la cadena de pronóstico: **el MOS reduce la energía no
