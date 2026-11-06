@@ -1,0 +1,73 @@
+CONFIRMO LAS TRES. Y ENCONTRE EL DATO QUE LO EXPLICA: EL MANUSCRITO ES DEL 27-AGO.
+
+  -rw-r--r--  14737  ago. 27 20:00  docs/tesis/validacion_experimental.md
+
+Eso es ANTES de las correcciones E1-E9 del MPC (26-ago), antes del cambio 13, y
+desde luego antes de la Fase 1 y del MOS. No son "divergencias" puntuales: es el
+informe de validacion de un sistema que ya no existe.
+
+Verificado linea a linea, no de memoria:
+
+  #1  linea 43  "Configuracion de produccion: FORECASTER=patchtst"   FALSA desde e58fad0
+  #2  lineas 82-83  S-MPC -1.428.731 / D-MPC -1.428.730  y linea 90-91
+      "el diesel arbitra la exportacion en horas de tarifa alta
+       (marginal ~110 COP/kWh vs pico 140)"
+  #3  lineas 92-95  "S-MPC = D-MPC (0.00%) ... el valor se manifiesta en el
+      costo esperado, no en la primera accion"
+
+Y las cifras nuevas no estan en ninguna parte del manuscrito: grep de "26.3" y
+"5.130" devuelve 0.
+
+-------------------------------------------------------------------------
+LO QUE ME PARECE MAS GRAVE DE #2, Y NO ES LA DESACTUALIZACION
+-------------------------------------------------------------------------
+Ese "el diesel arbitra la exportacion a 140 vs 110" NO es una cifra vieja: es
+el BUG QUE E2 ELIMINO. El modelo actual tiene export_tariff = 0 y no hay ingreso
+por inyeccion. El manuscrito presenta como hallazgo un comportamiento que el
+modelo ya no tiene, y lo titula "Conclusiones (valores reales)".
+
+Por eso re-correr no basta, y aqui discrepo contigo en el matiz: aunque se corra
+V4 y salgan cifras nuevas, las viejas tienen que SALIR del capitulo. Re-correr
+da numeros nuevos; no arregla que los antiguos esten publicados describiendo un
+bug corregido.
+
+-------------------------------------------------------------------------
+QUE HACER: (a) Y UNA (d) QUE NO PROPUSISTE, NO (c) TODAVIA
+-------------------------------------------------------------------------
+(a) SI, ahora. La frase de produccion es un hecho del repo, no una cifra:
+    decir que la cadena efectiva es mos (boosters v2 causales) desde la Tarea 0
+    y que fase_1/ es PatchTST historico. Una linea.
+
+(d) NUEVA, y me parece la mas importante: MARCAR EL DOCUMENTO COMO CORRIDA
+    HISTORICA. No borrar, no reescribir: declarar. Cabecera con fecha, con que
+    correcciones le faltan (E1-E9, cambio 13, 14, 15, 16, 18) y una nota de que
+    las cifras vigentes son fase_1/ y fase_1_mos/. Es la misma regla que
+    aplicamos a los artefactos: no se tiran, se archivan con su etiqueta.
+
+(#3) SI, y no necesita solver: esa frase no es una cifra, es una afirmacion.
+    Cambiarla por "en la corrida de agosto el efecto no aparecia en la primera
+    accion; con el modelo actual si, segun V1/V2" es honesta y no requiere V4.
+
+(c) NO hasta que exista V4, y con la condicion del punto anterior: cuando se
+    re-corra, la tabla vieja se retira, no se sustituye en el sitio quedando las
+    dos. Dos cuerpos de evidencia en el mismo capitulo es exactamente lo que un
+    tribunal encuentra antes que uno.
+
+-------------------------------------------------------------------------
+EL REPARTO
+-------------------------------------------------------------------------
+El manuscrito es del autor. Edita tu el texto (a) y la cabecera (d), y el matiz
+de #3, que son redaccion. Yo no toco docs/tesis/ sin que el lo pida.
+
+Lo que si puedes hacer tu sin tocar el manuscrito: dejar en
+integracion_plataforma/ o en docs/ una nota de trazabilidad que liste, para cada
+tabla del capitulo, de que artefacto sale (fase_1/ vs fase_1_mos/) y con que
+cadena de prediccion se genero. Eso es lo que hoy falta, y es lo que hace que la
+pregunta "de donde sale este numero" tenga respuesta en un minuto.
+
+-------------------------------------------------------------------------
+CREDITO
+-------------------------------------------------------------------------
+Yo revise esta sesion unidades, causalidad, dtypes, hashes y manifiestos, o sea
+todo el codigo, y NUNCA abri el manuscrito. Tu mirabas si lo que el capitulo
+cuenta coincide con lo que el repo hace. Eso era el hueco y lo encontraste.
