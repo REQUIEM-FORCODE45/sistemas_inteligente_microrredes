@@ -1,0 +1,66 @@
+CERRADO. NO HAY CODIGO PENDIENTE. Y EL INVENTARIO DE PENDIENTES ESTABA MAL.
+
+Verifique el estado real contra los artefactos, no contra los resumenes, y
+encontre que la seccion 8 de PENDIENTES_MPC_ESTADO.md declaraba V1-V8 como
+diferidos cuando varios ya estaban corridos. Actualizado en a8bc7e0:
+
+  V1  HECHO    fase_1/v1_bandc + fase_1_mos/v1_bandc
+  V2  HECHO    grid10 -3.44 %, grid30 -3.59 % (antes +1.62 %)
+  V3  HECHO    era5 == mongo byte-identicos
+  V4  ABIERTO  30-40 h de solver
+  V5  PARCIAL  falta solo la deriva plan->realidad, que es P8
+  V6  HECHO    junto a V1
+  V7  HECHO    <= ~1 %, no atribuible
+  V8  V8a HECHO (4/4 sha identicos); V8b requiere Mongo
+
+Y los tres latentes tecnicos ya no lo son:
+  Plotly.newPlot en optimization/   0 archivos
+  drift.py                          cableado en calibration_lifecycle.py:73
+  max_export_kw                     6 usos en model_builder.py:520
+
+-------------------------------------------------------------------------
+LO QUE QUEDA, Y NADA ES CODIGO
+-------------------------------------------------------------------------
+V4  significancia estadistica. Solo si el revisor lo pide: 30-40 h de solver
+    por un p-valor. El ENS -22 % y el cambio de signo en grid30 ya son
+    defendibles sin el; el p-valor no los hace mas ciertos, solo mas citables.
+
+P8  deriva plan->realidad. Necesita el lazo sobre un diagrama CONECTADO, no
+    sobre DEFAULT_TOPOLOGY. Cuando exista, es media tarde de trabajo.
+
+V8b switches en modo solver. Requiere Mongo corriendo en la VM.
+
+-------------------------------------------------------------------------
+UNA LECCION PARA LOS DOS
+-------------------------------------------------------------------------
+Hoy el estado que yo lei estaba desactualizado en cuatro cosas:
+
+  1. la no-regresion del cambio 18 (ya ejecutada el 2026-10-26)
+  2. el stash de David (obsoleto: anterior a la fila S1a y al hallazgo P10)
+  3. los boosters (el fix de dtype no los cambiaba; lo medi y eran identicos)
+  4. esta tabla V1-V8
+
+En los cuatro casos el artefacto existia y el resumen no lo reflejaba. No era
+falta de trabajo: era falta de sincronizar el indice con lo hecho.
+
+Regla: cuando reportes estado, que la cifra venga del artefacto versionado
+(sha, json, csv), no de lo que se recuerda. Y cuando cierres algo, actualiza el
+indice ademas del VERIFICACION: el VERIFICACION cuenta como fue, el indice dice
+donde estamos. Hoy se desincronizaron y me hicieron leer "pendiente" sobre
+cosas cerradas cuatro veces.
+
+-------------------------------------------------------------------------
+BUEN TRABAJO EN ESTA SESION
+-------------------------------------------------------------------------
+El probe con umbrales fijados antes de correr, la auditoria de dtype con
+inventario completo de los 8 read_parquet, y no tocar la referencia congelada.
+Eso es criterio, no solo ejecucion. La nota de "se reporta invertido, no se
+ajusta" en grid30 tambien: es lo que hay que hacer aunque el signo favorezca.
+
+Si quieres seguir aportando sin codigo nuevo, el frente es el capitulo. El
+parrafo esta en docs/PARRAFO_CAPITULO_TAREA0.md (EN y ES) con las cifras, la
+frase de la feature descartada y la lista de que no afirmar.
+
+Revisalo contra el manuscrito. Si ves dos versiones de las mismas cifras
+circulando, avisa: eso es un problema de trazabilidad y es el tipo de cosa que
+un tribunal encuentra antes que uno.
