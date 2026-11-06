@@ -143,16 +143,24 @@ ENS                   = 3.45 kWh
 > programa / bucle del diagrama). La **validación en escenarios se ejecuta al final**. No se
 > elimina nada: queda registrado aquí con su comando y su criterio.
 
-| # | Qué | Cuándo se retoma | Por qué se difiere |
-|---|---|---|---|
-| V1 | Re-corrida del **Exp A2** (14 d, isla) con la **banda corregida** del cambio 06 | Al cerrar el desarrollo | Necesita la banda nueva para ser interpretable |
-| V2 | **Escenarios de red** (grid30 / grid10 / isla) con la banda corregida | Al final | Es el experimento que mide el valor del S-MPC |
-| V3 | **Sensibilidad de fuente PV** en días con ENS (08-03, 08-05) | Al final | 30-60 min; no bloquea nada |
-| V4 | **Significancia estadística** (~35 d, p<0.05) | Al final | ~30-40 h de solver; proyección ya documentada |
-| V5 | **Experimento D** — validación del bucle en vivo (deriva plan→realidad, estabilidad entre ciclos, pronóstico en vivo vs anclado) | Al final, sobre el programa ya desarrollado | Mide el programa terminado, no el intermedio |
-| V6 | Verificación de que el **S-MPC se separa del D-MPC** con la banda real | Al final (junto a V1/V2) | Es la pregunta que la banda corregida habilita |
-| V7 | Re-correr **ExpA/A2 con el job que ya incluye el inversor** (cambio 13: PV efectivo −3 %; cifras publicadas = **anteriores al inversor**, no reproducibles con el job nuevo). Al hacerla: **grid30 con/sin inversor** (mismas fechas, mismo solver; única diferencia el inversor) y reportar delta de costo/ENS/litros diésel (+ par en ISLA como contraste: ahí el PV ya se vertía ~74 %, el delta debería ser ~0) | Bloque final (con V1/V2) | Sonda 2026-10-12: 1 día grid30 no termina en <280 s (HiGHS) → 3 d × 2 ≥ ~30 min, en el límite; no se fuerza (decisión del autor: sin cómputo largo en este paso) |
-| V8 | **ExpA2 con los switches (cambio 15)**: (a) modo `impuesta` → el **sha256 de la tabla de costos** debe ser idéntico al de antes (es el C6 del 15, no cerrable sin Mongo); (b) modo `solver` **end-to-end** (solo se construyó y verificó el job) para ver qué topología elige y a qué costo | Bloque final (con V1/V2/V7) | No se pudo correr en el entorno del implementador (sin Mongo). **Además**: la evidencia pre-cambio del C6 debe versionarse como artefacto (`reference/resultados/golden_impuesto.json`), no vivir en el texto del VERIFICACION |
+| # | Qué | Estado real (2026-11-05) |
+|---|---|---|
+| V1 | Re-corrida del **Exp A2** (14 d, isla) con la **banda corregida** del cambio 06 | ✅ **HECHO en Fase 1** (`fase_1/v1_bandc/`) y **re-corrido con MOS** (`fase_1_mos/v1_bandc/`). ENS −5,130 kWh (−26,3 %) con PatchTST; **−3,323 kWh (−22,0 %)** con MOS |
+| V2 | **Escenarios de red** (grid30 / grid10 / isla) | ✅ **HECHO** (`fase_1/v2_red/` + `fase_1_mos/v2_red/`). Con MOS el S-MPC gana en los dos (grid10 -3,44 %, **grid30 -3,59 %**, antes +1,62 %) |
+| V3 | **Sensibilidad de fuente PV** en días con ENS | ✅ **HECHO** (`fase_1/v3_fuente/`): `era5` ≡ `mongo` **byte-idénticos** (colapsan a la misma planta). **No hay dos fuentes que comparar** |
+| V4 | **Significancia estadística** (~35 d, p<0.05) | 🔴 **ABIERTO**. 30–40 h de solver. Decisión del autor: solo si el revisor lo pide |
+| V5 | **Experimento D** — bucle en vivo (deriva plan→realidad) | 🟡 **PARCIAL**: estabilidad entre ciclos y pronóstico en vivo vs anclado ✅ (V5 de la Fase 1). **Falta solo la deriva plan→realidad** = **P8** |
+| V6 | Verificación de que el **S-MPC se separa del D-MPC** | ✅ **HECHO** junto a V1 (`v1_bandc`, el par S vs D es la medición) |
+| V7 | Re-correr **ExpA/A2 con el inversor** (cambio 13) | ✅ **HECHO** (`fase_1/v7_isla/`, `v7_grid30/`): **≤ ~1 % atribuible, no atribuible** con este diseño; los ±5 % son ruido de re-optimización |
+| V8 | **ExpA2 con los switches** (cambio 15) | 🟡 **V8a ✅** (`fase_0/resultados/v8a_jobs_sha.json`, **4/4 sha idénticos**). **V8b 🔴**: modo `solver` requiere Mongo corriendo (VM Linux) |
+
+**Los antiguos "latentes" ya no lo son** (verificado 2026-11-05, no leído del resumen):
+`Plotly.newPlot` en `optimization/` = **0 archivos** · `drift.py` **cableado** en
+`monitoring/calibration_lifecycle.py:73` + `test_drift.py` · `max_export_kw` con **6 usos** en
+`model_builder.py:520` ("max_export_kw manda; -min_import_kw es fallback").
+
+---
+
 
 **Regla de esta decisión**: ningún cambio de **producción** queda bloqueado esperando a la
 validación. Los criterios de cierre de los cambios de producción se verifican con **pruebas
