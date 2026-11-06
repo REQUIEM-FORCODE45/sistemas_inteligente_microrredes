@@ -9,7 +9,7 @@ causales). Métrica de costo citada: **`costo_norm`**, que es la declarada en ca
 ## English (manuscript)
 
 The closed-loop validation was repeated with the production forecasting chain. Under the MOS
-forecaster, the stochastic MPC reduces unserved energy by **3.32 kWh (22.0 %)** relative to the
+forecaster, the stochastic MPC reduces unserved energy by **3.32 kWh (22.4 %)** relative to the
 deterministic MPC over the three-day stress window (**11.53 vs 14.86 kWh**), while the cost
 difference narrows to **0.19 %**. More relevant than the separation between controllers is the
 effect of the forecasting chain itself: **MOS lowers unserved energy in both arms**, from 19.51 to
