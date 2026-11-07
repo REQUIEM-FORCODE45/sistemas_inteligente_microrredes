@@ -18,3 +18,5 @@ números en `../VERIFICACION.md`. Regla del proyecto: nada de cifras a mano.
 > `climatology/ecmwf_crudo/itransformer/mos/persistence` (sin patchtst);
 > overlay `real (ERA5)/mos/itransformer/ecmwf_crudo` (sin duplicados).
 > 0 `pageerror`.
+| `resultados/p1_weathercard_itransformer.png` | 111756 | `c235d311dad2b5c9e71d49c7b8278bc5181d2315a28da55a9c0f53873fa045ff` |
+| `resultados/sld_v1v2_solo_tablas.png` | 87113 | `d26d6e82bb386520b0e3ad85386e0899de3574a6d6bc1d9984aad9e14e7cc87f` |

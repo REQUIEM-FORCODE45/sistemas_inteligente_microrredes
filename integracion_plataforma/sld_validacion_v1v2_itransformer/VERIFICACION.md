@@ -44,3 +44,15 @@ Leyendas verificadas por DOM: curvas
 - Suites Python: `test_forecaster` + `test_mos_forecaster` + `test_solver`
   53/54 (1 fallo pre-existente en HEAD) + manifiestos/validación PASS.
 - `fase_1/` y `fase_1_mos/` intactos (solo lectura).
+
+---
+
+## Ronda 2 (2026-11-07): panel solo-tablas + iTransformer en el WeatherCard
+
+A petición del autor: el panel "Resultados MPC" muestra **solo** las tablas
+V1/V2 (fuera pestañas curvas/barras/overlay, selects y tabla MAE — eso vive
+en sus artefactos versionados). Y el WeatherCard del Dashboard añade
+`itransformer` como tercera opción del selector (el endpoint ya lo resolvía;
+cero cambios backend). Capturas `p1_weathercard_itransformer.png`
+(selector con 3 opciones, badge `itransformer`, sparklines dibujadas) y
+`sld_v1v2_solo_tablas.png` (V1+V2 sin pestañas). 0 pageerrors, build ✓.
