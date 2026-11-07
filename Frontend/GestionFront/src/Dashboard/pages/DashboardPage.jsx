@@ -5,7 +5,6 @@ import GridAPI from '@/api/grid-api';
 import { setOptimizationResult, setMpcStatus } from '../store/optimization/optimizationSlice';
 import { DispatchSchedule } from '../components/optimization/DispatchSchedule';
 import { DispatchByDevice } from '../components/optimization/DispatchByDevice';
-import { ForecastComparisonPanel } from '../components/prediction/ForecastComparisonPanel';
 import ErrorBoundary from '../components/ErrorBoundary';
 import {
   Activity, Database, CloudSun, Gauge, BatteryCharging,
@@ -706,10 +705,6 @@ export default function DashboardPage() {
 
       <ErrorBoundary compact>
         <CalibrationCard />
-      </ErrorBoundary>
-
-      <ErrorBoundary compact>
-        <ForecastComparisonPanel variant="side" />
       </ErrorBoundary>
 
       {optimization.latestResult?.dispatch_plan ? (
