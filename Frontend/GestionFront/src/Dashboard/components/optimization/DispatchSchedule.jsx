@@ -19,9 +19,24 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
 
     const scenarioPlan = dispatchPlan.filter((d) => d.scenario === activeScenario);
 
-    const deviceTypes = [...new Set(scenarioPlan.map((d) => d.device_type))];
+    // La carga es demanda a suplir, no suministro: fuera del stack (no
+    // infla la pila) y se dibuja aparte como barra azul translucida en un
+    // eje espejo, para compararla contra la altura de los demas potencias.
     const { colors, labels } = getDispatchChartInfo();
-
+    const deviceTypes = [...new Set(
+      scenarioPlan.map((d) => d.device_type).filter((t) => t !== 'load'))];
+    const loadTrace = (() => {
+      const y = hours.map((h) => scenarioPlan
+        .filter((d) => d.hour === h && d.device_type === 'load')
+        .reduce((sum, d) => sum + Math.abs(d.power_kw), 0));
+      const anyLoad = y.some((v) => v > 0.001);
+      return anyLoad ? {
+        x: hours, y,
+        type: 'bar', name: labels['load'] || 'Carga',
+        marker: { color: 'rgba(59, 130, 246, 0.35)' },
+        yaxis: 'y2', width: 0.6,
+      } : null;
+    })();
     const traces = deviceTypes.map((type) => {
       const y = hours.map((h) => {
         return scenarioPlan
@@ -44,6 +59,10 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
       barmode: 'stack',
       xaxis: { title: t('charts.hour'), dtick: 1, automargin: true },
       yaxis: { title: t('charts.power'), automargin: true },
+      // Espejo para la carga: misma escala, sin ticklabels; overlay no infla.
+      yaxis2: { overlaying: 'y', side: 'right', showticklabels: false,
+                showgrid: false, zeroline: false, automargin: true,
+                range: undefined, title: null, showline: false },
       margin: { l: 60, r: 20, t: 30, b: 75 },
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
@@ -59,16 +78,15 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
       height: 380,
     };
 
+    const allTraces = loadTrace ? [...traces, loadTrace] : traces;
     if (chartRef.current._hasPlotted) {
-      Plotly.react(chartRef.current, traces, layout, {
-        responsive: false,
-        displaylogo: false,
-      });
+      Plotly.react(chartRef.current, allTraces,
+        { ...layout, barmode: loadTrace ? 'overlay' : 'stack' },
+        { responsive: false, displaylogo: false });
     } else {
-      Plotly.newPlot(chartRef.current, traces, layout, {
-        responsive: false,
-        displaylogo: false,
-      });
+      Plotly.newPlot(chartRef.current, allTraces,
+        { ...layout, barmode: loadTrace ? 'overlay' : 'stack' },
+        { responsive: false, displaylogo: false });
       chartRef.current._hasPlotted = true;
     }
 
