@@ -34,15 +34,20 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
         x: hours, y,
         type: 'bar', name: labels['load'] || 'Carga',
         marker: { color: 'rgba(59, 130, 246, 0.35)' },
-        yaxis: 'y2', width: 0.6,
+        // Subplot propio (x2,y2) superpuesto: el stack solo apila los
+        // suministros del subplot principal; la carga queda encima sin
+        // sumarse ni desapilar a los demas.
+        xaxis: 'x2', yaxis: 'y2', width: 0.6,
       } : null;
     })();
+    const seriesByType = {};
     const traces = deviceTypes.map((type) => {
       const y = hours.map((h) => {
         return scenarioPlan
           .filter((d) => d.hour === h && d.device_type === type)
           .reduce((sum, d) => sum + Math.abs(d.power_kw), 0);
       });
+      seriesByType[type] = y;
 
       return {
         x: hours,
@@ -55,14 +60,25 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
       };
     });
 
+    // Misma escala en los dos ejes: el maximo comun (pila vs carga) con
+    // 8 % de margen; sin esto el eje de la carga se auto-ajusta y parece
+    // que falta energia aunque la pila la cubra.
+    const loadY = loadTrace ? loadTrace.y : hours.map(() => 0);
+    const stackY = hours.map((_, i) => deviceTypes
+      .reduce((sum, t) => sum + (seriesByType[t]?.[i] || 0), 0));
+    const maxY = Math.max(1, ...stackY, ...loadY) * 1.08;
     const layout = {
       barmode: 'stack',
       xaxis: { title: t('charts.hour'), dtick: 1, automargin: true },
-      yaxis: { title: t('charts.power'), automargin: true },
-      // Espejo para la carga: misma escala, sin ticklabels; overlay no infla.
+      yaxis: { title: t('charts.power'), automargin: true, range: [0, maxY] },
+      // Espejo para la carga: MISMO rango fijo que el principal, sin
+      // ticklabels; overlay no infla y la comparacion es 1:1.
+      xaxis2: { overlaying: 'x', matches: 'x', showticklabels: false,
+                showgrid: false, zeroline: false, automargin: false,
+                showline: false },
       yaxis2: { overlaying: 'y', side: 'right', showticklabels: false,
-                showgrid: false, zeroline: false, automargin: true,
-                range: undefined, title: null, showline: false },
+                showgrid: false, zeroline: false, automargin: false,
+                range: [0, maxY], title: null, showline: false },
       margin: { l: 60, r: 20, t: 30, b: 75 },
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
@@ -79,13 +95,14 @@ export const DispatchSchedule = ({ dispatchPlan, scenarios, totalHours = 24 }) =
     };
 
     const allTraces = loadTrace ? [...traces, loadTrace] : traces;
+    // barmode stack SIEMPRE: la carga vive en su subplot (x2,y2), no apila.
     if (chartRef.current._hasPlotted) {
       Plotly.react(chartRef.current, allTraces,
-        { ...layout, barmode: loadTrace ? 'overlay' : 'stack' },
+        { ...layout, barmode: 'stack' },
         { responsive: false, displaylogo: false });
     } else {
       Plotly.newPlot(chartRef.current, allTraces,
-        { ...layout, barmode: loadTrace ? 'overlay' : 'stack' },
+        { ...layout, barmode: 'stack' },
         { responsive: false, displaylogo: false });
       chartRef.current._hasPlotted = true;
     }
