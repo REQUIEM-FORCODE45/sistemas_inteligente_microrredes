@@ -87,7 +87,7 @@ def main() -> int:
     ap.add_argument("--step-delay", type=float, default=3.0,
                     help="pausa entre pasos (s) para no saturar Open-Meteo")
     ap.add_argument("--horizons", default="1,6,12,24,48,72")
-    ap.add_argument("--providers", default="mos,patchtst",
+    ap.add_argument("--providers", default="mos,itransformer",
                     help="providers con anchor (coma). ecmwf_crudo siempre incluido")
     ap.add_argument("--baselines", default="persistence,climatology",
                     help="coma; arima opt-in (caro)")
@@ -248,11 +248,10 @@ def main() -> int:
 
 
 def _figuras(det: pd.DataFrame, outdir: str):
-    order = ["mos", "itransformer", "patchtst", "ecmwf_crudo", "persistence",
+    order = ["mos", "itransformer", "ecmwf_crudo", "persistence",
              "climatology", "arima"]
     conts = [c for c in order if c in set(det["contendiente"])]
     colors = {"mos": "#2563eb", "itransformer": "#0ea5e9",
-              "patchtst": "#16a34a",
               "ecmwf_crudo": "#f59e0b", "persistence": "#dc2626",
               "climatology": "#9333ea", "arima": "#64748b"}
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), sharey=False)

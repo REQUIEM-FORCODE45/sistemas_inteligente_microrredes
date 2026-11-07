@@ -24,9 +24,15 @@ def test_factory_desconocido_cae_a_openmeteo():
 
 
 def test_factory_env_override(monkeypatch):
-    monkeypatch.setenv("FORECASTER", "patchtst")
+    monkeypatch.setenv("FORECASTER", "mos")
     prov = get_climate_provider()
-    assert prov.provider_name == "patchtst"
+    assert prov.provider_name == "mos"
+
+
+def test_patchtst_retirado_cae_a_openmeteo():
+    """PatchTST retirado (paquete congelado, ya no elegible)."""
+    prov = get_climate_provider(name="patchtst")
+    assert prov.provider_name == "openmeteo_nwp"
 
 
 def test_timesfm_retirado_cae_a_openmeteo():

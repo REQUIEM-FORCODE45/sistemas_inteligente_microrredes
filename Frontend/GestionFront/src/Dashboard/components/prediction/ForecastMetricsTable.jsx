@@ -7,7 +7,7 @@ const MOS_PASS_THROUGH = new Set(['cloud_cover', 'precipitation']);
 const isNaCell = (contendiente, variable) =>
   contendiente === 'mos' && MOS_PASS_THROUGH.has(variable);
 
-const ALL_CONTENDERS = ['mos', 'patchtst', 'ecmwf_crudo', 'persistence', 'climatology', 'arima'];
+const ALL_CONTENDERS = ['mos', 'itransformer', 'ecmwf_crudo', 'persistence', 'climatology', 'arima'];
 
 export const ForecastMetricsTable = ({ detalle, horizon, variable }) => {
   if (!detalle || detalle.length === 0) return <p className="text-sm text-muted-foreground">Sin datos de comparativa.</p>;

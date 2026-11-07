@@ -170,7 +170,7 @@ def predict_sensor_endpoint(sensor_id: str = Query(...),
 
     Self-healing: si el sensor no tiene modelo calibrado, lo CALIBRA primero
     (asi al ligar un sensor en el diagrama la grafica sale sin pasos extra).
-    provider: openmeteo|patchtst|mos (None = env FORECASTER).
+    provider: openmeteo|mos (None = env FORECASTER).
     """
     from optimization.calibration.service import (is_calibrated, fit_from_sensor)
     calibrated_now = False
@@ -195,7 +195,7 @@ def predict_weather(hours: int = Query(default=48, ge=1, le=168),
     """Pronostico de CLIMA horario (10 vars contratadas) + proveedor.
 
     Es lo que alimenta los modelos calibrados; visible en el Dashboard.
-    provider: openmeteo|patchtst|mos|itransformer (None = env FORECASTER).
+    provider: openmeteo|mos|itransformer (None = env FORECASTER).
     SPRINT-1 (P3): un provider explicito desconocido (incluido el retirado
     timesfm) NO cae en silencio a openmeteo: responde error declarado.
     La fabrica (fallback + retiro de timesfm) no se toca.
@@ -204,7 +204,7 @@ def predict_weather(hours: int = Query(default=48, ge=1, le=168),
     from optimization.config.loader import load_site as _ls
     from optimization.prediction.forecaster import get_climate_provider
 
-    _OPERATIVOS = ("openmeteo", "patchtst", "mos", "itransformer")
+    _OPERATIVOS = ("openmeteo", "mos", "itransformer")
     if provider is not None and provider.lower() not in _OPERATIVOS:
         return {"status": "error", "provider_pedido": provider,
                 "provider_servido": None,

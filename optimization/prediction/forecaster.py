@@ -10,7 +10,7 @@ Jerarquia actual:
   - OpenMeteoClimateForecaster  : operativo (NWP, sin GPU). El de produccion.
   - PatchTSTClimateForecaster   : modelo multivariado 72h (Pasto, Narino).
 
-Seleccion via factory: FORECASTER=openmeteo|patchtst|mos|itransformer
+Seleccion via factory: FORECASTER=openmeteo|mos|itransformer
 (default mos desde Tarea 0; ver get_climate_provider, que resuelve
 name o env FORECASTER o "mos").
 
@@ -317,9 +317,11 @@ class PatchTSTClimateForecaster(ClimateForecaster):
 # NOTA (2026-10-12): "timesfm" RETIRADO (no viable por ahora). Quien pida
 # FORECASTER=timesfm cae a openmeteo con warning (ver get_climate_provider);
 # el historial de la clase vive en git. No re-agregar sin dato de viabilidad.
+# NOTA (retiro PatchTST): la clase PatchTSTClimateForecaster queda en este
+# archivo como referencia congelada (igual que prediction/patchtst/), pero YA
+# NO esta registrada: pedirla cae a openmeteo con warning (ver abajo).
 _PROVIDERS = {
     "openmeteo": OpenMeteoClimateForecaster,
-    "patchtst": PatchTSTClimateForecaster,
 }
 
 
@@ -344,7 +346,8 @@ def get_climate_provider(site_cfg: dict = None,
             site_cfg = load_site(DEFAULT_SITE)["site"]
         return ITransformerClimateForecaster(site_cfg)
     if name not in _PROVIDERS:
-        logger.warning("FORECASTER=%s desconocido; usa openmeteo", name)
+        logger.warning("FORECASTER=%s desconocido o retirado (patchtst, "
+                       "timesfm); usa openmeteo", name)
         name = "openmeteo"
     if site_cfg is None:
         site_cfg = load_site(DEFAULT_SITE)["site"]
