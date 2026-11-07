@@ -14,6 +14,7 @@ import PlotlyMini from '../components/charts/PlotlyMini';
 const PROVIDERS = [
   { id: 'openmeteo', label: 'Open-Meteo (NWP)' },
   { id: 'mos', label: 'MOS (ECMWF+ML)' },
+  { id: 'itransformer', label: 'iTransformer (solo)' },
 ];
 
 // Meta por tipo de equipo del diagrama (DEVICE_TYPE de deviceTypes.js).
