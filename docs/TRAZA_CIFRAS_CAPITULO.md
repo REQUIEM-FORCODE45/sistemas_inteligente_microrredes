@@ -59,11 +59,12 @@ re-medición posterior; declarar la fecha al citar.
 
 ## 7. `expA_metrics.csv` / panel del dashboard — visible hoy, proveedor no declarado
 
-`results/pasto_narino/experiments/expA_metrics.csv` (2026-09-15) alimenta
-el panel "Análisis Experimental" (mismos números: S-MPC 836.767, D-MPC
-832.478, HEUR 791.184, MPC-PI 781.903). Corrida de 14 días con proveedor
-**no declarado en el artefacto** (anterior a T0.5). Se cita como "lo que
-muestra el panel", no como validación del MOS.
+`results/pasto_narino/experiments/expA_metrics.csv` (2026-09-15, mismos
+números: S-MPC 836.767, D-MPC 832.478, HEUR 791.184, MPC-PI 781.903).
+Corrida de 14 días con proveedor **no declarado en el artefacto**
+(anterior a T0.5). **El panel "Análisis Experimental" se retiró del
+Dashboard (2026-11-07): el CSV queda como evidencia versionada, pero ya
+no se muestra en la página.** No es validación del MOS.
 
 ## 8. Feature descartada (5.2) — resultado, no hueco
 

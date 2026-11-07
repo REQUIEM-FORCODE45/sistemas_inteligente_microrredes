@@ -36,14 +36,14 @@ no menciona (§3).
 | Pieza | Dónde | Estado |
 |---|---|---|
 | Contrato de proveedor | `prediction/forecaster.py:37` `ClimateForecast(data, horizon_h, provider)` + `:48` `ClimateForecaster(ABC)` | ✅ |
-| Factory | `prediction/forecaster.py:324` `get_climate_provider(site_cfg, name)` → `openmeteo\|patchtst\|mos` | ✅ |
+| Factory | `prediction/forecaster.py` `get_climate_provider(site_cfg, name)` → `openmeteo\|mos\|itransformer` (**patchtst retirado 2026-11-07**: paquete congelado en `prediction/patchtst/`, ya no elegible) | ✅ |
 | MOS LightGBM | `prediction/mos_forecaster.py:103` `MOSClimateForecaster` (8 features, 10 boosters) | ✅ |
 | iTransformer v1 | `prediction/mos/itransformer/modelo_b.pt` + `config_modelos.json` (33 features, `tgt_idx [23..32]`, `L=512`, `H=72`, `Q=[0.1,0.5,0.9]`, `stats` RevIN, `clim` horaria) | ✅ |
 | Boosters | `prediction/mos/models/lgbm_mos_*.txt` (10) | ✅ |
 | Cliente NWP | `optimization/weather/openmeteo.py` (`WEATHER_VARIABLES`: 10 vars, sin `cape`/`tcwv`) | ✅ (a ampliar) |
 | Conformal | `calibration/conformal.py` (`conformal_radius`, `split_conformal_residual`, `conformal_quantiles`) — **cambio 06** | ✅ |
 | Greybox PV | `calibration/calibrated_plant.py` + `residual.py` — **cambio 09** | ✅ |
-| Protocolo de medición | `prediction/evaluate.py:32` `walk_forward_mae` + `:122` `summarize`; `prediction/compare_providers.py` (`--providers mos,patchtst`, `ecmwf_crudo` siempre) | ✅ |
+| Protocolo de medición | `prediction/evaluate.py:32` `walk_forward_mae` + `:122` `summarize`; `prediction/compare_providers.py` (`--providers mos,itransformer`, `ecmwf_crudo` siempre) | ✅ |
 
 ---
 
@@ -404,7 +404,7 @@ la tesis. No se inventa una métrica nueva.
 (`ForecastOverlayChart.jsx:19`). Lo que hace que solo se vean MOS y PatchTST es que **no existe el
 provider** y el comando corre con el default:
 
-- `optimization/prediction/compare_providers.py:90` → `--providers` default **`mos,patchtst`**
+- `optimization/prediction/compare_providers.py:90` → `--providers` default **`mos,itransformer`** (patchtst retirado 2026-11-07)
 - `Backend/services/forecastComparisonService.js:108` → no pasa `--providers`, hereda ese default
 
 **Por tanto este cambio es: un módulo nuevo corto + una línea.** Nada de reescribir la UI.
@@ -441,7 +441,7 @@ checkpoint, los dos providers lo ven.
 "itransformer"` con import perezoso, igual que el del MOS.
 
 **Paso 3 — que la página lo pida**: `Backend/services/forecastComparisonService.js:108` →
-`--providers mos,patchtst,itransformer`.
+`--providers mos,itransformer` (patchtst retirado 2026-11-07).
 
 **Orden obligatorio**: hacer **5.4** (`torch.sort`) y **5.5** (recorte físico) **antes** de exponerlo, o
 la página mostrará humedad > 100 % en 55 de 72 horas y cuantiles cruzados. Lo que se publica en la UI
