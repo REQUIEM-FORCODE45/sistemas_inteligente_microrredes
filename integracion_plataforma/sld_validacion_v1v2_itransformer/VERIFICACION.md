@@ -56,3 +56,15 @@ en sus artefactos versionados). Y el WeatherCard del Dashboard añade
 cero cambios backend). Capturas `p1_weathercard_itransformer.png`
 (selector con 3 opciones, badge `itransformer`, sparklines dibujadas) y
 `sld_v1v2_solo_tablas.png` (V1+V2 sin pestañas). 0 pageerrors, build ✓.
+
+---
+
+## Ronda 3 (2026-11-07): carga fuera del stack en Dispatch Plan 24h
+
+La carga (demanda) se saco del apilado: se dibuja como barra **azul
+translucida** (`rgba(59,130,246,0.35)`, antes negro `#111827`) en un eje
+espejo `y2` con `barmode: overlay`, para compararla contra la altura de los
+suministros sin inflar la pila. Verificado en vivo con dispatch real:
+trazas `Diesel/Red (import)/curtailment/ens/Solar` apiladas + `Carga`
+con `yaxis y2` y `barmode overlay` (DOM), 0 pageerror.
+Captura `p2_dispatch_carga_transparente.png`.
