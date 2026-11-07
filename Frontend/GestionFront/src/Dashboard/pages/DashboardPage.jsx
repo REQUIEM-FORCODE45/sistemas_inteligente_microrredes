@@ -5,7 +5,6 @@ import GridAPI from '@/api/grid-api';
 import { setOptimizationResult, setMpcStatus } from '../store/optimization/optimizationSlice';
 import { DispatchSchedule } from '../components/optimization/DispatchSchedule';
 import { DispatchByDevice } from '../components/optimization/DispatchByDevice';
-import { ExperimentPanel } from '../components/optimization/ExperimentPanel';
 import { ForecastComparisonPanel } from '../components/prediction/ForecastComparisonPanel';
 import ErrorBoundary from '../components/ErrorBoundary';
 import {
@@ -15,7 +14,6 @@ import PlotlyMini from '../components/charts/PlotlyMini';
 
 const PROVIDERS = [
   { id: 'openmeteo', label: 'Open-Meteo (NWP)' },
-  { id: 'patchtst', label: 'PatchTST' },
   { id: 'mos', label: 'MOS (ECMWF+ML)' },
 ];
 
@@ -708,10 +706,6 @@ export default function DashboardPage() {
 
       <ErrorBoundary compact>
         <CalibrationCard />
-      </ErrorBoundary>
-
-      <ErrorBoundary compact>
-        <ExperimentPanel variant="side" />
       </ErrorBoundary>
 
       <ErrorBoundary compact>
