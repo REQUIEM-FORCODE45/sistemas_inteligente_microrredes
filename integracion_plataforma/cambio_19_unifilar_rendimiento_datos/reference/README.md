@@ -11,3 +11,4 @@ vivo), 2026-10-27. Detalle en `../VERIFICACION.md`.
 
 > Los sha256 son **completos (64 hex)**, recalculados en el mismo commit que
 > toca este README. Verificación canónica: `git show HEAD:<path> | sha256sum`.
+| `resultados/p11_backfill_sintetico_20261107.json` | 1916 | `7b9ddb27503ebadecee0accbd518ee698741880e019429115b45c687cc1e15f0` |
