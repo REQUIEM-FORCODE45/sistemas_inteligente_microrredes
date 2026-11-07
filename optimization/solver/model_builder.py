@@ -99,6 +99,10 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     storage_list = input_data.get("storage", [])
     loads = input_data.get("loads", [])
     grid_raw = input_data.get("grid", {})
+    # null explicito (nuevo contrato isla) vs {} (legado con defaults).
+    # Se captura aqui porque abajo `grid_raw or {}` normaliza.
+    grid_absent = "grid" in input_data and input_data["grid"] is None
+    grid_present = not grid_absent
     # Cambio 13.1: convertidores (inversor). Opt-in: sin ellos, todo igual.
     converters = input_data.get("converters", []) or []
     # Cambio 15: conexiones con seccionador. Opt-in: sin ellas, todo igual.
@@ -137,6 +141,7 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
             storage_list=storage_list,
             loads=loads,
             grid_raw=grid_raw,
+            grid_absent=grid_absent,
             converters=converters,
             connections=connections,
             initial_diesel_kw=initial_diesel_kw,
@@ -184,7 +189,8 @@ def build_and_solve(input_data: dict[str, Any]) -> dict[str, Any]:
     )
 
     cost_breakdown = _extract_cost_breakdown(
-        pyo_model, variables, horizon, s_ids, scenarios, sources, storage_list, grid_raw
+        pyo_model, variables, horizon, s_ids, scenarios, sources, storage_list, grid_raw,
+        grid_present=grid_present,
     )
 
     battery_soc = _extract_battery_soc(pyo_model, variables, horizon, s_ids, storage_list)
@@ -254,6 +260,7 @@ def _build_pyomo_model(
     storage_list: list = None,
     loads: list = None,
     grid_raw: dict = None,
+    grid_absent: bool = False,
     converters: list = None,
     connections: list = None,
     initial_diesel_kw: dict = None,
@@ -511,14 +518,27 @@ def _build_pyomo_model(
             warnings.append("%s: perdidas no declaradas, sin perdidas "
                             "(energia_no_contabilizada)" % trafo["id"])
     num_diesel = len(diesel_devices)
-    grid_max = grid_raw.get("max_import_kw", 400)
-    grid_min = grid_raw.get("min_import_kw", -300)
-    export_tariff = float(grid_raw.get("export_tariff", 0.0))
+    # Red acoplada al diagrama: grid ausente (null) = isla forzada, la
+    # red NO se calcula (import/export 0, sin cargo fijo, warning declarado).
+    # grid {} vacio = legado pre-isla (defaults 400/300 + aviso, compat).
+    grid_present = not grid_absent
+    if not grid_present:
+        warnings.append("grid ausente del diagrama: red no disponible "
+                        "(isla forzada, import/export 0, sin cargo fijo)")
+    elif isinstance(grid_raw, dict) and len(grid_raw) == 0:
+        warnings.append("grid {} vacio (legado): se aplican topes 400/300")
+    grid_max = grid_raw.get("max_import_kw", 400) if grid_present else 0.0
+    grid_min = grid_raw.get("min_import_kw", -300) if grid_present else 0.0
+    export_tariff = float(grid_raw.get("export_tariff", 0.0)) \
+        if grid_present else 0.0
     ens_penalty = float(grid_raw.get("ens_penalty_cop_kwh", 5000.0))
 
     max_import = float(grid_max)
     # Cambio 08.2 (defecto D): max_export_kw manda; -min_import_kw es fallback.
-    if grid_raw.get("max_export_kw") is not None:
+    if not grid_present:
+        max_export = 0.0
+        export_source = "sin_red"
+    elif grid_raw.get("max_export_kw") is not None:
         max_export = float(grid_raw.get("max_export_kw"))
         export_source = "max_export_kw"
     else:
@@ -744,6 +764,8 @@ def _build_pyomo_model(
         Cambio 15: desconectado no paga cargo fijo de conexion (incentivo
         economico real de la isla; declarado). Varias svar: primera + warning.
         """
+        if not grid_present:
+            return 0.0
         _gs = _gates.get(("grid", None), [])
         _e = 1.0
         _n = 0
@@ -1832,10 +1854,15 @@ def _extract_cost_breakdown(
     sources: list,
     storage_list: list,
     grid_raw: dict,
+    grid_present: bool = True,
 ) -> dict:
     num_diesel = variables.get("num_diesel", 0)
+    grid_raw = grid_raw or {}
     # Cambio 08.3: mismo criterio que el modelo (mes prorrateado vs hora).
-    if grid_raw.get("cost_fixed_month") is not None:
+    # Sin red no hay cargo fijo (acoplado al diagrama, no hardcode).
+    if not grid_present:
+        grid_d = 0.0
+    elif grid_raw.get("cost_fixed_month") is not None:
         grid_d = float(grid_raw.get("cost_fixed_month")) / 720.0
     else:
         grid_d = grid_raw.get("cost_fixed", 40)

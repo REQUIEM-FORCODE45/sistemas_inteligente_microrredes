@@ -287,7 +287,10 @@ async function executeMpcCycle(userTopology = null, userPredictions = null) {
       // Cambio 15: conexiones con seccionador (opt-in; sin ellas, igual).
       connections: topology.connections || [],
       loads: topology.loads || [],
-      grid: topology.grid || {},
+      // La red SOLO existe si la topologia la trae (bloque Red en el
+      // diagrama o DEFAULT_TOPOLOGY). null = isla: el solver no
+      // calcula import/export ni cargo fijo (warning declarado).
+      grid: topology.grid ?? null,
       predictions_solar: hasSolar ? predictions.solar : null,
       predictions_pv_kw: hasSolar ? (predictions.pv_kw || null) : null,     // kW calibrados de /predict/power
       predictions_pv_band: hasSolar ? (predictions.power || null) : null,   // banda P10/P50/P90 (Fase 5)

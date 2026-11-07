@@ -311,3 +311,39 @@ def test_084_sin_binarias_nuevas():
              if _.is_binary())
     assert n1 == n0, f"binarias {n0} -> {n1}: la penalizacion no debe anadir"
     assert m1.find_component("diesel_start") is not None
+
+
+def test_solve_sin_grid_isla_forzada():
+    """Sin bloque Red (grid null): isla forzada, red no calculada.
+
+    Acoplado al diagrama: sin Grid no hay import/export ni cargo fijo;
+    el warning va declarado (no silencioso). Con {} (legado) rigen los
+    topes 400/300.
+    """
+    job = dict(BASE_JOB)
+    job["grid"] = None
+    out = build_and_solve(job)
+    assert out["status"] in ("optimal", "feasible")
+    imps = [d for d in out["dispatch_plan"]
+            if d["device_type"] in ("grid_import", "grid_export")]
+    assert all(d["power_kw"] == 0 for d in imps)
+    assert abs(sum(d["power_kw"] for d in imps)) == 0
+    assert any("isla forzada" in w for w in out.get("warnings", [])), \
+        out.get("warnings")
+    # sin cargo fijo de red en el desglose
+    br = out.get("cost_breakdown", {})
+    fijos = 0.0
+    for _k, v in (br.items() if isinstance(br, dict) else []):
+        if isinstance(v, dict) and "fixed" in v:
+            fijos += v.get("fixed", 0) or 0
+    assert fijos == 0, fijos
+
+
+def test_solve_grid_vacio_legado_con_defaults():
+    """grid {} (legado pre-isla): topes 400/300 + aviso, sin romper."""
+    job = dict(BASE_JOB)
+    job["grid"] = {}
+    out = build_and_solve(job)
+    assert out["status"] in ("optimal", "feasible")
+    assert any("legado" in w for w in out.get("warnings", [])), \
+        out.get("warnings")

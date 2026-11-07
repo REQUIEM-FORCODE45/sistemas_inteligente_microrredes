@@ -158,8 +158,9 @@ function diagramToOptimization(nodes, edges) {
   // Sin switches configurados, el array sale con defaults cerrado/operador y
   // el solver lo trata igual que no traer connections (cero impacto).
   const connections = [];
-  // Cambio 10.3: mismo criterio que el mapper de red (evita el §2.2).
-  const gridDefault = { max_import_kw: 400, max_export_kw: 300, min_import_kw: -300, cost_fixed: 40, cost_variable: 60 };
+  // La red SOLO existe si el diagrama trae el bloque Red (nada inventado:
+  // sin Grid, grid sale null y el solver corre en isla, sin import/export
+  // ni cargo fijo. Ver device_echo/warnings del resultado).
   let grid = null;
   // Cambio 12.3: inventario crudo para device_echo (C7). Sin cambiar forma.
   const devices = [];
@@ -210,7 +211,7 @@ function diagramToOptimization(nodes, edges) {
     });
   }
 
-  return { sources, storage, loads, converters, grid: grid || gridDefault, devices, connections };
+  return { sources, storage, loads, converters, grid: grid || null, devices, connections };
 }
 
 export default function DiagramOptimizationPanel({ onClose }) {
@@ -507,6 +508,13 @@ export default function DiagramOptimizationPanel({ onClose }) {
               );
             })}
           </div>
+        )}
+
+        {/* Sin bloque Red el job corre en isla: el solver no calcula import/export ni cargo fijo (ver warnings del resultado). */}
+        {!diagramNodes.some((n) => n.type === DEVICE_TYPE.GRID) && diagramNodes.length > 0 && (
+          <p className="text-[10px] text-muted-foreground bg-muted/50 border rounded-lg px-2.5 py-1.5">
+            Modo isla: sin bloque Red, la red no entra a la optimizacion.
+          </p>
         )}
 
         <button
