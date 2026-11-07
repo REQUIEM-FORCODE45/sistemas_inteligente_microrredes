@@ -66,6 +66,13 @@ Corrida de 14 días con proveedor **no declarado en el artefacto**
 Dashboard (2026-11-07): el CSV queda como evidencia versionada, pero ya
 no se muestra en la página.** No es validación del MOS.
 
+**Actualización 2026-11-07**: el SLD (pestaña Resultados MPC) muestra ahora
+la comparativa por escenarios desde `fase_1_mos/` (V1/V2, provider mos) más
+la comparativa de pronóstico con iTransformer separado
+(`integracion_plataforma/sld_validacion_v1v2_itransformer/VERIFICACION.md`).
+El panel de 14 días y la comparativa del Dashboard quedan retirados; sus CSV
+siguen versionados como evidencia histórica.
+
 ## 8. Feature descartada (5.2) — resultado, no hueco
 
 "La energía de alta frecuencia de la nubosidad no explica el residuo del
