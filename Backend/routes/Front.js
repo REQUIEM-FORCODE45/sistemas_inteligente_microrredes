@@ -245,6 +245,14 @@ router.get('/optimization/experiment/status', validateJwt, async (req, res) => {
     res.json({ success: true, ...status });
   } catch (err) { res.status(500).json({ success: false, message: err.message }); }
 });
+// --- Validacion por escenarios V1/V2 (fase_1_mos, solo lectura) ------
+router.get('/optimization/validacion/summary', validateJwt, async (req, res) => {
+  try {
+    const val = require('../services/validationSummaryService');
+    res.json({ success: true, ...(await val.getValidationSummary()) });
+  } catch (err) { res.status(500).json({ success: false, message: err.message }); }
+});
+
 router.post('/optimization/experiment/run', validateJwt, async (req, res) => {
   try {
     const exp = require('../services/experimentService');

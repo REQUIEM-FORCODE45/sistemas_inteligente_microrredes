@@ -51,10 +51,21 @@ function headCommit() {
   } catch (e) { return null; }
 }
 
+// PatchTST retirado: no se sirve como contendiente (el paquete y los
+// CSV quedan congelados como evidencia historica, sin tocar).
+const RETIRADOS = new Set(['patchtst']);
+function sinRetirados(rows) {
+  return Array.isArray(rows) ? rows.filter((r) => !RETIRADOS.has(r.contendiente)) : rows;
+}
 async function getComparisonSummary() {
-  const detalle = parseCsv(path.join(FORECAST_DIR, 'comparativa_detalle.csv'));
-  const resumen = parseCsv(path.join(FORECAST_DIR, 'comparativa_resumen.csv'));
+  const detalle = sinRetirados(parseCsv(path.join(FORECAST_DIR, 'comparativa_detalle.csv')));
+  const resumen = sinRetirados(parseCsv(path.join(FORECAST_DIR, 'comparativa_resumen.csv')));
   const skill = readJson(path.join(FORECAST_DIR, 'comparativa_skill.json'));
+  if (skill && skill.skill_vs_persistence) {
+    for (const k of Object.keys(skill.skill_vs_persistence)) {
+      if (RETIRADOS.has(k)) delete skill.skill_vs_persistence[k];
+    }
+  }
   if (!detalle || !resumen) return { available: false, files: filesStatus() };
   const dataCommit = skill?.meta?.commit || null;
   const head = headCommit();
@@ -70,6 +81,11 @@ async function getComparisonSummary() {
 async function getComparisonSeries() {
   const series = readJson(path.join(FORECAST_DIR, 'comparativa_series.json'));
   if (!series) return { available: false, files: filesStatus() };
+  if (series.contendientes) {
+    for (const k of Object.keys(series.contendientes)) {
+      if (RETIRADOS.has(k)) delete series.contendientes[k];
+    }
+  }
   return { available: true, ...series };
 }
 
