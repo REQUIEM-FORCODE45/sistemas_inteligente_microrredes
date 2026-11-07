@@ -68,3 +68,16 @@ suministros sin inflar la pila. Verificado en vivo con dispatch real:
 trazas `Diesel/Red (import)/curtailment/ens/Solar` apiladas + `Carga`
 con `yaxis y2` y `barmode overlay` (DOM), 0 pageerror.
 Captura `p2_dispatch_carga_transparente.png`.
+
+---
+
+## Ronda 4 (2026-11-07): misma escala y1==y2 + subplot propio (x2,y2)
+
+El eje espejo se auto-ajustaba solo (ilusión de déficit) y `barmode:
+overlay` desapilaba los suministros (diésel 139.4 + red 100 dibujados
+cada uno desde 0 en vez de pila 239.4). Fix: rango fijo común
+`max(pila, carga) × 1.08` en y1 e y2; la carga vive en su subplot
+`(x2,y2)` superpuesto con `matches: x`; `barmode: stack` siempre.
+Verificado por DOM con dispatch real: rangos idénticos [0,324], pila
+239.4 == carga 239.4 en h11, `barmode: stack`, 0 pageerror. La captura
+`p2_dispatch_carga_transparente.png` se regenera (sha actualizado).

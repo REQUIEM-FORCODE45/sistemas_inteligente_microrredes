@@ -20,4 +20,4 @@ números en `../VERIFICACION.md`. Regla del proyecto: nada de cifras a mano.
 > 0 `pageerror`.
 | `resultados/p1_weathercard_itransformer.png` | 111756 | `c235d311dad2b5c9e71d49c7b8278bc5181d2315a28da55a9c0f53873fa045ff` |
 | `resultados/sld_v1v2_solo_tablas.png` | 87113 | `d26d6e82bb386520b0e3ad85386e0899de3574a6d6bc1d9984aad9e14e7cc87f` |
-| `resultados/p2_dispatch_carga_transparente.png` | 122503 | `8065e6f8abebba5a201d91fceeeb2fa34ee135272115379647a7534a2b0d8ffe` |
+| `resultados/p2_dispatch_carga_transparente.png` | 121580 | `8ba35376ffdba2aca9e7a837befbe20ab737a2879eacc237ea527111054829dd` |
