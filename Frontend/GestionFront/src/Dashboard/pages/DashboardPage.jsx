@@ -14,7 +14,7 @@ import PlotlyMini from '../components/charts/PlotlyMini';
 const PROVIDERS = [
   { id: 'openmeteo', label: 'Open-Meteo (NWP)' },
   { id: 'mos', label: 'MOS' },
-  { id: 'itransformer', label: 'iTransformer (solo)' },
+  { id: 'itransformer', label: 'iTransformer' },
 ];
 
 // Meta por tipo de equipo del diagrama (DEVICE_TYPE de deviceTypes.js).
@@ -181,9 +181,6 @@ function WeatherCard() {
                 {data?.provider || provider}
               </span>
             </p>
-            {data?.provider === 'mos' && (
-              <p className="text-[10px] text-muted-foreground italic">NWP corregido con ML — ERA5 (verdad) y ECMWF (entrada) son de la misma familia; el error es optimista.</p>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-1 rounded-lg border bg-muted/20 p-0.5">
