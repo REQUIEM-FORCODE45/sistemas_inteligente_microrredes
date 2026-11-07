@@ -13,7 +13,7 @@ import PlotlyMini from '../components/charts/PlotlyMini';
 
 const PROVIDERS = [
   { id: 'openmeteo', label: 'Open-Meteo (NWP)' },
-  { id: 'mos', label: 'MOS (ECMWF+ML)' },
+  { id: 'mos', label: 'MOS' },
   { id: 'itransformer', label: 'iTransformer (solo)' },
 ];
 
