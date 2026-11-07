@@ -21,7 +21,7 @@ import SensorMappingPanel from './SensorMappingPanel';
 import DeviceConfigPanel from './components/DeviceConfigPanel';
 import DiagramOptimizationPanel from './DiagramOptimizationPanel';
 import NodeDispatchModal from './NodeDispatchModal';
-import { ExperimentPanel } from '../optimization/ExperimentPanel';
+import { ValidationPanel } from '../optimization/ValidationPanel';
 
 export default function DiagramEditor() {
   const dispatch = useDispatch();
@@ -152,7 +152,7 @@ export default function DiagramEditor() {
 
       {activeMainTab === 'results' ? (
         <div className="flex-1 overflow-auto p-6 bg-muted/20">
-          <ExperimentPanel variant="full" />
+          <ValidationPanel />
         </div>
       ) : (
       <div className="flex-1 flex min-h-0">
